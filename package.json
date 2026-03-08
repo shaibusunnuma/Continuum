@@ -1,0 +1,26 @@
+{
+  "name": "ai-runtime",
+  "version": "0.1.0",
+  "description": "AI Application Runtime - Phase 1 Core Workflow Runtime",
+  "scripts": {
+    "build": "tsc",
+    "api": "ts-node src/api/index.ts",
+    "worker": "ts-node src/worker/index.ts",
+    "start": "npm run api",
+    "start:worker": "npm run worker"
+  },
+  "dependencies": {
+    "@temporalio/activity": "^1.15.0",
+    "@temporalio/client": "^1.15.0",
+    "@temporalio/worker": "^1.15.0",
+    "@temporalio/workflow": "^1.15.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.2",
+    "nanoid": "^5.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3",
+    "ts-node": "^10.9.2"
+  }
+}
