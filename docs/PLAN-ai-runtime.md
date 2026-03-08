@@ -1,8 +1,42 @@
-# Plan: Simple AI Application Runtime
+# Plan: AI Application Runtime
 
 ## Executive summary
 
-This plan turns the **AI Application Runtime** from `idea.md` into a concrete build strategy. The main decision—**build on top of Temporal vs modify the engine**—is resolved as: **build on top of Temporal**. Use Temporal as the workflow engine and add an AI-native SDK, runtime API, model routing, evaluation, and observability on top. Do not fork or modify Temporal’s core.
+This plan turns the **AI Application Runtime** from `idea.md` into a concrete build strategy. **Build on top of Temporal** — use it as the workflow engine and add an AI-native SDK, runtime API, model routing, evaluation, and observability on top. Do not fork or modify Temporal's core.
+
+The central design bet: **developers think in agents, models, and tools — never in workflows, activities, or task queues.** Temporal concepts must be invisible to users of our SDK. This is what separates "a wrapper on Temporal" from "a new abstraction layer." See `SDK-DESIGN.md` for the full SDK architecture.
+
+---
+
+## 0. Competitive landscape (March 2026)
+
+Understanding who else is building here and where the gaps are.
+
+### 0.1 Temporal ($5B, $300M Series D, Feb 2026)
+
+Temporal is aggressively moving into AI: OpenAI Agents SDK integration (public preview), AI cookbook, AI solution page. Customers include OpenAI, Replit, Retool, Snap. 380% YoY revenue growth. But Temporal is a **general-purpose workflow engine** — it provides durable execution, not AI-specific abstractions. Developers must still understand activities, signals, task queues, and workflow determinism.
+
+### 0.2 Direct competitors
+
+| Company | Approach | Differentiator | Gap |
+|---------|----------|----------------|-----|
+| **Runboard** | Built on Temporal (Python) | Multi-agent pipelines, approval gates, multi-model routing | Python-only; focused on software agents, not general AI apps |
+| **inference.sh** | Custom runtime | Auto-checkpointing, 150+ tool integrations, UI components | Closed platform; not an open engine developers can self-host |
+| **Kruxia Flow** | Custom engine (7.5MB binary + Postgres) | Built-in LLM cost tracking, budget controls, model fallback | AGPL license; no community; limited ecosystem |
+| **Temporal + OpenAI Agents SDK** | Official integration | Durable agents using OpenAI primitives | Python-only; requires understanding Temporal concepts; tied to OpenAI |
+
+### 0.3 Our positioning
+
+None of the above provide a **TypeScript-first, provider-agnostic AI runtime with a developer surface that completely hides the workflow engine**. Our positioning:
+
+> **A durable execution runtime where developers define agents, models, and tools — not workflows and activities.**
+
+Key differentiators we will build:
+- **Invisible infrastructure**: no Temporal concepts in developer code
+- **Hybrid abstraction**: both explicit workflows and autonomous durable agents
+- **Built-in cost tracking**: every model call tracks tokens and cost from day one
+- **TypeScript-first**: matches the largest web/AI developer ecosystem
+- **Provider-agnostic**: works with any LLM provider, not locked to OpenAI
 
 ---
 
@@ -14,9 +48,9 @@ This plan turns the **AI Application Runtime** from `idea.md` into a concrete bu
 |-----------|-------------------|-------------------------|
 | **Time to value** | Fast: reuse durability, replay, queues, workers | Slow: large Go/Java codebase, deep workflow semantics |
 | **Maintenance** | You get fixes and features from upstream | You own all durability, replay, and scaling logic |
-| **Fit to idea** | Matches “workflow engine like Temporal” in idea §6.3 | Overkill unless you need different core semantics |
-| **AI use today** | Used in production (Replit, Retool, Gorgias; OpenAI Codex) | No clear benefit from forking for “AI-native” |
-| **Risk** | Bounded by Temporal’s API and scaling limits | High: reinventing event-sourcing and determinism |
+| **Fit to idea** | Matches "workflow engine like Temporal" in idea §6.3 | Overkill unless you need different core semantics |
+| **AI use today** | Used in production (Replit, Retool, Gorgias; OpenAI Codex) | No clear benefit from forking for "AI-native" |
+| **Risk** | Bounded by Temporal's API and scaling limits | High: reinventing event-sourcing and determinism |
 
 **Conclusion:** Use Temporal as the workflow engine. Differentiate with **AI-native abstractions** (models, tools, agents, evaluation, routing) and **operational features** (AI metrics, eval pipeline, edge) in a layer above Temporal, not inside it.
 
@@ -26,51 +60,24 @@ This plan turns the **AI Application Runtime** from `idea.md` into a concrete bu
 
 ### 2.1 Alignment with idea.md
 
-- **Durable execution (§4.1)**  
-  Temporal gives exactly this: workflows survive crashes, API failures, and rate limits; executions are resumable.
-
-- **Deterministic workflow + activities (§4.2)**  
-  Workflow code is deterministic and replayable; non-deterministic work (LLM calls, tools, APIs) goes in Activities. Your “activities = external work” maps 1:1.
-
-- **Event-sourced architecture (§4.3)**  
-  Temporal keeps an event history; state is replayed from events. You get debugging, reproducibility, and auditing without building it.
-
-- **Architecture (§6)**  
-  Your stack maps cleanly:
-  - **SDK** → Temporal client + your AI SDK (workflows, `ctx.model`, `ctx.tool`).
-  - **Runtime API** → Your API server that starts/signals/queries workflows via Temporal client.
-  - **Workflow engine** → Temporal server (no modification).
-  - **Task queues + workers** → Temporal task queues and workers; your workers run activities (inference, tools, retrieval, eval).
+- **Durable execution (§4.1)** — Temporal gives exactly this: workflows survive crashes, API failures, and rate limits; executions are resumable.
+- **Deterministic workflow + activities (§4.2)** — Workflow code is deterministic and replayable; non-deterministic work (LLM calls, tools, APIs) goes in Activities.
+- **Event-sourced architecture (§4.3)** — Temporal keeps an event history; state is replayed from events. You get debugging, reproducibility, and auditing without building it.
 
 ### 2.2 What Temporal already provides for AI
 
-- **Long-running workflows**  
-  Workflows can run for hours or days; for very long or high-event-count runs, Continue-As-New is the supported pattern.
+- Long-running workflows (hours or days; Continue-As-New for very long runs).
+- AI integrations (Vercel AI SDK, OpenAI Agents SDK), plus AI cookbook and tutorials.
+- Production usage at Replit, Retool, Gorgias; OpenAI uses it for Codex.
 
-- **AI-oriented docs and integrations**  
-  Temporal has an AI solution page, durable AI agent tutorials, multi-agent workflow guidance, and integrations (e.g. Vercel AI SDK, OpenAI). LLM calls are treated as activities (non-deterministic), which matches your design.
+### 2.3 What you add on top (don't modify Temporal)
 
-- **Production usage**  
-  Replit, Retool, Gorgias use Temporal for agents; OpenAI uses it for Codex. So the “reliable execution” and “operational layer” you want are already proven on Temporal.
-
-### 2.3 What you add on top (don’t modify Temporal)
-
-- **AI-native API**  
-  `ctx.model("intent-classifier")`, `ctx.tool("get-order")` instead of raw activity handles and task queue names.
-
-- **Model routing**  
-  Logic to choose model by latency, cost, complexity, environment (e.g. simple → small model, complex → large model). Implement in your SDK/runtime, calling through activities.
-
-- **Evaluation pipeline**  
-  Production outputs → evaluation dataset → automated scoring → prompt comparison. Implement as workflows + activities + storage; Temporal is the executor, not the evaluator.
-
-- **AI observability**  
-  Token usage, cost per execution, model error rates, tool failure rates, and any “hallucination” or quality signals. Emit from activities and workflow code into your metrics/traces.
-
-- **Edge execution**  
-  Later phase: workers in edge/cloud and routing rules. Temporal supports multiple task queues and workers; you add placement and routing policy.
-
-So: **Temporal = workflow engine**. Your value = **abstractions, routing, evaluation, and observability** on top.
+- **AI-native API** — `ctx.model()`, `ctx.tool()`, `agent()` instead of raw activity handles.
+- **Model routing** — choose model by latency, cost, complexity, environment.
+- **Cost tracking** — every model call metered with tokens and cost (built into model activity).
+- **Evaluation pipeline** — production outputs → dataset → scoring → prompt comparison.
+- **AI observability** — token usage, cost per execution, model error rates, tool failure rates.
+- **Edge execution** — workers in edge/cloud; routing policy per task queue.
 
 ---
 
@@ -78,97 +85,85 @@ So: **Temporal = workflow engine**. Your value = **abstractions, routing, evalua
 
 Consider a fork or deep customization only if:
 
-- You need **fundamentally different durability or replay semantics** (e.g. different event model, different consistency guarantees).
-- You need **very different scaling or deployment constraints** (e.g. embedded, strict edge, or custom persistence) that Temporal’s extension points cannot address.
-- You are willing to **maintain a fork** of a large, critical codebase and keep up with upstream.
+- You need fundamentally different durability or replay semantics.
+- You need very different scaling or deployment constraints that Temporal's extension points cannot address.
+- You are willing to maintain a fork of a large, critical codebase and keep up with upstream.
 
-For a “simple AI application runtime” and the scope in idea.md, none of these are required. **Stick with “build on top.”**
+For the scope in idea.md, none of these are required. **Stick with "build on top."**
 
 ---
 
 ## 4. Implementation plan (phased)
 
-Phases match idea.md §14 and assume Temporal as the engine from day one.
+### Phase 1 — Core workflow runtime (DONE)
 
-### Phase 1 — Core workflow runtime (foundation)
+**Goal:** Minimal durable workflow execution using Temporal, plus API and one task queue.
 
-**Goal:** Minimal durable workflow execution using Temporal, plus your API and one task queue.
-
-**Deliverables:**
-
-1. **Temporal in the loop**
-   - Run Temporal server (Docker or Temporal Cloud).
-   - One namespace, one task queue (e.g. `default` or `ai-runtime`).
-
-2. **Runtime API**
-   - REST or gRPC service that:
-     - Starts workflows (workflow type + input).
-     - Returns run ID / execution ID.
-     - Optional: signal, query, cancel, describe (can be Phase 2).
-
-3. **Worker process**
-   - Single worker that:
-     - Registers one “hello world” workflow (e.g. single activity that returns a string).
-     - Runs that activity (e.g. echo or tiny LLM stub).
-
-4. **Event history**
-   - Rely on Temporal’s event history (no extra event store yet). Optionally: export events to your DB for analytics later.
-
-5. **Minimal SDK (optional in P1)**
-   - Thin wrapper: “start workflow by name with payload” from API and from a small SDK (TypeScript; see ARCHITECTURE-phase1.md). No `ctx.model`/`ctx.tool` yet.
-
-**Exit criteria:** Start a workflow via API → worker runs it → workflow completes; event history visible in Temporal UI.
+**Status: Complete.** Temporal server runs via docker-compose-dev.yml. Fastify API starts Echo workflows. Worker runs the Echo workflow and activity. Event history visible.
 
 ---
 
-### Phase 2 — AI SDK and abstractions
+### Phase 1.5 — SDK design (design phase, no code yet)
 
-**Goal:** Developers write workflows in terms of models and tools, not raw activities.
+**Goal:** Resolve the critical design decisions before writing the AI SDK.
+
+This is the most important phase for the company. A wrong abstraction here means developers either don't adopt (too low-level) or can't control their apps (too magical).
 
 **Deliverables:**
 
-1. **Workflow DSL / SDK**
-   - In workflow code:
-     - `ctx.model("model-id")` → schedules an “LLM” activity, returns result.
-     - `ctx.tool("tool-name", args)` → schedules a tool activity, returns result.
-   - Implement `model` and `tool` as wrapper activities that dispatch to the right task queue or activity implementation.
+1. **SDK design document** (`SDK-DESIGN.md`)
+   - Primary abstraction: hybrid (both explicit workflows and autonomous agents)
+   - Developer surface: what developers write, what they never see
+   - How Temporal is hidden: mapping from AI primitives to Temporal internals
+   - Competitive differentiation vs Temporal raw, Runboard, inference.sh, Kruxia Flow
+   - Cost tracking architecture (built-in, not bolted on)
 
-2. **Model abstraction**
-   - Registry of “model ids” → provider + model name (e.g. OpenAI GPT-4, local model).
-   - One activity (e.g. `runModel`) that takes model id + input and calls the right provider. No routing logic yet (single model or fixed mapping is fine).
+2. **API surface review**
+   - Exact TypeScript signatures for `workflow()`, `agent()`, `ctx.model()`, `ctx.tool()`
+   - Provider abstraction (model registry, multi-provider support)
+   - Tool registration pattern
+   - Agent loop design (how a durable agent runs observe-reason-act)
 
-3. **Tool system**
-   - Registry of tools (name → activity or handler).
-   - `ctx.tool("get-order", { orderId })` maps to a “run tool” activity that invokes the right handler. At least 2–3 example tools (e.g. get-order, search, echo).
-
-4. **Example workflow**
-   - One workflow from idea.md, e.g. “customer-support”: intent → branch → tool → model. Runs end-to-end with real or stubbed model/tools.
-
-**Exit criteria:** Define and run the customer-support workflow using only `ctx.model` and `ctx.tool`; no raw activity calls in user code.
+**Exit criteria:** SDK-DESIGN.md reviewed and approved before any Phase 2 code is written.
 
 ---
 
-### Phase 3 — Observability and reliability
+### Phase 2 — AI SDK implementation
 
-**Goal:** Production-ready visibility and robustness without changing Temporal’s engine.
+**Goal:** Developers write AI workflows and agents using our SDK. No Temporal concepts visible.
 
 **Deliverables:**
 
-1. **Execution traces**
-   - Trace per workflow run (span per activity: model call, tool call). Use OpenTelemetry or Temporal’s tracing; propagate trace ID from API to worker.
+1. **Workflow primitive** — `workflow("name", async (ctx) => { ... })` with `ctx.model()` and `ctx.tool()`. Under the hood: Temporal workflow + proxyActivities. Developer never imports from `@temporalio/*`.
 
-2. **Metrics**
-   - Workflow: start rate, completion rate, duration, failure rate.
-   - Activities: latency, failure rate, retry count.
-   - AI-specific: token usage and cost per execution (from activity results or sidecars). Export to Prometheus/StatsD or your metrics backend.
+2. **Agent primitive** — `agent("name", { model, tools, instructions })` that runs a durable observe-reason-act loop. Runtime manages the loop; developer defines capabilities.
 
-3. **Dashboards**
-   - One dashboard: workflow runs, activity latency, errors, token/cost (if available). Use Grafana or your cloud’s dashboard.
+3. **Model abstraction with cost tracking** — Model registry (model id → provider + model name). Every model call returns `{ result, usage: { tokens, cost } }`. Cost data flows to observability from day one.
 
-4. **Retries and timeouts**
-   - Configure activity timeouts and retries (Temporal primitives). Document best practices for LLM and tool activities (e.g. start-to-close, schedule-to-close, backoff).
+4. **Tool system** — Tool registry with typed inputs/outputs. Tools are plain async functions registered by name. At least 3 example tools.
 
-**Exit criteria:** Every run is traceable; metrics and dashboard show workflow and activity health and basic cost/token data.
+5. **Provider abstraction** — At least two providers (e.g. OpenAI + Anthropic) behind a unified interface. Adding a provider = implementing one adapter.
+
+6. **Example: customer-support workflow** — Intent classification → branch → tool call → model response. Runs end-to-end.
+
+7. **Example: durable agent** — A support agent that uses tools autonomously, survives crashes, and resumes. Demonstrates the agent primitive.
+
+**Exit criteria:** Both examples run. Developer code contains zero Temporal imports. Cost data is captured per model call.
+
+---
+
+### Phase 3 — Observability and cost visibility
+
+**Goal:** Production-ready visibility. Cost tracking data from Phase 2 flows into dashboards.
+
+**Deliverables:**
+
+1. **Execution traces** — Trace per workflow/agent run (span per model call, tool call). OpenTelemetry.
+2. **Metrics** — Workflow/agent: start rate, completion, duration, failure. AI-specific: token usage, cost per run, model error rates.
+3. **Cost dashboard** — Cost per workflow, per model, per time period. The feature Kruxia Flow markets but we bake in.
+4. **Budget controls** — Optional soft/hard cost limits per workflow or agent run.
+
+**Exit criteria:** Every run traceable; cost dashboard shows spend by workflow/model.
 
 ---
 
@@ -178,56 +173,49 @@ Phases match idea.md §14 and assume Temporal as the engine from day one.
 
 **Deliverables:**
 
-1. **Capture production outputs**
-   - From workflow/activity completion (or from a “capture” activity at the end of a run), write inputs/outputs to an evaluation store (DB or object store). Optional: sampling or filtering (e.g. by tag, model, or random).
+1. **Capture production outputs** — Write inputs/outputs to evaluation store (DB or object store).
+2. **Evaluation dataset** — Pipeline that builds versioned datasets from captured runs.
+3. **Automated scoring** — Runner over a dataset; simple rules or LLM-as-judge.
+4. **Prompt/model comparison** — A/B or multi-variant: same dataset, different configs; compare scores.
 
-2. **Evaluation dataset**
-   - Pipeline (batch or on-demand) that builds datasets from captured runs (e.g. prompt + expected/actual, or pairwise). Versioned datasets.
-
-3. **Automated scoring**
-   - Runner that runs a workflow or activity over a dataset and computes metrics (e.g. accuracy, latency, cost). No need for fancy ML eval at first; simple rules or LLM-as-judge are fine.
-
-4. **Prompt comparison**
-   - Support A/B or multi-variant: same dataset, different prompts/models; compare scores. Store results and show in a simple UI or report.
-
-**Exit criteria:** Production runs can be captured; one dataset can be scored; at least two prompt/config variants can be compared.
+**Exit criteria:** Production runs captured; one dataset scored; two variants compared.
 
 ---
 
-### Phase 5 — Model routing and edge (later)
+### Phase 5 — Model routing, edge, and deployment model
 
-**Goal:** Smarter model selection and optional edge deployment.
+**Goal:** Smarter model selection, optional edge deployment, and monetization strategy.
 
 **Deliverables:**
 
-1. **Model routing**
-   - Router (in SDK or runtime) that chooses model id from: latency SLO, cost budget, complexity hint, or environment. Implement as config + logic before calling `runModel` activity; multiple task queues per model tier if needed.
+1. **Model routing** — Router that chooses model by latency SLO, cost budget, complexity hint. Config + logic before calling model activity. Multiple task queues per model tier.
+2. **Edge execution** — Workers in edge regions; separate task queues for edge vs cloud. Routing rules by region or device.
+3. **Deployment model decision** — Open-source runtime + managed cloud control plane (hybrid model). Define what is open-source vs what is the paid control plane (dashboard, eval, routing policies).
 
-2. **Edge execution (optional)**
-   - Workers that can run in edge regions or on-prem; separate task queues for “edge” vs “cloud.” Routing rules (e.g. by region or device) to decide which queue. No change to Temporal core; only worker placement and queue assignment.
-
-**Exit criteria:** At least two “tiers” (e.g. fast vs accurate) selectable by policy; optional edge worker runs activities.
+**Exit criteria:** Two model tiers selectable by policy; deployment model documented and ready for early customers.
 
 ---
 
-## 5. Architecture: your runtime on Temporal
+## 5. Architecture: runtime on Temporal
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Developer                                                       │
-│  ai.workflow("support", async (ctx) => { ... })                  │
+│  workflow("support", ...)  or  agent("helper", { ... })          │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
 │  AI Runtime SDK (your code)                                      │
-│  - ctx.model(), ctx.tool()                                       │
-│  - workflow registration, activity stubs                         │
+│  - workflow(), agent(), ctx.model(), ctx.tool()                  │
+│  - model registry, tool registry, provider adapters              │
+│  - cost tracking per call                                        │
+│  - Temporal concepts completely hidden                            │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
 │  AI Runtime API (your service)                                   │
-│  - Start / signal / query workflows                               │
-│  - Wraps Temporal client                                          │
+│  - Start / signal / query workflows and agents                   │
+│  - Wraps Temporal client                                         │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
@@ -237,25 +225,23 @@ Phases match idea.md §14 and assume Temporal as the engine from day one.
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
 │  Workers (your code)                                             │
-│  - Inference worker (model activity)                             │
-│  - Tool worker (tool activities)                                 │
+│  - Model activity (inference, cost metering)                     │
+│  - Tool activity (tool execution)                                │
+│  - Agent loop activity (observe-reason-act)                      │
 │  - Optional: eval worker, retrieval worker                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Do not modify** the Temporal box. All “AI runtime” behavior lives in SDK, API, and workers.
-- **Event store:** Use Temporal’s history as the source of truth; optionally copy events to your store for analytics and evaluation.
-
 ---
 
-## 6. Technology choices (concrete)
+## 6. Technology choices
 
 - **Language:** TypeScript (Node.js).
-- **Workflow engine:** Temporal (server: Docker or Temporal Cloud; SDK: `@temporalio/client`, `@temporalio/worker`, `@temporalio/workflow`, `@temporalio/activity`).
-- **Runtime API:** Node/TypeScript; HTTP framework: Express or Fastify.
-- **Workers:** Same language as SDK; run as long-lived processes (or K8s/cron for batch eval).
-- **Observability:** OpenTelemetry + Prometheus/Grafana or cloud equivalent; optional: Temporal Web UI.
-- **Evaluation store:** PostgreSQL or object store (e.g. S3) for captures and datasets; simple runner script or small service for scoring.
+- **Workflow engine:** Temporal (server: Docker or Temporal Cloud; SDK: `@temporalio/*`).
+- **Runtime API:** Fastify.
+- **Workers:** TypeScript; long-lived processes.
+- **Observability:** OpenTelemetry + Prometheus/Grafana.
+- **Evaluation store:** PostgreSQL or object store.
 
 ---
 
@@ -263,27 +249,28 @@ Phases match idea.md §14 and assume Temporal as the engine from day one.
 
 | Risk | Mitigation |
 |------|------------|
-| Temporal’s learning curve | Start with one workflow and one activity; use official AI tutorials and cookbooks. |
-| Vendor lock-in to Temporal | Keep workflow definitions in your SDK; activities are plain functions. Swapping engine later would require a new execution layer but not a rewrite of business logic. |
-| Event history size (50k/50MB limit) | Use Continue-As-New for long-lived or high-event workflows; document in developer guide. |
-| Overlapping with “generic” Temporal | Differentiate strictly via AI-native APIs (model, tool, eval, routing); avoid exposing raw Temporal concepts in the main SDK. |
+| Temporal's learning curve | Developers never see Temporal; your SDK abstracts it completely. |
+| Vendor lock-in to Temporal | Keep workflow definitions in your SDK; activities are plain functions. Swapping engine later = new execution layer, not rewrite of business logic. |
+| Event history size (50k/50MB limit) | Continue-As-New for long-lived or high-event workflows; document in developer guide. |
+| "Why not just use Temporal directly?" | SDK must feel like a fundamentally different abstraction. Agents, models, tools — not workflows and activities. See `SDK-DESIGN.md`. |
+| Competitors already exist | Differentiate on TypeScript-first, provider-agnostic, invisible infrastructure, hybrid abstraction (workflows + agents). |
+| Temporal adds AI features | Temporal is a general workflow engine; adding deep AI abstractions conflicts with their core positioning. Our specialization is the moat. |
 
 ---
 
-## 8. Success criteria (from idea.md, made measurable)
+## 8. Success criteria
 
-- Developers can build an AI workflow using only `ctx.model` and `ctx.tool` (Phase 2).
-- Workflows complete reliably across failures and retries (Phase 1–3).
-- Every run is observable (traces, metrics, dashboard) (Phase 3).
+- Developers can build an AI workflow using only `workflow()`, `ctx.model()`, and `ctx.tool()` (Phase 2).
+- Developers can define a durable agent using `agent()` that survives crashes (Phase 2).
+- Zero `@temporalio/*` imports in developer code (Phase 2).
+- Every run is observable with cost data (Phase 3).
 - Production runs can be turned into evaluation datasets and compared (Phase 4).
-- Platform is the default runtime for your own AI apps and demos (ongoing).
+- Platform has a clear open-source + managed deployment model (Phase 5).
 
 ---
 
 ## 9. Next steps
 
-1. **Set up Temporal** (local Docker or Temporal Cloud) and run the official “durable AI agent” or “hello world” tutorial in your chosen SDK language.
-2. **Implement Phase 1:** API that starts a single Temporal workflow; one worker with one workflow and one activity; verify event history.
-3. **Design the Phase 2 SDK:** Exact signatures for `ctx.model` and `ctx.tool`, and mapping to activity names and task queues. Implement one model activity and two tool activities, then the customer-support workflow.
-
-After Phase 2 you will have a “simple AI application runtime” that is durable, observable, and ready to extend with evaluation and routing—all **on top of** Temporal, without modifying the engine.
+1. **Phase 1.5:** Review and finalize `SDK-DESIGN.md` (the critical design doc).
+2. **Phase 2:** Implement the SDK per the design doc. Build both examples (workflow + agent).
+3. **Phase 3:** Wire up observability and cost dashboards from the metering built into Phase 2.
