@@ -4,86 +4,54 @@
 
 | Function / type | Description |
 |------------------|-------------|
-| `defineModels(configs)` | Registers one or more models (id → ModelConfig). Call once at worker startup. |
-| `getModelConfig(modelId)` | Returns the ModelConfig for a registered model (used internally for cost/provider). |
-| `getModelInstance(modelId)` | Returns a Vercel AI SDK LanguageModel for generateText(). |
+| `defineModels(configs)` | Registers models by id. Pass Vercel AI SDK LanguageModel instances (e.g. `openai.chat('gpt-4o-mini')`) or `{ model, maxTokens? }`. No registerProvider or costKey. |
+| `getModelInstance(modelId)` | Returns the LanguageModel for generateText(). |
+| `getModelOptions(modelId)` | Returns optional overrides (e.g. `maxTokens`) for the activity. |
 | `clearModelRegistry()` | Removes all registered models (mainly for tests). |
-| `calculateCostUsd(provider, model, usage)` | Returns cost in USD for the given token usage; 0 if pricing unknown. |
+| `calculateCostUsd(provider, model, usage)` | Returns cost in USD; provider/model are read from the model instance at runtime. |
 
 ## Purpose
 
-The model registry maps developer-defined model IDs (e.g. `"fast"`, `"reasoning"`) to concrete Vercel AI SDK provider instances. The `runModel` activity (Part 4) uses it to look up the right model at execution time.
-
-A separate cost module converts token usage reported by the AI SDK into USD using `token-costs`.
+The model registry maps developer-defined model IDs (e.g. `"fast"`, `"reasoning"`) to Vercel AI SDK LanguageModel instances. The app passes instances directly to `defineModels()`; there is no provider registration step. The `runModel` activity (Part 4) looks up the model and optional options (e.g. maxTokens) at execution time. Cost is derived from the model instance's `provider` and `modelId` (V3) when available.
 
 ## API
 
-### `defineModels(configs: Record<string, ModelConfig>)`
+### `defineModels(configs): void`
 
-Registers one or more models in a singleton registry. Called once at worker startup.
+Registers one or more models. Call once at worker startup. Each value is either a bare LanguageModel instance or `{ model: LanguageModel; maxTokens?: number }`.
 
 ```ts
+import { openai } from '@ai-sdk/openai';
+import { defineModels } from '../src/sdk';
+
 defineModels({
-  fast:      { provider: 'openai',    model: 'gpt-4o-mini' },
-  reasoning: { provider: 'openai',    model: 'gpt-4o' },
-  claude:    { provider: 'anthropic', model: 'claude-sonnet-4-20250514', maxTokens: 4096 },
+  fast: openai.chat('gpt-4o-mini'),
+  reasoning: openai.chat('gpt-4o'),
+  custom: { model: openai.chat('gpt-4o'), maxTokens: 4096 },
 });
 ```
 
+No `registerProvider` or `costKey`. Install only the provider packages you use (e.g. `@ai-sdk/openai`). Cost is computed at runtime from the instance's `provider` and `modelId` when present.
+
 ### `getModelInstance(modelId: string): LanguageModel`
 
-Returns a Vercel AI SDK `LanguageModel` instance ready for `generateText()`.
+Returns the Vercel AI SDK LanguageModel for the given id, ready for `generateText()`.
 
-Internally it maps provider strings to AI SDK factory functions:
+### `getModelOptions(modelId: string): ModelOptions`
 
-| `provider` value | AI SDK import | Call |
-|---|---|---|
-| `openai` | `@ai-sdk/openai` | `openai(model)` |
-| `anthropic` | `@ai-sdk/anthropic` | `anthropic(model)` |
+Returns optional overrides for the model (e.g. `{ maxTokens?: number }`). Used internally by the runModel activity.
 
-New providers are added by extending a provider map — no interface changes needed.
+### Cost
 
-### `getModelConfig(modelId: string): ModelConfig`
-
-Returns the raw config for a model (used by cost calculation to know the provider/model string).
+The activity calls `calculateCostUsd(provider, modelId, usage)` with `provider` and `modelId` read from the LanguageModel instance (when the instance has those properties, e.g. V3). If not present, cost is reported as 0.
 
 ## Cost module (`cost.ts`)
 
 ### `calculateCostUsd(provider: string, model: string, usage: { promptTokens: number; completionTokens: number }): Promise<number>`
 
-Wraps the `token-costs` package's `CostClient.calculateCost()`.
-
-```ts
-import { CostClient } from 'token-costs';
-
-const client = new CostClient();
-
-const result = await client.calculateCost('openai', 'gpt-4o-mini', {
-  inputTokens: usage.promptTokens,
-  outputTokens: usage.completionTokens,
-});
-
-return result.totalCost;
-```
-
-Returns the cost in USD as a number. If the model isn't found in `token-costs` pricing data, returns `0` with a console warning rather than throwing.
-
-## Provider map design
-
-The registry uses a simple map from provider string to a factory function:
-
-```ts
-const providerFactories: Record<string, (model: string) => LanguageModel> = {
-  openai: (model) => openaiProvider(model),
-  anthropic: (model) => anthropicProvider(model),
-};
-```
-
-Adding a new provider (e.g. Google) is:
-1. `npm install @ai-sdk/google`
-2. Add one line to the provider map
+Wraps the `token-costs` package. Returns cost in USD; 0 with a console warning if pricing data is unavailable.
 
 ## Files
 
-- `src/sdk/ai/model-registry.ts` — `defineModels`, `getModelInstance`, `getModelConfig`
+- `src/sdk/ai/model-registry.ts` — `defineModels`, `getModelInstance`, `getModelOptions`, `clearModelRegistry`
 - `src/sdk/ai/cost.ts` — `calculateCostUsd`

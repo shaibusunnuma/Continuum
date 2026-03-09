@@ -3,18 +3,21 @@
  *
  * Configures models, registers tools, and starts the Temporal worker.
  * Run with: ts-node examples/worker.ts
+ *
+ * Install only the provider packages you use: npm install @ai-sdk/openai
  */
 import '../src/shared/config';
 import { z } from 'zod';
+import { openai } from '@ai-sdk/openai';
 import { defineModels, defineTool, createWorker } from '../src/sdk';
 
 // ---------------------------------------------------------------------------
-// 1. Register models
+// 1. Register models (pass Vercel AI SDK LanguageModel instances)
 // ---------------------------------------------------------------------------
 
 defineModels({
-  fast: { provider: 'openai', model: 'gpt-4o-mini' },
-  reasoning: { provider: 'openai', model: 'gpt-4o' },
+  fast: openai.chat('gpt-4o-mini'),
+  reasoning: openai.chat('gpt-4o'),
 });
 
 // ---------------------------------------------------------------------------

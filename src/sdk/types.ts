@@ -91,11 +91,8 @@ export interface WorkflowContext<TInput = unknown> {
 // Configuration — model registry, tool definitions, agents
 // ---------------------------------------------------------------------------
 
-/** Configuration for a single model passed to `defineModels()`. Maps to a Vercel AI SDK provider + model id. */
-export interface ModelConfig {
-  provider: string;
-  model: string;
-  temperature?: number;
+/** Optional overrides for a registered model (e.g. maxTokens). Returned by getModelOptions(); not used in defineModels() input. */
+export interface ModelOptions {
   maxTokens?: number;
 }
 

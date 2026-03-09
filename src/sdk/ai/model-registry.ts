@@ -1,52 +1,75 @@
 import type { LanguageModel } from 'ai';
-import { openai as openaiProvider } from '@ai-sdk/openai';
-import { anthropic as anthropicProvider } from '@ai-sdk/anthropic';
-import type { ModelConfig } from '../types';
+import type { ModelOptions } from '../types';
 
 // ---------------------------------------------------------------------------
-// Provider factory map — extend this to add new providers
+// Model registry — store LanguageModel instances by id
 // ---------------------------------------------------------------------------
 
-const providerFactories: Record<string, (model: string) => LanguageModel> = {
-  openai: (model) => openaiProvider.chat(model),
-  anthropic: (model) => anthropicProvider(model),
-};
+/** Stored entry: model instance plus optional maxTokens override. */
+interface ModelEntry {
+  model: LanguageModel;
+  maxTokens?: number;
+}
 
-// ---------------------------------------------------------------------------
-// Singleton registry
-// ---------------------------------------------------------------------------
-
-const registry = new Map<string, ModelConfig>();
+const registry = new Map<string, ModelEntry>();
 
 /**
- * Registers one or more models in the singleton registry. Call once at worker startup before starting the worker.
- * @param configs - Map of model id → ModelConfig (provider, model, optional temperature/maxTokens)
+ * Type guard: value is a wrapper object { model, maxTokens? } rather than a bare LanguageModel.
  */
-export function defineModels(configs: Record<string, ModelConfig>): void {
-  for (const [id, cfg] of Object.entries(configs)) {
-    if (!providerFactories[cfg.provider]) {
-      throw new Error(
-        `Unknown provider "${cfg.provider}" for model "${id}". ` +
-          `Available: ${Object.keys(providerFactories).join(', ')}`,
-      );
-    }
-    registry.set(id, cfg);
+function isModelWrapper(
+  value: LanguageModel | { model: LanguageModel; maxTokens?: number },
+): value is { model: LanguageModel; maxTokens?: number } {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    'model' in value &&
+    (value as { model: unknown }).model != null &&
+    typeof (value as { model: unknown }).model === 'object'
+  );
+}
+
+/**
+ * Registers one or more models by id. Pass Vercel AI SDK LanguageModel instances directly.
+ * Call once at worker startup. No registerProvider or costKey; cost uses the instance's provider/modelId at runtime.
+ *
+ * @example
+ * import { openai } from '@ai-sdk/openai';
+ * import { defineModels } from '../src/sdk';
+ * defineModels({
+ *   fast: openai.chat('gpt-4o-mini'),
+ *   reasoning: openai.chat('gpt-4o'),
+ *   custom: { model: openai.chat('gpt-4o'), maxTokens: 4096 },
+ * });
+ *
+ * @param configs - Map of model id → LanguageModel instance or { model, maxTokens? }
+ */
+export function defineModels(
+  configs: Record<
+    string,
+    LanguageModel | { model: LanguageModel; maxTokens?: number }
+  >,
+): void {
+  for (const [id, value] of Object.entries(configs)) {
+    const entry: ModelEntry = isModelWrapper(value)
+      ? { model: value.model, maxTokens: value.maxTokens }
+      : { model: value, maxTokens: undefined };
+    registry.set(id, entry);
   }
 }
 
 /**
- * Returns the raw config for a registered model. Used internally for cost calculation and provider resolution.
+ * Returns optional overrides for a registered model (e.g. maxTokens). Used by runModel activity.
  * @param modelId - The id passed to defineModels (e.g. "fast", "reasoning")
  * @throws If the model is not registered
  */
-export function getModelConfig(modelId: string): ModelConfig {
-  const cfg = registry.get(modelId);
-  if (!cfg) {
+export function getModelOptions(modelId: string): ModelOptions {
+  const entry = registry.get(modelId);
+  if (!entry) {
     throw new Error(
       `Model "${modelId}" not registered. Call defineModels() first.`,
     );
   }
-  return cfg;
+  return { maxTokens: entry.maxTokens };
 }
 
 /**
@@ -54,9 +77,13 @@ export function getModelConfig(modelId: string): ModelConfig {
  * @param modelId - The id passed to defineModels
  */
 export function getModelInstance(modelId: string): LanguageModel {
-  const cfg = getModelConfig(modelId);
-  const factory = providerFactories[cfg.provider]!;
-  return factory(cfg.model);
+  const entry = registry.get(modelId);
+  if (!entry) {
+    throw new Error(
+      `Model "${modelId}" not registered. Call defineModels() first.`,
+    );
+  }
+  return entry.model;
 }
 
 /** Clears all registered models. Used mainly for tests. */

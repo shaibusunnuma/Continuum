@@ -81,6 +81,7 @@ Phase 2 adds the AI SDK (models, tools, `workflow()`, `agent()`). Use the **exam
 
 - Temporal server running (see above).
 - `.env` with `OPENAI_API_KEY` set (for LLM calls).
+- Install the provider package you use: `npm install @ai-sdk/openai`. Register models with `defineModels({ fast: openai.chat('gpt-4o-mini'), ... })`; no `registerProvider` or costKey.
 
 ### 2. Start the example worker and API
 

@@ -11,8 +11,6 @@
     "start:worker": "npm run worker"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.58",
-    "@ai-sdk/openai": "^3.0.41",
     "@temporalio/activity": "^1.15.0",
     "@temporalio/client": "^1.15.0",
     "@temporalio/worker": "^1.15.0",
@@ -25,6 +23,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@ai-sdk/openai": "^3.0.41",
     "@types/node": "^25.3.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

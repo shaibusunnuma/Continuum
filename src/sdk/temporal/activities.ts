@@ -1,7 +1,7 @@
 import { generateText, type ModelMessage } from 'ai';
 import {
   getModelInstance,
-  getModelConfig,
+  getModelOptions,
 } from '../ai/model-registry';
 import { getToolDefinition, getAISDKTools } from '../ai/tool-registry';
 import { calculateCostUsd } from '../ai/cost';
@@ -65,7 +65,7 @@ function toModelMessages(messages: Message[]): ModelMessage[] {
  */
 export async function runModel(params: RunModelParams): Promise<RunModelResult> {
   const model = getModelInstance(params.modelId);
-  const cfg = getModelConfig(params.modelId);
+  const options = getModelOptions(params.modelId);
 
   const tools =
     params.toolNames && params.toolNames.length > 0
@@ -76,16 +76,25 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     model,
     messages: toModelMessages(params.messages),
     tools,
-    maxOutputTokens: cfg.maxTokens,
+    maxOutputTokens: options.maxTokens,
   });
 
   const inputTokens = result.usage?.inputTokens ?? 0;
   const outputTokens = result.usage?.outputTokens ?? 0;
 
-  const costUsd = await calculateCostUsd(cfg.provider, cfg.model, {
-    promptTokens: inputTokens,
-    completionTokens: outputTokens,
-  });
+  let costUsd = 0;
+  if (
+    model &&
+    typeof model === 'object' &&
+    'provider' in model &&
+    'modelId' in model
+  ) {
+    const m = model as { provider: string; modelId: string };
+    costUsd = await calculateCostUsd(m.provider, m.modelId, {
+      promptTokens: inputTokens,
+      completionTokens: outputTokens,
+    });
+  }
 
   const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc) => ({
     id: tc.toolCallId,

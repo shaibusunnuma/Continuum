@@ -134,7 +134,7 @@ export type {
   ToolResult,
   Usage,
   Message,
-  ModelConfig,
+  ModelOptions,
   ToolDefinition,
   AgentConfig,
   AgentResult,

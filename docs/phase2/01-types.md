@@ -12,7 +12,7 @@
 | `ModelCallParams` | Params for `ctx.model()`: prompt, messages, tools, responseFormat. |
 | `RunMetadata` | Read-only run info: id, workflowName, startedAt, accumulatedCost (ctx.run). |
 | `WorkflowContext<TInput>` | The ctx object: input, model(), tool(), waitForInput(), log(), run. |
-| `ModelConfig` | Per-model config for defineModels: provider, model, temperature?, maxTokens?. |
+| `ModelOptions` | Optional overrides for a registered model (e.g. maxTokens); returned by getModelOptions. |
 | `ToolDefinition<TInput, TOutput>` | Per-tool config for defineTool: name, description, input/output Zod, execute. |
 | `BudgetLimit` | Optional limits: maxCostUsd?, maxTokens?. |
 | `AgentConfig` | Config for agent(): model, instructions, tools, maxSteps?, budgetLimit?. |
@@ -128,15 +128,12 @@ interface RunMetadata {
 
 ## Config types (used by defineModels, defineTool, agent)
 
-### ModelConfig
+### ModelOptions
 
-Configuration for a single model in the registry.
+Optional overrides for a registered model (e.g. maxTokens). Returned by `getModelOptions()`; not the input type for `defineModels()` (which accepts LanguageModel instances or `{ model, maxTokens? }`).
 
 ```ts
-interface ModelConfig {
-  provider: string;   // 'openai' | 'anthropic' | 'google' | etc.
-  model: string;      // 'gpt-4o-mini' | 'claude-sonnet-4-20250514' | etc.
-  temperature?: number;
+interface ModelOptions {
   maxTokens?: number;
 }
 ```
