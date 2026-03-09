@@ -2,29 +2,36 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { nanoid } from 'nanoid';
 import { getTemporalClient } from '../temporal';
 import { config } from '../../shared/config';
-import type { StartWorkflowResponse } from '../../shared/types';
 
-const startWorkflowBodySchema = {
+const startAgentBodySchema = {
   type: 'object',
-  required: ['workflowType', 'input'],
+  required: ['agentName', 'input'],
   properties: {
-    workflowType: { type: 'string' },
-    input: { type: 'object' },
+    agentName: { type: 'string' },
+    input: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string' },
+      },
+    },
   },
 } as const;
 
-export async function workflowsRoutes(
+export async function agentsRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
   fastify.post<{
-    Body: { workflowType: string; input: Record<string, unknown> };
-    Reply: StartWorkflowResponse | { error: string; message: string };
+    Body: { agentName: string; input: { message: string } };
+    Reply:
+      | { workflowId: string; runId: string }
+      | { error: string; message: string };
   }>(
     '/start',
     {
       schema: {
-        body: startWorkflowBodySchema,
+        body: startAgentBodySchema,
         response: {
           201: {
             type: 'object',
@@ -40,8 +47,8 @@ export async function workflowsRoutes(
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const workflowId = `wf-${nanoid()}`;
-        const handle = await client.workflow.start(request.body.workflowType, {
+        const workflowId = `agent-${nanoid()}`;
+        const handle = await client.workflow.start(request.body.agentName, {
           taskQueue: config.TASK_QUEUE,
           workflowId,
           args: [request.body.input],
@@ -53,7 +60,7 @@ export async function workflowsRoutes(
       } catch (err) {
         request.log.error(err);
         return reply.status(502).send({
-          error: 'Failed to start workflow',
+          error: 'Failed to start agent',
           message: err instanceof Error ? err.message : String(err),
         });
       }
