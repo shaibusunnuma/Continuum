@@ -1,11 +1,13 @@
-# AI Application Runtime — Phase 1
+# AI Application Runtime (Work in Progress)
 
-Minimal durable workflow runtime: a Fastify API that starts Temporal workflows and a worker that runs an Echo workflow and activity.
+Durable workflow runtime for AI agents and tools, built on Temporal and the Vercel AI SDK. The current focus is the **Phase 2 SDK**: `workflow()`, `agent()`, `ctx.model()`, and `ctx.tool()` with example workflows and agents.
+
+> **Status:** Early-stage, APIs and internals are still evolving.
 
 ## Prerequisites
 
 - **Node.js** 18+
-- **Docker** (for Temporal server)
+- **Docker** (for running the Temporal server)
 
 ## 1. Start Temporal server
 
@@ -17,7 +19,7 @@ cd samples-server/compose && docker-compose -f docker-compose-dev.yml up -d
 
 Temporal will listen on **localhost:7233**. Leave this running.
 
-## 2. Config
+## 2. Configure environment
 
 Copy the example env and adjust if needed:
 
@@ -25,67 +27,27 @@ Copy the example env and adjust if needed:
 cp .env.example .env
 ```
 
-Defaults:
+Set at least:
 
 - `TEMPORAL_ADDRESS=localhost:7233`
 - `TEMPORAL_NAMESPACE=default`
 - `TASK_QUEUE=ai-runtime`
 - `API_PORT=3000`
+- `OPENAI_API_KEY=...` (or another supported provider key you wire up via `defineModels()`)
 
-## 3. Install and run
+## 3. Install dependencies
+
+From the project root:
 
 ```bash
 npm install
 ```
 
-**Terminal 1 — Worker:**
+## 4. Run the Phase 2 examples (SDK workflows and agents)
 
-```bash
-npm run worker
-```
+Use the **examples worker** to run SDK-based workflows and agents.
 
-You should see: `Worker started, task queue: ai-runtime`
-
-**Terminal 2 — Runtime API:**
-
-```bash
-npm run api
-```
-
-You should see: `Runtime API listening on port 3000`
-
-## 4. Trigger a workflow
-
-```bash
-curl -X POST http://localhost:3000/workflows/start \
-  -H "Content-Type: application/json" \
-  -d '{"workflowType":"Echo","input":{"message":"hello"}}'
-```
-
-Example response (201):
-
-```json
-{"workflowId":"...","runId":"..."}
-```
-
-## 5. Verify
-
-- **Worker logs:** workflow task and activity execution, then workflow completed.
-- **Temporal UI (optional):** if you use the full compose with UI (e.g. port 8080), open a run by `workflowId` and check the event history: WorkflowExecutionStarted → ActivityTaskScheduled → ActivityTaskCompleted → WorkflowExecutionCompleted.
-
-## Testing Phase 2 (SDK workflows and agents)
-
-Phase 2 adds the AI SDK (models, tools, `workflow()`, `agent()`). Use the **example worker** and set **OPENAI_API_KEY** in `.env`.
-
-### 1. Prerequisites
-
-- Temporal server running (see above).
-- `.env` with `OPENAI_API_KEY` set (for LLM calls).
-- Install the provider package you use: `npm install @ai-sdk/openai`. Register models with `defineModels({ fast: openai.chat('gpt-4o-mini'), ... })`; no `registerProvider` or costKey.
-
-### 2. Start the example worker and API
-
-**Terminal 1 — Example worker (SDK workflows + runModel/runTool):**
+**Terminal 1 — Examples worker (SDK workflows + runModel/runTool):**
 
 ```bash
 npm run worker:examples
@@ -101,7 +63,9 @@ npm run api
 
 Wait for: `Runtime API listening on port 3000`
 
-### 3. Test customer-support workflow
+## 5. Test the example workflows and agents
+
+### 5.1 Customer-support workflow
 
 Start the workflow (use the **export name** `customerSupport` as `workflowType`):
 
@@ -119,7 +83,7 @@ curl -s http://localhost:3000/runs/<workflowId>/result
 
 You should see `status: "COMPLETED"` and a `result` with `reply`, `intent`, and `cost`.
 
-### 4. Test travel agent
+### 5.2 Travel agent
 
 Start the agent (use the **export name** `travelAgent` as `agentName`):
 
@@ -137,7 +101,7 @@ curl -s http://localhost:3000/runs/<workflowId>/result
 
 You should see `status: "COMPLETED"`, `result.reply` with flight options, `result.steps` (e.g. 2), and `result.usage`.
 
-### 5. Optional: check run status
+### 5.3 Optional: check run status
 
 ```bash
 curl -s http://localhost:3000/runs/<workflowId>
@@ -154,7 +118,7 @@ Returns `workflowId`, `status`, `type`, `startTime`, `closeTime`.
 | Script                | Description                           |
 |-----------------------|---------------------------------------|
 | `npm run api`         | Start the Runtime API                 |
-| `npm run worker`      | Start the Phase 1 worker (Echo only)  |
-| `npm run worker:examples` | Start the Phase 2 example worker (SDK workflows + agents) |
+| `npm run worker`      | Start the Phase 1 worker (Echo only, legacy) |
+| `npm run worker:examples` | Start the Phase 2 examples worker (SDK workflows + agents) |
 | `npm run build`       | Compile TypeScript to dist            |
 | `npm run start`       | Alias for `npm run api`               |
