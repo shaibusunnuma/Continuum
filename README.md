@@ -166,6 +166,34 @@ curl -s http://localhost:3000/runs/<workflowId>
 
 Returns `workflowId`, `status`, `type`, `startTime`, `closeTime`.
 
+## 6. Phase 3: Observability stack (optional)
+
+To view traces (e.g. `ai.run_model`, `ai.run_tool`) in Jaeger:
+
+**1. Start Jaeger with OTLP HTTP:**
+
+```bash
+docker run --rm -p 16686:16686 -p 4318:4318 \
+  -e COLLECTOR_OTLP_ENABLED=true \
+  --name jaeger \
+  jaegertracing/all-in-one:1.56
+```
+
+**2. Run worker and API with tracing enabled:**
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
+export AI_RUNTIME_ENABLE_TRACING=1
+
+# Terminal 1
+npm run worker:examples
+
+# Terminal 2
+npm run api
+```
+
+**3. Trigger a workflow or agent** (e.g. customerSupport or travelAgent), then open **http://localhost:16686**. Select service `ai-runtime-example` to see spans and attributes (model, tokens, cost, workflow/agent name).
+
 ---
 
 **Note:** For Phase 2 tests use `npm run worker:examples`. The Phase 1 worker (`npm run worker`) only has the Echo workflow and will not run SDK workflows or agents.
