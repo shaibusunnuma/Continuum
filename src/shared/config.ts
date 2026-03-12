@@ -1,6 +1,9 @@
+import path from 'path';
 import dotenv from 'dotenv';
 
-dotenv.config();
+// Load .env from project root so it works regardless of process cwd (e.g. running from examples/)
+const projectRoot = path.resolve(__dirname, '../..');
+dotenv.config({ path: path.join(projectRoot, '.env') });
 
 export const config = {
   TEMPORAL_ADDRESS: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233',
