@@ -1,7 +1,7 @@
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { ATTR_SERVICE_NAME  } from '@opentelemetry/semantic-conventions';
 
 const traceExporter = new OTLPTraceExporter({
   // Follows standard OTel env vars when not explicitly set.
@@ -11,8 +11,7 @@ const traceExporter = new OTLPTraceExporter({
 const sdk = new NodeSDK({
   traceExporter,
   resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]:
-      process.env.OTEL_SERVICE_NAME ?? 'ai-runtime-example',
+    [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'ai-runtime-example',
   }),
 });
 
@@ -20,13 +19,28 @@ let started = false;
 
 export async function startTelemetry(): Promise<void> {
   if (started) return;
-  await sdk.start();
-  started = true;
+  try {
+    await sdk.shutdown(); // defensive: ensure previous state is clean
+  } catch {
+    // ignore if it was never started
+  }
+
+  try {
+    await sdk.start();
+    started = true;
+  } catch (err: unknown) {
+    console.error('Failed to start OpenTelemetry SDK:', err);
+    throw err;
+  }
 }
 
 export async function shutdownTelemetry(): Promise<void> {
   if (!started) return;
-  await sdk.shutdown();
-  started = false;
+  try {
+    await sdk.shutdown();
+    started = false;
+  } catch (err: unknown) {
+    console.error('Failed to shut down OpenTelemetry SDK:', err);
+  }
 }
 

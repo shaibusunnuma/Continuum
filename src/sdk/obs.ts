@@ -55,7 +55,7 @@ export async function withSpan<T>(
   }
 
   const tracer = trace.getTracer('ai-runtime-sdk');
-  const span = tracer.startSpan(name, undefined, ROOT_CONTEXT);
+  const span = tracer.startSpan(name, undefined, context.active());
   try {
     span.setAttributes(attributes);
     const result = await context.with(
