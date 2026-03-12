@@ -2,7 +2,64 @@
 
 Durable workflow runtime for AI agents and tools, built on Temporal and the Vercel AI SDK. The current focus is the **Phase 2 SDK**: `workflow()`, `agent()`, `ctx.model()`, and `ctx.tool()` with example workflows and agents.
 
-> **Status:** Early-stage, APIs and internals are still evolving.
+> **Status:** Early-stage, APIs and internals are still evolving. The SDK design and diagrams will evolve as we go through phases.
+
+## SDK architecture (Phase 2 snapshot)
+
+```mermaid
+flowchart LR
+  subgraph userCode [User app code]
+    WF[workflow()/agent() definitions\nexamples/workflows.ts]
+    CFG[defineModels()/defineTool()\nexamples/worker.ts]
+  end
+
+  subgraph sdk [SDK]
+    SDKIndex[sdk/index.ts\npublic API re-exports]
+
+    subgraph aiLayer [AI layer]
+      MR[model-registry.ts\nstores LanguageModel instances]
+      TR[tool-registry.ts\nZod-based tool definitions]
+      COST[cost.ts\nuses token-costs\n(openai, anthropic, ...)]
+    end
+
+    subgraph temporalLayer [Temporal layer]
+      WFAdapter[workflow-adapter.ts\nctx.model()/ctx.tool()/waitForInput]
+      Agent[agent-workflow.ts\ndurable agent loop]
+      Acts[activities.ts\nrunModel/runTool]
+      WorkerF[worker-factory.ts\ncreateWorker()]
+    end
+  end
+
+  subgraph infra [Infrastructure]
+    Temporal[Temporal Server]
+    LLMs[LLM providers\n(OpenAI via Vercel AI SDK)]
+    Tools[User tools, HTTP/db, etc.]
+  end
+
+  CFG --> SDKIndex
+  WF --> SDKIndex
+
+  SDKIndex --> MR
+  SDKIndex --> TR
+  SDKIndex --> WFAdapter
+  SDKIndex --> Agent
+  SDKIndex --> WorkerF
+
+  WorkerF --> Temporal
+  Acts --> LLMs
+  Acts --> Tools
+
+  WFAdapter --> Acts
+  Agent --> Acts
+  Temporal <---> WorkerF
+```
+
+High-level flow:
+
+- **App code** defines workflows/agents and configures models/tools.
+- **SDK (AI layer)** wires those to concrete Vercel AI SDK models and validated tools, and computes cost via `token-costs`.
+- **SDK (Temporal layer)** adapts this into Temporal workflows, activities, and workers for durability.
+- **Infrastructure** (Temporal + LLM providers + tools) executes the actual work.
 
 ## Prerequisites
 
