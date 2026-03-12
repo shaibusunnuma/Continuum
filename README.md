@@ -168,6 +168,8 @@ Returns `workflowId`, `status`, `type`, `startTime`, `closeTime`.
 
 ## 6. Phase 3: Observability stack (optional)
 
+### 6.1 Traces with Jaeger
+
 To view traces (e.g. `ai.run_model`, `ai.run_tool`) in Jaeger:
 
 **1. Start Jaeger with OTLP HTTP:**
@@ -192,7 +194,48 @@ npm run worker:examples
 npm run api
 ```
 
-**3. Trigger a workflow or agent** (e.g. customerSupport or travelAgent), then open **http://localhost:16686**. Select service `ai-runtime-example` to see spans and attributes (model, tokens, cost, workflow/agent name).
+**3. Trigger a workflow or agent** (e.g. `customerSupport` or `travelAgent`), then open **http://localhost:16686**. Select service `ai-runtime-example` to see spans and attributes (model, tokens, cost, workflow/agent name).
+
+### 6.2 Metrics with Prometheus + Grafana
+
+The SDK emits metrics like `ai_model_calls_total`, `ai_model_tokens_total`, `ai_model_cost_usd_total`, and `ai_tool_calls_total`. To view them:
+
+**1. Ensure metrics are enabled in `.env`:**
+
+```bash
+AI_RUNTIME_ENABLE_METRICS=1
+# Optional: change metrics port (prometheus exporter)
+# AI_RUNTIME_PROMETHEUS_PORT=9464
+```
+
+**2. Start the examples worker and API** (as above, from project root):
+
+```bash
+npm run worker:examples   # Terminal 1
+npm run api               # Terminal 2
+```
+
+**3. Start Prometheus + Grafana with Docker Compose:**
+
+From the project root:
+
+```bash
+docker compose -f docker-compose.metrics.yml up
+```
+
+This starts:
+
+- Prometheus on `http://localhost:9090` scraping `http://host.docker.internal:9464/metrics`.
+- Grafana on `http://localhost:3001` with default login `admin` / `admin`.
+
+**4. Inspect metrics:**
+
+- In **Prometheus** (`http://localhost:9090`) query metrics such as:
+  - `ai_model_calls_total`
+  - `ai_model_tokens_total`
+  - `ai_model_cost_usd_total`
+  - `ai_tool_calls_total`
+- In **Grafana** (`http://localhost:3001`), add a Prometheus data source with URL `http://prometheus:9090` and build dashboards from the same metric names.
 
 ---
 

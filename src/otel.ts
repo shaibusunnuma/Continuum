@@ -1,15 +1,23 @@
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { Resource } from '@opentelemetry/resources';
-import { ATTR_SERVICE_NAME  } from '@opentelemetry/semantic-conventions';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 
 const traceExporter = new OTLPTraceExporter({
   // Follows standard OTel env vars when not explicitly set.
   url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
 });
 
+// Exposes metrics at http://localhost:9464/metrics for Prometheus/Grafana.
+const prometheusReader = new PrometheusExporter({
+  port: Number(process.env.AI_RUNTIME_PROMETHEUS_PORT ?? 9464),
+  endpoint: '/metrics',
+});
+
 const sdk = new NodeSDK({
   traceExporter,
+  metricReader: prometheusReader,
   resource: new Resource({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'ai-runtime-example',
   }),
