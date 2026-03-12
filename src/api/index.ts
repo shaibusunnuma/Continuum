@@ -1,9 +1,15 @@
 import '../shared/config';
 import Fastify from 'fastify';
 import { config } from '../shared/config';
+import { initObservability } from '../sdk';
 import { workflowsRoutes } from './routes/workflows';
 import { agentsRoutes } from './routes/agents';
 import { runsRoutes } from './routes/runs';
+
+initObservability({
+  tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
+  metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
+});
 
 async function main() {
   const fastify = Fastify({ logger: true });

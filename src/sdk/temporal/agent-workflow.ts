@@ -32,6 +32,13 @@ export function agent(
   const maxSteps = config.maxSteps ?? 10;
 
   const agentFn = async function (input: { message: string }): Promise<AgentResult> {
+    const info = wf.workflowInfo();
+    const traceCtx = {
+      workflowId: info.workflowId,
+      runId: info.runId,
+      agentName: name,
+    };
+
     const inputQueue: unknown[] = [];
     wf.setHandler(userInputSignal, (data: unknown) => {
       inputQueue.push(data);
@@ -68,6 +75,7 @@ export function agent(
         modelId: config.model,
         messages,
         toolNames: config.tools.length > 0 ? config.tools : undefined,
+        traceContext: traceCtx,
       });
 
       totalUsage.promptTokens += result.usage.promptTokens;
@@ -95,6 +103,7 @@ export function agent(
         const toolResult = await runTool({
           toolName: tc.name,
           input: tc.arguments,
+          traceContext: traceCtx,
         });
 
         messages.push({

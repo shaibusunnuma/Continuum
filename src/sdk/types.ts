@@ -143,12 +143,22 @@ export interface ToolSchema {
   parameters: Record<string, unknown>;
 }
 
+/** Optional trace context passed from workflow/agent for observability. */
+export interface TraceContext {
+  workflowId?: string;
+  runId?: string;
+  workflowName?: string;
+  agentName?: string;
+}
+
 /** Input to the `runModel` Temporal activity. */
 export interface RunModelParams {
   modelId: string;
   messages: Message[];
   toolNames?: string[];
   responseFormat?: 'text' | 'json';
+  /** Optional; set by SDK workflow/agent adapters for span attributes. */
+  traceContext?: TraceContext;
 }
 
 /** Output from the `runModel` Temporal activity. */
@@ -162,6 +172,8 @@ export interface RunModelResult {
 export interface RunToolParams {
   toolName: string;
   input: unknown;
+  /** Optional; set by SDK workflow/agent adapters for span attributes. */
+  traceContext?: TraceContext;
 }
 
 /** Output from the `runTool` Temporal activity. */

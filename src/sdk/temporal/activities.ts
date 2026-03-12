@@ -5,6 +5,13 @@ import {
 } from '../ai/model-registry';
 import { getToolDefinition, getAISDKTools } from '../ai/tool-registry';
 import { calculateCostUsd } from '../ai/cost';
+import { withSpan } from '../obs';
+import {
+  recordModelCall,
+  recordModelTokens,
+  recordModelCost,
+  recordToolCall,
+} from '../obs-metrics';
 import type {
   RunModelParams,
   RunModelResult,
@@ -63,6 +70,16 @@ function toModelMessages(messages: Message[]): ModelMessage[] {
  * @param params - modelId, messages, optional toolNames and responseFormat
  * @returns Content, tool calls (if any), and usage including costUsd
  */
+function traceContextAttrs(tc?: { workflowId?: string; runId?: string; workflowName?: string; agentName?: string }): Record<string, string> {
+  if (!tc) return {};
+  const a: Record<string, string> = {};
+  if (tc.workflowId) a['ai.workflow_id'] = tc.workflowId;
+  if (tc.runId) a['ai.run_id'] = tc.runId;
+  if (tc.workflowName) a['ai.workflow_name'] = tc.workflowName;
+  if (tc.agentName) a['ai.agent_name'] = tc.agentName;
+  return a;
+}
+
 export async function runModel(params: RunModelParams): Promise<RunModelResult> {
   const model = getModelInstance(params.modelId);
   const options = getModelOptions(params.modelId);
@@ -72,44 +89,122 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       ? getAISDKTools(params.toolNames)
       : undefined;
 
-  const result = await generateText({
-    model,
-    messages: toModelMessages(params.messages),
-    tools,
-    maxOutputTokens: options.maxTokens,
-  });
+  const baseAttrs: Record<string, string | number> = {
+    'ai.model_id': params.modelId,
+    ...traceContextAttrs(params.traceContext),
+  };
 
-  const inputTokens = result.usage?.inputTokens ?? 0;
-  const outputTokens = result.usage?.outputTokens ?? 0;
+  let result: {
+    genResult: Awaited<ReturnType<typeof generateText>>;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+  };
+  try {
+    result = await withSpan(
+    'ai.run_model',
+    baseAttrs,
+    async (span) => {
+      const genResult = await generateText({
+        model,
+        messages: toModelMessages(params.messages),
+        tools,
+        maxOutputTokens: options.maxTokens,
+      });
 
-  let costUsd = 0;
-  if (
-    model &&
-    typeof model === 'object' &&
-    'provider' in model &&
-    'modelId' in model
-  ) {
-    const m = model as { provider: string; modelId: string };
-    costUsd = await calculateCostUsd(m.provider, m.modelId, {
-      promptTokens: inputTokens,
-      completionTokens: outputTokens,
+      const inputTokens = genResult.usage?.inputTokens ?? 0;
+      const outputTokens = genResult.usage?.outputTokens ?? 0;
+
+      let costUsd = 0;
+      if (
+        model &&
+        typeof model === 'object' &&
+        'provider' in model &&
+        'modelId' in model
+      ) {
+        const m = model as { provider: string; modelId: string };
+        costUsd = await calculateCostUsd(m.provider, m.modelId, {
+          promptTokens: inputTokens,
+          completionTokens: outputTokens,
+        });
+      }
+
+      if (span) {
+        span.setAttributes({
+          'ai.usage.prompt_tokens': inputTokens,
+          'ai.usage.completion_tokens': outputTokens,
+          'ai.usage.total_tokens': inputTokens + outputTokens,
+          'ai.usage.cost_usd': costUsd,
+        });
+        if (
+          model &&
+          typeof model === 'object' &&
+          'provider' in model &&
+          'modelId' in model
+        ) {
+          const m = model as { provider: string; modelId: string };
+          span.setAttributes({
+            'ai.model.provider': m.provider,
+            'ai.model.id': m.modelId,
+          });
+        }
+        if (params.toolNames?.length) {
+          span.setAttribute('ai.tools_used', params.toolNames.join(','));
+        }
+      }
+
+      return {
+        genResult,
+        inputTokens,
+        outputTokens,
+        costUsd,
+      };
+    },
+  );
+  } catch (err) {
+    const provider =
+      model && typeof model === 'object' && 'provider' in model
+        ? (model as { provider: string }).provider
+        : 'unknown';
+    recordModelCall({
+      model: params.modelId,
+      provider,
+      workflow: params.traceContext?.workflowName,
+      agent: params.traceContext?.agentName,
+      status: 'error',
     });
+    throw err;
   }
 
-  const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc) => ({
+  const toolCalls: ToolCall[] = (result.genResult.toolCalls ?? []).map((tc) => ({
     id: tc.toolCallId,
     name: tc.toolName,
     arguments: (tc.input ?? {}) as Record<string, unknown>,
   }));
 
+  const provider =
+    model && typeof model === 'object' && 'provider' in model
+      ? (model as { provider: string }).provider
+      : 'unknown';
+  recordModelCall({
+    model: params.modelId,
+    provider,
+    workflow: params.traceContext?.workflowName,
+    agent: params.traceContext?.agentName,
+    status: 'success',
+  });
+  recordModelTokens(params.modelId, provider, 'prompt', result.inputTokens);
+  recordModelTokens(params.modelId, provider, 'completion', result.outputTokens);
+  recordModelCost(params.modelId, provider, result.costUsd);
+
   return {
-    content: result.text ?? '',
+    content: result.genResult.text ?? '',
     toolCalls,
     usage: {
-      promptTokens: inputTokens,
-      completionTokens: outputTokens,
-      totalTokens: inputTokens + outputTokens,
-      costUsd,
+      promptTokens: result.inputTokens,
+      completionTokens: result.outputTokens,
+      totalTokens: result.inputTokens + result.outputTokens,
+      costUsd: result.costUsd,
     },
   };
 }
@@ -129,11 +224,42 @@ export async function runTool(params: RunToolParams): Promise<RunToolResult> {
 
   const parsed = def.input.safeParse(params.input);
   if (!parsed.success) {
+    recordToolCall({
+      tool: params.toolName,
+      workflow: params.traceContext?.workflowName,
+      agent: params.traceContext?.agentName,
+      status: 'validation_error',
+    });
     throw new Error(
       `Tool "${params.toolName}" input validation failed: ${JSON.stringify((parsed as any).error)}`,
     );
   }
 
-  const result = await def.execute(parsed.data);
-  return { result };
+  const attrs: Record<string, string> = {
+    'ai.tool_name': params.toolName,
+    ...traceContextAttrs(params.traceContext),
+  };
+
+  try {
+    const result = await withSpan(
+      'ai.run_tool',
+      attrs,
+      async (span) => def.execute(parsed.data),
+    );
+    recordToolCall({
+      tool: params.toolName,
+      workflow: params.traceContext?.workflowName,
+      agent: params.traceContext?.agentName,
+      status: 'success',
+    });
+    return { result };
+  } catch (err) {
+    recordToolCall({
+      tool: params.toolName,
+      workflow: params.traceContext?.workflowName,
+      agent: params.traceContext?.agentName,
+      status: 'error',
+    });
+    throw err;
+  }
 }

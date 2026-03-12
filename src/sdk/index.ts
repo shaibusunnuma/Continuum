@@ -14,6 +14,9 @@ export { defineTool, defineTools } from './ai/tool-registry';
 export { createWorker } from './temporal/worker-factory';
 export type { CreateWorkerConfig } from './temporal/worker-factory';
 
+// Observability
+export { initObservability, type ObservabilityConfig } from './obs';
+
 // Types
 export type {
   WorkflowContext,

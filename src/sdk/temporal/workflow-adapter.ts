@@ -54,6 +54,11 @@ export function workflow<TInput, TOutput>(
           messages,
           toolNames: params.tools,
           responseFormat: params.responseFormat,
+          traceContext: {
+            workflowId: info.workflowId,
+            runId: info.runId,
+            workflowName: name,
+          },
         });
 
         accumulatedCost += result.usage.costUsd;
@@ -65,7 +70,15 @@ export function workflow<TInput, TOutput>(
       },
 
       async tool<T = unknown>(toolName: string, toolInput: unknown): Promise<ToolResult<T>> {
-        const result = await runTool({ toolName, input: toolInput });
+        const result = await runTool({
+          toolName,
+          input: toolInput,
+          traceContext: {
+            workflowId: info.workflowId,
+            runId: info.runId,
+            workflowName: name,
+          },
+        });
         return { result: result.result as T };
       },
 

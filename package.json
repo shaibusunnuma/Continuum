@@ -5,10 +5,8 @@
   "scripts": {
     "build": "tsc",
     "api": "ts-node src/api/index.ts",
-    "worker": "ts-node src/worker/index.ts",
     "worker:examples": "ts-node examples/worker.ts",
-    "start": "npm run api",
-    "start:worker": "npm run worker"
+    "start": "npm run api"
   },
   "dependencies": {
     "@temporalio/activity": "^1.15.0",

@@ -9,7 +9,16 @@
 import '../src/shared/config';
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
-import { defineModels, defineTool, createWorker } from '../src/sdk';
+import { defineModels, defineTool, createWorker, initObservability } from '../src/sdk';
+
+// ---------------------------------------------------------------------------
+// 0. Observability (optional; set AI_RUNTIME_ENABLE_TRACING=1 / AI_RUNTIME_ENABLE_METRICS=1)
+// ---------------------------------------------------------------------------
+
+initObservability({
+  tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
+  metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
+});
 
 // ---------------------------------------------------------------------------
 // 1. Register models (pass Vercel AI SDK LanguageModel instances)
