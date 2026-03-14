@@ -3,17 +3,19 @@
  *
  * This file is loaded by Temporal's workflow bundler (via workflowsPath).
  * It can ONLY import from @temporalio/workflow and workflow-safe SDK modules.
+ * Import workflow and agent from the SDK barrel (public API).
  */
-import { workflow } from '../src/sdk/temporal/workflow-adapter';
-import { agent } from '../src/sdk/temporal/agent-workflow';
+import { workflow, agent, type WorkflowContext } from '@ai-runtime/sdk/workflow';
 
 // ---------------------------------------------------------------------------
 // Example 1: Customer support workflow (explicit control flow)
 // ---------------------------------------------------------------------------
 
+type CustomerSupportInput = { message: string; orderId?: string };
+
 export const customerSupport = workflow(
   'customerSupport',
-  async (ctx: import('../src/sdk/types').WorkflowContext<{ message: string; orderId?: string }>) => {
+  async (ctx: WorkflowContext<CustomerSupportInput>) => {
     const classification = await ctx.model('fast', {
       prompt: `Classify this customer message into one of: refund, tracking, general.\n\nMessage: "${ctx.input.message}"\n\nRespond with just the category.`,
     });

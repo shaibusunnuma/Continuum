@@ -2,11 +2,10 @@
  * Example worker entry point.
  *
  * Configures models, registers tools, and starts the Temporal worker.
- * Run with: ts-node examples/worker.ts
+ * Run from repo root: npm run build && npm run worker:examples
  *
  * Install only the provider packages you use: npm install @ai-sdk/openai
  */
-import '../src/shared/config';
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
 import {
@@ -14,17 +13,14 @@ import {
   defineTool,
   createWorker,
   initObservability,
-  initEvaluation,
-} from '../src/sdk';
-import { startTelemetry } from '../src/otel';
+} from '@ai-runtime/sdk';
+import { initEvaluation } from '@ai-runtime/eval';
 
 async function main() {
-  // await startTelemetry();
-
-  // initObservability({
-  //   tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
-  //   metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
-  // });
+  initObservability({
+    tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
+    metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
+  });
 
   initEvaluation({
     enabled: process.env.AI_RUNTIME_EVAL_ENABLED === '1',
@@ -108,9 +104,21 @@ async function main() {
   // 3. Start worker
   // -------------------------------------------------------------------------
 
-  await createWorker({
+  const handle = await createWorker({
     workflowsPath: require.resolve('./workflows'),
   });
+
+  const shutdown = (): void => {
+    handle.shutdown().catch((err) => {
+      console.error('Worker shutdown error:', err);
+      process.exit(1);
+    });
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
+  await handle.run();
 }
 
 main().catch((err) => {
