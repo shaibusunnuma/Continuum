@@ -7,9 +7,12 @@ import dotenv from 'dotenv';
 dotenv.config({ path: path.join(path.resolve(__dirname, '..'), '.env') });
 
 import { Pool } from 'pg';
-import { metrics, buildMetricContext } from '../src/eval/metrics';
-import { printDatasetSummary } from '../src/eval/report';
-import type { MetricImpl } from '../src/eval/metrics';
+import {
+  metrics,
+  buildMetricContext,
+  printDatasetSummary,
+  type MetricImpl,
+} from '@ai-runtime/eval';
 
 type Args = {
   dataset: string; // name:version
@@ -125,21 +128,33 @@ async function main(): Promise<void> {
       metricIds.set(row.name as string, row.id as string);
     }
 
+    // Load each example with its run's variant_id so we only score against the variant that produced it
     const examplesRes = await client.query(
       `
         select e.id,
                e.input,
                e.output,
-               e.context
+               e.context,
+               r.variant_id
         from eval_dataset_examples de
         join eval_examples e on de.example_id = e.id
+        join eval_runs r on e.run_id = r.id
         where de.dataset_id = $1
       `,
       [datasetId],
     );
 
+    const requestedVariantIds = new Set(
+      args.variants
+        .map((name) => variantsByName.get(name))
+        .filter((id): id is string => id != null),
+    );
+
     let inserted = 0;
     for (const exampleRow of examplesRes.rows) {
+      const variantId = exampleRow.variant_id as string | null;
+      if (!variantId || !requestedVariantIds.has(variantId)) continue;
+
       const example = {
         id: exampleRow.id as string,
         runId: '', // not needed for metrics
@@ -149,32 +164,27 @@ async function main(): Promise<void> {
       };
       const ctx = buildMetricContext(example);
 
-      for (const variantName of args.variants) {
-        const variantId = variantsByName.get(variantName);
-        if (!variantId) continue;
+      for (const [metricName, impl] of metricImpls) {
+        const metricId = metricIds.get(metricName);
+        if (!metricId) continue;
 
-        for (const [metricName, impl] of metricImpls) {
-          const metricId = metricIds.get(metricName);
-          if (!metricId) continue;
-
-          const result = await impl.run(ctx);
-          await client.query(
-            `
-              insert into eval_scores (dataset_id, example_id, variant_id, metric_id, score, label, details)
-              values ($1, $2, $3, $4, $5, $6, $7)
-            `,
-            [
-              datasetId,
-              example.id,
-              variantId,
-              metricId,
-              result.score,
-              result.label ?? null,
-              result.details ? JSON.stringify(result.details) : null,
-            ],
-          );
-          inserted++;
-        }
+        const result = await impl.run(ctx);
+        await client.query(
+          `
+            insert into eval_scores (dataset_id, example_id, variant_id, metric_id, score, label, details)
+            values ($1, $2, $3, $4, $5, $6, $7)
+          `,
+          [
+            datasetId,
+            example.id,
+            variantId,
+            metricId,
+            result.score,
+            result.label ?? null,
+            result.details ? JSON.stringify(result.details) : null,
+          ],
+        );
+        inserted++;
       }
     }
 

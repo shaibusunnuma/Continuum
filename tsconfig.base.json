@@ -3,19 +3,12 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
-    "baseUrl": ".",
-    "paths": {
-      "@ai-runtime/sdk/workflow": ["node_modules/@ai-runtime/sdk/dist/sdk/workflow"]
-    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist",
-    "rootDir": ".",
     "declaration": true,
     "resolveJsonModule": true
   },
-  "include": ["examples/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,0 +1,27 @@
+{
+  "name": "@ai-runtime/server",
+  "version": "0.1.0",
+  "description": "AI Runtime REST API server",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/api/index.js"
+  },
+  "dependencies": {
+    "@ai-runtime/sdk": "*",
+    "@temporalio/client": "^1.15.0",
+    "fastify": "^5.8.2",
+    "nanoid": "^5.1.6",
+    "dotenv": "^17.3.1"
+  },
+  "devDependencies": {
+    "@opentelemetry/exporter-prometheus": "^0.52.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.52.1",
+    "@opentelemetry/resources": "^1.25.1",
+    "@opentelemetry/sdk-node": "^0.52.1",
+    "@opentelemetry/semantic-conventions": "^1.25.1",
+    "@types/node": "^25.3.5",
+    "dotenv": "^17.3.1",
+    "typescript": "^5.9.3"
+  }
+}

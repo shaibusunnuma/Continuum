@@ -1,0 +1,19 @@
+{
+  "name": "@ai-runtime/eval",
+  "version": "0.1.0",
+  "description": "AI Runtime evaluation capture and metrics",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@ai-runtime/sdk": "*",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "@types/pg": "^8.18.0",
+    "typescript": "^5.9.3"
+  }
+}
