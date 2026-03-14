@@ -6,7 +6,9 @@
     "build": "tsc",
     "api": "ts-node src/api/index.ts",
     "worker:examples": "ts-node examples/worker.ts",
-    "start": "npm run api"
+    "start": "npm run api",
+    "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
+    "eval:run": "ts-node scripts/eval-run.ts"
   },
   "dependencies": {
     "@temporalio/activity": "^1.15.0",
@@ -17,6 +19,7 @@
     "dotenv": "^17.3.1",
     "fastify": "^5.8.2",
     "nanoid": "^5.1.6",
+    "pg": "^8.20.0",
     "token-costs": "^3.5.0",
     "zod": "^4.3.6"
   },
@@ -28,6 +31,7 @@
     "@opentelemetry/sdk-node": "^0.52.1",
     "@opentelemetry/semantic-conventions": "^1.25.1",
     "@types/node": "^25.3.5",
+    "@types/pg": "^8.18.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

@@ -1,8 +1,5 @@
 import { generateText, type ModelMessage } from 'ai';
-import {
-  getModelInstance,
-  getModelOptions,
-} from '../ai/model-registry';
+import { getModelInstance, getModelOptions } from '../ai/model-registry';
 import { getToolDefinition, getAISDKTools } from '../ai/tool-registry';
 import { calculateCostUsd } from '../ai/cost';
 import { withSpan } from '../obs';
@@ -20,6 +17,8 @@ import type {
   Message,
   ToolCall,
 } from '../types';
+import type { EvalCaptureParams } from '../../eval/types';
+import { recordEvalRun } from '../../eval/capture';
 
 // ---------------------------------------------------------------------------
 // runModel — calls an LLM via Vercel AI SDK
@@ -207,6 +206,16 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       costUsd: result.costUsd,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// recordEvalRunActivity — bridges workflow code to evaluation capture
+// ---------------------------------------------------------------------------
+
+export async function recordEvalRunActivity(
+  params: EvalCaptureParams,
+): Promise<void> {
+  await recordEvalRun(params);
 }
 
 // ---------------------------------------------------------------------------

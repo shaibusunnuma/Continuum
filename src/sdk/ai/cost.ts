@@ -26,9 +26,9 @@ export async function calculateCostUsd(
       outputTokens: usage.completionTokens,
     });
     return result.totalCost;
-  } catch {
+  } catch (error) {
     console.warn(
-      `[ai-runtime] Cost data unavailable for ${provider}/${model}, reporting $0`,
+      `[ai-runtime] Cost data unavailable for ${provider}/${model}, reporting $0`, error
     );
     return 0;
   }

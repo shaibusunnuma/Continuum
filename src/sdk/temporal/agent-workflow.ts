@@ -11,7 +11,9 @@ import type {
   Usage,
 } from '../types';
 
-const { runModel, runTool } = wf.proxyActivities<typeof sdkActivities>({
+const { runModel, runTool, recordEvalRunActivity } = wf.proxyActivities<
+  typeof sdkActivities
+>({
   startToCloseTimeout: '5 minutes',
   retry: { maximumAttempts: 3 },
 });
@@ -85,12 +87,25 @@ export function agent(
 
       if (result.toolCalls.length === 0) {
         messages.push({ role: 'assistant', content: result.content });
-        return {
+
+        const finalResult: AgentResult = {
           reply: result.content,
           finishReason: 'complete',
           steps: stepCount,
           usage: totalUsage,
         };
+
+        await recordEvalRunActivity({
+          kind: 'agent',
+          name,
+          workflowId: info.workflowId,
+          runId: info.runId,
+          modelId: config.model,
+          input,
+          output: finalResult,
+        });
+
+        return finalResult;
       }
 
       messages.push({
@@ -121,12 +136,24 @@ export function agent(
 
     const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
 
-    return {
+    const finalResult: AgentResult = {
       reply: lastAssistant?.content ?? '',
       finishReason,
       steps: stepCount,
       usage: totalUsage,
     };
+
+    await recordEvalRunActivity({
+      kind: 'agent',
+      name,
+      workflowId: info.workflowId,
+      runId: info.runId,
+      modelId: config.model,
+      input,
+      output: finalResult,
+    });
+
+    return finalResult;
   };
 
   Object.defineProperty(agentFn, 'name', { value: name });

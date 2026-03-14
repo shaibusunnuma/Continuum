@@ -17,6 +17,9 @@ export type { CreateWorkerConfig } from './temporal/worker-factory';
 // Observability
 export { initObservability, type ObservabilityConfig } from './obs';
 
+// Evaluation (Phase 4)
+export { initEvaluation } from '../eval/config';
+
 // Types
 export type {
   WorkflowContext,

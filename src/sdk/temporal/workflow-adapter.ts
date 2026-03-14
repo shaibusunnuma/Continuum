@@ -13,7 +13,9 @@ import type {
   RunMetadata,
 } from '../types';
 
-const { runModel, runTool } = wf.proxyActivities<typeof sdkActivities>({
+const { runModel, runTool, recordEvalRunActivity } = wf.proxyActivities<
+  typeof sdkActivities
+>({
   startToCloseTimeout: '5 minutes',
   retry: { maximumAttempts: 3 },
 });
@@ -102,7 +104,19 @@ export function workflow<TInput, TOutput>(
       } as RunMetadata,
     };
 
-    return fn(ctx);
+    const result = await fn(ctx);
+
+    // Fire-and-forget evaluation capture; failures are logged in the activity.
+    await recordEvalRunActivity({
+      kind: 'workflow',
+      name,
+      workflowId: info.workflowId,
+      runId: info.runId,
+      input,
+      output: result,
+    });
+
+    return result;
   };
 
   Object.defineProperty(workflowFn, 'name', { value: name });

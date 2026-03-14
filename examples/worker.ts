@@ -9,15 +9,27 @@
 import '../src/shared/config';
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
-import { defineModels, defineTool, createWorker, initObservability } from '../src/sdk';
+import {
+  defineModels,
+  defineTool,
+  createWorker,
+  initObservability,
+  initEvaluation,
+} from '../src/sdk';
 import { startTelemetry } from '../src/otel';
 
 async function main() {
-  await startTelemetry();
+  // await startTelemetry();
 
-  initObservability({
-    tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
-    metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
+  // initObservability({
+  //   tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
+  //   metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
+  // });
+
+  initEvaluation({
+    enabled: process.env.AI_RUNTIME_EVAL_ENABLED === '1',
+    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
+    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
   // -------------------------------------------------------------------------

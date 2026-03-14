@@ -12,7 +12,7 @@ import { agent } from '../src/sdk/temporal/agent-workflow';
 // ---------------------------------------------------------------------------
 
 export const customerSupport = workflow(
-  'customer-support',
+  'customerSupport',
   async (ctx: import('../src/sdk/types').WorkflowContext<{ message: string; orderId?: string }>) => {
     const classification = await ctx.model('fast', {
       prompt: `Classify this customer message into one of: refund, tracking, general.\n\nMessage: "${ctx.input.message}"\n\nRespond with just the category.`,

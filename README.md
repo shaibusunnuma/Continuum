@@ -91,6 +91,7 @@ Set at least:
 - `TASK_QUEUE=ai-runtime`
 - `API_PORT=3000`
 - `OPENAI_API_KEY=...` (or another supported provider key you wire up via `defineModels()`)
+ - (optional, Phase 4) `AI_RUNTIME_EVAL_DB_URL=postgres://user:pass@localhost:5432/ai_runtime_eval`
 
 ## 3. Install dependencies
 
@@ -250,3 +251,5 @@ This starts:
 | `npm run worker:examples` | Start the Phase 2 examples worker (SDK workflows + agents) |
 | `npm run build`       | Compile TypeScript to dist            |
 | `npm run start`       | Alias for `npm run api`               |
+| `npm run eval:build-dataset` | Build a versioned evaluation dataset from captured runs (Phase 4) |
+| `npm run eval:run`    | Run evaluation metrics over a dataset and print a summary (Phase 4) |
