@@ -1,0 +1,28 @@
+{
+  "name": "@ai-runtime/sdk",
+  "version": "0.1.0",
+  "description": "AI Runtime SDK — durable workflows and agents on Temporal",
+  "main": "dist/sdk/index.js",
+  "types": "dist/sdk/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/sdk/index.d.ts", "default": "./dist/sdk/index.js" },
+    "./workflow": { "types": "./dist/sdk/workflow.d.ts", "default": "./dist/sdk/workflow.js" }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@temporalio/activity": "^1.15.0",
+    "@temporalio/worker": "^1.15.0",
+    "@temporalio/workflow": "^1.15.0",
+    "ai": "^6.0.116",
+    "dotenv": "^17.3.1",
+    "token-costs": "^3.5.0",
+    "zod": "^4.3.6",
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  }
+}
