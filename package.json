@@ -11,7 +11,7 @@
     "build": "turbo run build",
     "api": "node packages/server/dist/api/index.js",
     "api:dev": "ts-node packages/server/src/api/index.ts",
-    "worker:examples": "ts-node examples/worker.ts",
+    "worker:examples": "cd examples && npm run worker",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts"
@@ -21,7 +21,6 @@
     "@ai-runtime/eval": "*"
   },
   "devDependencies": {
-    "@ai-sdk/openai": "^3.0.41",
     "@types/node": "^25.3.5",
     "@types/pg": "^8.18.0",
     "dotenv": "^17.3.1",
