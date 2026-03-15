@@ -1,0 +1,69 @@
+# AI Runtime API — use with REST Client (VS Code extension: REST Client by Huachao Mao)
+# Click "Send Request" above a request block, or use the shortcut.
+
+@base = http://localhost:3000
+@workflowId = <paste workflowId from start response>
+
+### ---------------------------------------------------------------------------
+### Workflows (run worker:customer-support for customerSupport, worker:research-assistant for contentBrief)
+### ---------------------------------------------------------------------------
+
+### Start customer-support workflow
+POST {{base}}/workflows/start
+Content-Type: application/json
+
+{
+  "workflowType": "customerSupport",
+  "input": {
+    "message": "I want a refund for my order",
+    "orderId": "ORD-123"
+  }
+}
+
+### Start content-brief workflow (research-assistant worker)
+POST {{base}}/workflows/start
+Content-Type: application/json
+
+{
+  "workflowType": "contentBrief",
+  "input": {
+    "topic": "Sustainable packaging in e-commerce",
+    "audience": "B2B"
+  }
+}
+
+### ---------------------------------------------------------------------------
+### Agents (customer-support: travelAgent | research-assistant: researchAssistant)
+### ---------------------------------------------------------------------------
+
+### Start travel agent
+POST {{base}}/agents/start
+Content-Type: application/json
+
+{
+  "agentName": "travelAgent",
+  "input": {
+    "message": "Search for flights from NYC to London on March 15th."
+  }
+}
+
+### Start research assistant
+POST {{base}}/agents/start
+Content-Type: application/json
+
+{
+  "agentName": "researchAssistant",
+  "input": {
+    "message": "What is the latest news on the war in Iran?"
+  }
+}
+
+### ---------------------------------------------------------------------------
+### Runs (use workflowId from start response)
+### ---------------------------------------------------------------------------
+
+### Get run status
+GET {{base}}/runs/{{workflowId}}
+
+### Get run result (wait until status is COMPLETED)
+GET {{base}}/runs/{{workflowId}}/result
