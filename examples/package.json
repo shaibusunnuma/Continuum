@@ -8,10 +8,11 @@
     "worker:research-assistant": "ts-node research-assistant/worker.ts"
   },
   "dependencies": {
-    "@ai-runtime/sdk": "file:../packages/sdk",
     "@ai-runtime/eval": "file:../packages/eval",
+    "@ai-runtime/sdk": "file:../packages/sdk",
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.41",
+    "@tavily/core": "^0.7.2",
     "dotenv": "^17.3.1",
     "zod": "^4.3.6"
   },

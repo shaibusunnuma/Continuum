@@ -9,8 +9,8 @@ Durable workflow runtime for AI agents and tools, built on Temporal and the Verc
 ```mermaid
 flowchart LR
   subgraph userCode [User app code]
-    WF[workflow()/agent() definitions\nexamples/workflows.ts]
-    CFG[defineModels()/defineTool()\nexamples/worker.ts]
+    WF[workflow()/agent() definitions\nexamples/<name>/workflows.ts]
+    CFG[defineModels()/defineTool()\nexamples/<name>/worker.ts]
   end
 
   subgraph sdk [SDK]
@@ -99,21 +99,32 @@ From the project root:
 
 ```bash
 npm install
+cd examples && npm install
 ```
 
-## 4. Run the Phase 2 examples (SDK workflows and agents)
+The monorepo packages (`sdk`, `eval`, `server`) are installed at the root. The **examples** folder has its own `package.json` and dependencies (install from root then run `npm install` in `examples/`).
 
-Use the **examples worker** to run SDK-based workflows and agents.
+## 4. Run the examples (SDK workflows and agents)
 
-**Terminal 1 — Examples worker (SDK workflows + runModel/runTool):**
+Each example lives in its own folder under `examples/` and has its own worker. Run **one** example worker at a time.
+
+**Terminal 1 — Example worker**
+
+For the customer-support and travel-agent workflows/agents (OpenAI):
 
 ```bash
-npm run worker:examples
+npm run worker:customer-support
+```
+
+For the research-assistant example (Gemini):
+
+```bash
+npm run worker:research-assistant
 ```
 
 Wait for: `[ai-runtime] Worker started — task queue: ai-runtime`
 
-**Terminal 2 — Runtime API:**
+**Terminal 2 — Runtime API**
 
 ```bash
 npm run api
@@ -121,7 +132,11 @@ npm run api
 
 Wait for: `Runtime API listening on port 3000`
 
+See **examples/README.md** for the list of examples and which env vars each needs (`OPENAI_API_KEY` for customer-support, `GEMINI_API_KEY` for research-assistant).
+
 ## 5. Test the example workflows and agents
+
+Run the **customer-support** worker first (`npm run worker:customer-support`) so the following workflows and agents are registered.
 
 ### 5.1 Customer-support workflow
 
@@ -141,7 +156,7 @@ curl -s http://localhost:3000/runs/<workflowId>/result
 
 You should see `status: "COMPLETED"` and a `result` with `reply`, `intent`, and `cost`.
 
-### 5.2 Travel agent
+### 5.2 Travel agent (same worker)
 
 Start the agent (use the **export name** `travelAgent` as `agentName`):
 
@@ -159,7 +174,11 @@ curl -s http://localhost:3000/runs/<workflowId>/result
 
 You should see `status: "COMPLETED"`, `result.reply` with flight options, `result.steps` (e.g. 2), and `result.usage`.
 
-### 5.3 Optional: check run status
+### 5.3 Research-assistant example (different worker)
+
+If you run `npm run worker:research-assistant` instead, you can test the **contentBrief** workflow and **researchAssistant** agent. Use `workflowType: "contentBrief"` with `input: { "topic": "...", "audience": "..." }`, or `agentName: "researchAssistant"` with `input: { "message": "..." }`. Set `GEMINI_API_KEY` in `.env`.
+
+### 5.4 Optional: check run status
 
 ```bash
 curl -s http://localhost:3000/runs/<workflowId>
@@ -188,8 +207,8 @@ docker run --rm -p 16686:16686 -p 4318:4318 \
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces
 export AI_RUNTIME_ENABLE_TRACING=1
 
-# Terminal 1
-npm run worker:examples
+# Terminal 1 (run one example worker)
+npm run worker:customer-support
 
 # Terminal 2
 npm run api
@@ -209,11 +228,11 @@ AI_RUNTIME_ENABLE_METRICS=1
 # AI_RUNTIME_PROMETHEUS_PORT=9464
 ```
 
-**2. Start the examples worker and API** (as above, from project root):
+**2. Start an example worker and the API** (from project root):
 
 ```bash
-npm run worker:examples   # Terminal 1
-npm run api               # Terminal 2
+npm run worker:customer-support   # Terminal 1 (or worker:research-assistant)
+npm run api                        # Terminal 2
 ```
 
 **3. Start Prometheus + Grafana with Docker Compose:**
@@ -240,16 +259,15 @@ This starts:
 
 ---
 
-**Note:** For Phase 2 tests use `npm run worker:examples`. The Phase 1 worker (`npm run worker`) only has the Echo workflow and will not run SDK workflows or agents.
-
 ## Scripts
 
-| Script                | Description                           |
-|-----------------------|---------------------------------------|
-| `npm run api`         | Start the Runtime API                 |
-| `npm run worker`      | Start the Phase 1 worker (Echo only, legacy) |
-| `npm run worker:examples` | Start the Phase 2 examples worker (SDK workflows + agents) |
-| `npm run build`       | Compile TypeScript to dist            |
-| `npm run start`       | Alias for `npm run api`               |
+| Script | Description |
+|--------|-------------|
+| `npm run build` | Build all packages (turbo) |
+| `npm run api` | Start the Runtime API server |
+| `npm run api:dev` | Start the API with ts-node (dev) |
+| `npm run start` | Alias for `npm run api` |
+| `npm run worker:customer-support` | Run the customer-support example worker (OpenAI; workflows + travel agent) |
+| `npm run worker:research-assistant` | Run the research-assistant example worker (Gemini; content brief + research agent) |
 | `npm run eval:build-dataset` | Build a versioned evaluation dataset from captured runs (Phase 4) |
-| `npm run eval:run`    | Run evaluation metrics over a dataset and print a summary (Phase 4) |
+| `npm run eval:run` | Run evaluation metrics over a dataset and print a summary (Phase 4) |

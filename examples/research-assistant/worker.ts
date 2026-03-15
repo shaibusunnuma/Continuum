@@ -5,6 +5,7 @@
  */
 import path from 'path';
 import dotenv from 'dotenv';
+import { tavily } from "@tavily/core";
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -15,12 +16,15 @@ import {
   defineTool,
   createWorker,
   initObservability,
+  defineTools,
 } from '@ai-runtime/sdk';
 import { initEvaluation } from '@ai-runtime/eval';
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
+
+const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 async function main() {
   initObservability({
@@ -35,29 +39,30 @@ async function main() {
   });
 
   defineModels({
-    fast: google('gemini-2.0-flash'),
-    reasoning: google('gemini-1.5-pro'),
+    fast: google('gemini-2.5-flash'),
+    reasoning: google('gemini-2.5-pro'),
   });
 
-  defineTool({
+  defineTools([{
     name: 'search_web',
     description: 'Search the web for information. Use for factual or up-to-date queries.',
     input: z.object({ query: z.string() }),
     output: z.array(
       z.object({
         title: z.string(),
-        snippet: z.string(),
+        content: z.string(),
         url: z.string().optional(),
       }),
     ),
-    execute: async ({ query }) => [
-      {
-        title: `Results for: ${query}`,
-        snippet: `Sample snippet for "${query}". Replace with real search API (e.g. Serper, Tavily).`,
-        url: 'https://example.com',
-      },
-    ],
-  });
+    execute: async ({ query }) => {
+      const response = await tvly.search(query);
+      return response.results.map((result) => ({
+        title: result.title,
+        content: result.content,
+        url: result.url,
+      }));
+    }
+  }]);
 
   defineTool({
     name: 'save_note',
