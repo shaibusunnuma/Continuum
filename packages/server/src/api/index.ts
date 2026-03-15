@@ -1,12 +1,12 @@
 import Fastify from 'fastify';
 import { config } from '../config';
 import { initObservability } from '@ai-runtime/sdk';
-import { startTelemetry } from '../otel';
+import { startTelemetry, shutdownTelemetry } from '../otel';
 import { workflowsRoutes } from './routes/workflows';
 import { agentsRoutes } from './routes/agents';
 import { runsRoutes } from './routes/runs';
 
-async function main() {
+async function main(): Promise<void> {
   await startTelemetry();
 
   initObservability({
@@ -27,6 +27,32 @@ async function main() {
     fastify.log.error(err);
     process.exit(1);
   }
+
+  const shutdown = async (): Promise<void> => {
+    await shutdownTelemetry();
+    try {
+      await fastify.close();
+    } catch (err) {
+      fastify.log.error(err);
+    }
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => {
+    shutdown().catch((err) => {
+      fastify.log.error(err);
+      process.exit(1);
+    });
+  });
+  process.on('SIGTERM', () => {
+    shutdown().catch((err) => {
+      fastify.log.error(err);
+      process.exit(1);
+    });
+  });
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

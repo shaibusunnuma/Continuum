@@ -46,8 +46,14 @@ export class ToolNotRegisteredError extends AiRuntimeError {
 /** Thrown when tool input fails Zod validation in runTool activity. */
 export class ToolValidationError extends AiRuntimeError {
   constructor(toolName: string, details: unknown) {
+    let detailsStr: string;
+    try {
+      detailsStr = JSON.stringify(details);
+    } catch {
+      detailsStr = '[unserializable details]';
+    }
     super(
-      `Tool "${toolName}" input validation failed: ${JSON.stringify(details)}`,
+      `Tool "${toolName}" input validation failed: ${detailsStr}`,
       ERROR_CODES.TOOL_VALIDATION,
     );
   }

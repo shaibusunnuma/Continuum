@@ -32,7 +32,7 @@ export async function workflowsRoutes(
               workflowId: { type: 'string' },
               runId: { type: 'string' },
             },
-            required: ['workflowId', 'runId'],
+            required: ['workflowId'],
           },
         },
       },
@@ -46,10 +46,13 @@ export async function workflowsRoutes(
           workflowId,
           args: [request.body.input],
         });
-        return reply.status(201).send({
+        const body: { workflowId: string; runId?: string } = {
           workflowId: handle.workflowId,
-          runId: handle.firstExecutionRunId ?? '',
-        });
+        };
+        if (handle.firstExecutionRunId != null) {
+          body.runId = handle.firstExecutionRunId;
+        }
+        return reply.status(201).send(body);
       } catch (err) {
         request.log.error(err);
         return reply.status(502).send({

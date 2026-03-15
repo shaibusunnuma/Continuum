@@ -1,11 +1,17 @@
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 
 export async function printDatasetSummary(
   dbUrl: string,
   datasetId: string,
 ): Promise<void> {
   const pool = new Pool({ connectionString: dbUrl });
-  const client = await pool.connect();
+  let client: PoolClient;
+  try {
+    client = await pool.connect();
+  } catch (err) {
+    await pool.end();
+    throw err;
+  }
   try {
     const res = await client.query(
       `

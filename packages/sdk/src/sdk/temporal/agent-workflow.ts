@@ -20,8 +20,6 @@ const { runModel, runTool, runLifecycleHooks } = wf.proxyActivities<
   retry: { maximumAttempts: 3 },
 });
 
-const userInputSignal = wf.defineSignal<[unknown]>('agent-user-input');
-
 function validateAgentConfig(name: string, config: AgentConfig): void {
   if (typeof name !== 'string' || name.trim() === '') {
     throw new ConfigurationError('Agent name must be a non-empty string.');
@@ -58,11 +56,6 @@ export function agent(
       runId: info.runId,
       agentName: name,
     };
-
-    const inputQueue: unknown[] = [];
-    wf.setHandler(userInputSignal, (data: unknown) => {
-      inputQueue.push(data);
-    });
 
     const messages: Message[] = [
       { role: 'system', content: config.instructions },

@@ -1,6 +1,15 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { getTemporalClient } from '../temporal';
 
+function isNotFoundError(err: unknown): boolean {
+  if (err instanceof Error) {
+    if (err.message.toLowerCase().includes('not found')) return true;
+    const code = (err as { code?: string }).code;
+    if (code === 'NOT_FOUND') return true;
+  }
+  return false;
+}
+
 export async function runsRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
@@ -33,8 +42,9 @@ export async function runsRoutes(
         });
       } catch (err) {
         request.log.error(err);
-        return reply.status(404).send({
-          error: 'Run not found',
+        const status = isNotFoundError(err) ? 404 : 500;
+        return reply.status(status).send({
+          error: status === 404 ? 'Run not found' : 'Internal server error',
           message: err instanceof Error ? err.message : String(err),
         });
       }
@@ -86,8 +96,9 @@ export async function runsRoutes(
         });
       } catch (err) {
         request.log.error(err);
-        return reply.status(404).send({
-          error: 'Run not found',
+        const status = isNotFoundError(err) ? 404 : 500;
+        return reply.status(status).send({
+          error: status === 404 ? 'Run not found' : 'Internal server error',
           message: err instanceof Error ? err.message : String(err),
         });
       }

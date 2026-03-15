@@ -91,7 +91,7 @@ Set at least:
 - `TASK_QUEUE=ai-runtime`
 - `API_PORT=3000`
 - `OPENAI_API_KEY=...` (or another supported provider key you wire up via `defineModels()`)
- - (optional, Phase 4) `AI_RUNTIME_EVAL_DB_URL=postgres://user:pass@localhost:5432/ai_runtime_eval`
+- (optional, Phase 4) `AI_RUNTIME_EVAL_DB_URL=postgres://user:pass@localhost:5432/ai_runtime_eval`
 
 ## 3. Install dependencies
 

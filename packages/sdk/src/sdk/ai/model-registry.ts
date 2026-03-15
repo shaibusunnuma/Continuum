@@ -33,7 +33,8 @@ function isValidLanguageModel(value: unknown): value is LanguageModel {
   return (
     value != null &&
     typeof value === 'object' &&
-    ('specificationVersion' in value || 'provider' in value)
+    'specificationVersion' in value &&
+    'provider' in value
   );
 }
 
@@ -61,10 +62,12 @@ function validateModelConfig(
     }
     if (
       value.maxTokens !== undefined &&
-      (typeof value.maxTokens !== 'number' || value.maxTokens < 1)
+      (typeof value.maxTokens !== 'number' ||
+        !Number.isInteger(value.maxTokens) ||
+        value.maxTokens < 1)
     ) {
       throw new ConfigurationError(
-        `Model "${id}": maxTokens must be a positive number if set.`,
+        `Model "${id}": maxTokens must be a positive integer if set.`,
       );
     }
   } else if (!isValidLanguageModel(value)) {

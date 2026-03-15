@@ -24,14 +24,30 @@ function parseArgs(argv: string[]): Args {
   const args: Partial<Args> = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--dataset') args.dataset = argv[++i];
-    else if (arg === '--variants')
-      args.variants = argv[++i].split(',').map((s) => s.trim());
-    else if (arg === '--metrics')
-      args.metricNames = argv[++i].split(',').map((s) => s.trim());
+    if (i + 1 >= argv.length) {
+      // eslint-disable-next-line no-console
+      console.error(`Missing value for ${arg}`);
+      process.exit(1);
+    }
+    const val = argv[i + 1];
+    if (arg === '--dataset') {
+      if (typeof val !== 'string' || val.trim() === '') {
+        // eslint-disable-next-line no-console
+        console.error('--dataset must be non-empty (e.g. mydataset:1)');
+        process.exit(1);
+      }
+      args.dataset = val.trim();
+      i++;
+    } else if (arg === '--variants') {
+      args.variants = val.split(',').map((s) => s.trim()).filter(Boolean);
+      i++;
+    } else if (arg === '--metrics') {
+      args.metricNames = val.split(',').map((s) => s.trim()).filter(Boolean);
+      i++;
+    }
   }
 
-  if (!args.dataset || !args.variants || !args.metricNames) {
+  if (!args.dataset || !args.variants?.length || !args.metricNames?.length) {
     // eslint-disable-next-line no-console
     console.error(
       'Usage: eval-run --dataset <name:version> --variants v1,v2 --metrics helpfulness,exact_match',
@@ -51,8 +67,18 @@ async function main(): Promise<void> {
   }
 
   const args = parseArgs(process.argv.slice(2));
+  if (typeof args.dataset !== 'string' || !args.dataset.includes(':')) {
+    // eslint-disable-next-line no-console
+    console.error('--dataset must be in format name:version (e.g. mydataset:1)');
+    process.exit(1);
+  }
   const [datasetName, versionStr] = args.dataset.split(':');
   const datasetVersion = Number(versionStr);
+  if (!Number.isFinite(datasetVersion) || !Number.isInteger(datasetVersion)) {
+    // eslint-disable-next-line no-console
+    console.error(`Invalid dataset version in "${args.dataset}": expected an integer`);
+    process.exit(1);
+  }
 
   const pool = new Pool({ connectionString: dbUrl });
   const client = await pool.connect();

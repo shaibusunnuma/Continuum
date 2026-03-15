@@ -20,14 +20,33 @@ function parseArgs(argv: string[]): Args {
   const args: Partial<Args> = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--name') args.name = argv[++i];
-    else if (arg === '--version') args.version = Number(argv[++i]);
-    else if (arg === '--workflow') args.workflow = argv[++i];
-    else if (arg === '--from') args.from = argv[++i];
-    else if (arg === '--to') args.to = argv[++i];
+    if (i + 1 >= argv.length) break;
+    const val = argv[i + 1];
+    if (arg === '--name') {
+      args.name = val;
+      i++;
+    } else if (arg === '--version') {
+      const n = Number(val);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        // eslint-disable-next-line no-console
+        console.error('--version must be an integer');
+        process.exit(1);
+      }
+      args.version = n;
+      i++;
+    } else if (arg === '--workflow') {
+      args.workflow = val;
+      i++;
+    } else if (arg === '--from') {
+      args.from = val;
+      i++;
+    } else if (arg === '--to') {
+      args.to = val;
+      i++;
+    }
   }
 
-  if (!args.name || !args.version) {
+  if (!args.name || args.version == null) {
     // eslint-disable-next-line no-console
     console.error(
       'Usage: eval-build-dataset --name <name> --version <n> [--workflow <name>] [--from <iso>] [--to <iso>]',

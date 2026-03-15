@@ -51,8 +51,9 @@ export async function createWorker(cfg: CreateWorkerConfig): Promise<WorkerHandl
         await connection.close();
       }
     },
-    async shutdown(): Promise<void> {
+    shutdown(): Promise<void> {
       worker.shutdown();
+      return Promise.resolve();
     },
   };
 

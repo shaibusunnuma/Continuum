@@ -9,9 +9,18 @@ const traceExporter = new OTLPTraceExporter({
   url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
 });
 
+function parsePrometheusPort(): number {
+  const raw = process.env.AI_RUNTIME_PROMETHEUS_PORT ?? '9464';
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 65535) {
+    return 9464;
+  }
+  return n;
+}
+
 // Exposes metrics at http://localhost:9464/metrics for Prometheus/Grafana.
 const prometheusReader = new PrometheusExporter({
-  port: Number(process.env.AI_RUNTIME_PROMETHEUS_PORT ?? 9464),
+  port: parsePrometheusPort(),
   endpoint: '/metrics',
 });
 

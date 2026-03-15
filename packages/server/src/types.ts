@@ -5,5 +5,5 @@ export interface StartWorkflowRequest {
 
 export interface StartWorkflowResponse {
   workflowId: string;
-  runId: string;
+  runId?: string;
 }
