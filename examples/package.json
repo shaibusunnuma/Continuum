@@ -4,11 +4,13 @@
   "private": true,
   "description": "Example worker and workflows for AI Runtime SDK",
   "scripts": {
-    "worker": "ts-node worker.ts"
+    "worker:customer-support": "ts-node customer-support/worker.ts",
+    "worker:research-assistant": "ts-node research-assistant/worker.ts"
   },
   "dependencies": {
     "@ai-runtime/sdk": "file:../packages/sdk",
     "@ai-runtime/eval": "file:../packages/eval",
+    "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.41",
     "dotenv": "^17.3.1",
     "zod": "^4.3.6"

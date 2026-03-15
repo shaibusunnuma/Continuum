@@ -11,7 +11,8 @@
     "build": "turbo run build",
     "api": "node packages/server/dist/api/index.js",
     "api:dev": "ts-node packages/server/src/api/index.ts",
-    "worker:examples": "cd examples && npm run worker",
+    "worker:customer-support": "cd examples && npm run worker:customer-support",
+    "worker:research-assistant": "cd examples && npm run worker:research-assistant",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts"
