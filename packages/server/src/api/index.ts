@@ -29,9 +29,13 @@ async function main(): Promise<void> {
   }
 
   const shutdown = async (): Promise<void> => {
-    await shutdownTelemetry();
     try {
       await fastify.close();
+    } catch (err) {
+      fastify.log.error(err);
+    }
+    try {
+      await shutdownTelemetry();
     } catch (err) {
       fastify.log.error(err);
     }
