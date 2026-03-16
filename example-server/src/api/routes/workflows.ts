@@ -2,46 +2,43 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { nanoid } from 'nanoid';
 import { getTemporalClient } from '../temporal';
 import { config } from '../../config';
+import type { StartWorkflowResponse } from '../../types';
 
-const startAgentBodySchema = {
+const startWorkflowBodySchema = {
   type: 'object',
-  required: ['agentName', 'input'],
+  required: ['workflowType', 'input'],
   properties: {
-    agentName: { type: 'string' },
-    input: {
-      type: 'object',
-      required: ['message'],
-      properties: {
-        message: { type: 'string' },
-      },
-    },
+    workflowType: { type: 'string' },
+    input: { type: 'object' },
   },
 } as const;
 
-// Route each example agent to its dedicated task queue.
-// Unknown agent names fall back to the default config.TASK_QUEUE.
-const AGENT_TASK_QUEUE_MAP: Record<string, string> = {
-  travelAgent: 'ai-runtime-customer-support',
-  researchAssistant: 'ai-runtime-research-assistant',
-  reactAgent: 'ai-runtime-react',
-  memoryAgent: 'ai-runtime-memory-augmented',
-  planExecuteAgent: 'ai-runtime-plan-and-execute',
+// Route each example workflow type to its dedicated task queue.
+// Unknown workflow types fall back to the default config.TASK_QUEUE.
+const WORKFLOW_TASK_QUEUE_MAP: Record<string, string> = {
+  // Examples:
+  customerSupport: 'ai-runtime-customer-support',
+  contentBrief: 'ai-runtime-research-assistant',
+  dagWorkflow: 'ai-runtime-dag',
+  cognitiveWorkflow: 'ai-runtime-cognitive-layered',
+  treeSearchWorkflow: 'ai-runtime-tree-search',
+  reflectionWorkflow: 'ai-runtime-reflection',
+  multiAgentWorkflow: 'ai-runtime-multi-agent',
+  structuredLoopWorkflow: 'ai-runtime-structured-loop',
 };
 
-export async function agentsRoutes(
+export async function workflowsRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
 ): Promise<void> {
   fastify.post<{
-    Body: { agentName: string; input: { message: string } };
-    Reply:
-      | { workflowId: string; runId?: string }
-      | { error: string; message: string };
+    Body: { workflowType: string; input: Record<string, unknown> };
+    Reply: StartWorkflowResponse | { error: string; message: string };
   }>(
     '/start',
     {
       schema: {
-        body: startAgentBodySchema,
+        body: startWorkflowBodySchema,
         response: {
           201: {
             type: 'object',
@@ -57,11 +54,11 @@ export async function agentsRoutes(
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const workflowId = `agent-${nanoid()}`;
-        console.log('request.body.agentName', request.body.agentName);
+        const workflowId = `wf-${nanoid()}`;
         const taskQueue =
-          AGENT_TASK_QUEUE_MAP[request.body.agentName] ?? config.TASK_QUEUE;
-        const handle = await client.workflow.start(request.body.agentName, {
+          WORKFLOW_TASK_QUEUE_MAP[request.body.workflowType] ??
+          config.TASK_QUEUE;
+        const handle = await client.workflow.start(request.body.workflowType, {
           taskQueue,
           workflowId,
           args: [request.body.input],
@@ -76,7 +73,7 @@ export async function agentsRoutes(
       } catch (err) {
         request.log.error(err);
         return reply.status(502).send({
-          error: 'Failed to start agent',
+          error: 'Failed to start workflow',
           message: err instanceof Error ? err.message : String(err),
         });
       }

@@ -102,7 +102,7 @@ npm install
 cd examples && npm install
 ```
 
-The monorepo packages (`sdk`, `eval`, `server`) are installed at the root. The **examples** folder has its own `package.json` and dependencies (install from root then run `npm install` in `examples/`).
+The monorepo has `packages/sdk`, `packages/eval`, and an example REST API in `example-server/`. The **examples** folder has its own `package.json` and dependencies (install from root then run `npm install` in `examples/`).
 
 ## 4. Run the examples (SDK workflows and agents)
 

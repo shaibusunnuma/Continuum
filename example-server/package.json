@@ -1,8 +1,8 @@
 {
-  "name": "@ai-runtime/server",
+  "name": "example-server",
   "version": "0.1.0",
-  "description": "AI Runtime REST API server",
   "private": true,
+  "description": "Example REST API server for AI Runtime (start workflows/agents, get run status/result)",
   "scripts": {
     "build": "tsc",
     "start": "node dist/api/index.js"

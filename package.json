@@ -5,12 +5,13 @@
   "description": "AI Application Runtime",
   "packageManager": "npm@10.0.0",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "example-server"
   ],
   "scripts": {
     "build": "turbo run build",
-    "api": "node packages/server/dist/api/index.js",
-    "api:dev": "ts-node packages/server/src/api/index.ts",
+    "api": "node example-server/dist/api/index.js",
+    "api:dev": "ts-node example-server/src/api/index.ts",
     "worker:customer-support": "cd examples && npm run worker:customer-support",
     "worker:research-assistant": "cd examples && npm run worker:research-assistant",
     "worker:react": "cd examples && npm run worker:react",

@@ -60,4 +60,3 @@ export async function shutdownTelemetry(): Promise<void> {
     console.error('Failed to shut down OpenTelemetry SDK:', err);
   }
 }
-
