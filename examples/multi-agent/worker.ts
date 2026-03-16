@@ -28,7 +28,7 @@ async function main() {
   });
 
   initEvaluation({
-    enabled: process.env.AI_RUNTIME_EVAL_ENABLED === '1',
+    enabled: false,
     dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
