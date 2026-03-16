@@ -1,0 +1,34 @@
+# Memory-Augmented — REST Client (VS Code: REST Client by Huachao Mao)
+# Run worker: npm run worker:memory-augmented (from repo root)
+# First request stores a fact; second request asks so the agent uses recall.
+
+@base = http://localhost:3000
+@workflowId = <paste workflowId from start response>
+
+### Store a fact (triggers remember_fact)
+POST {{base}}/agents/start
+Content-Type: application/json
+
+{
+  "agentName": "memoryAgent",
+  "input": {
+    "message": "Remember that my favorite color is blue and I work in Paris."
+  }
+}
+
+### Ask so agent uses recall
+POST {{base}}/agents/start
+Content-Type: application/json
+
+{
+  "agentName": "memoryAgent",
+  "input": {
+    "message": "What is my favorite color and where do I work?"
+  }
+}
+
+### Get run status
+GET {{base}}/runs/{{workflowId}}
+
+### Get run result (wait until status is COMPLETED)
+GET {{base}}/runs/{{workflowId}}/result
