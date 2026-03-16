@@ -1,0 +1,34 @@
+# Research Assistant — REST Client (VS Code: REST Client by Huachao Mao)
+# Run worker: npm run worker:research-assistant (from repo root)
+
+@base = http://localhost:3000
+@workflowId = <paste workflowId from start response>
+
+### Start content-brief workflow
+POST {{base}}/workflows/start
+Content-Type: application/json
+
+{
+  "workflowType": "contentBrief",
+  "input": {
+    "topic": "Sustainable packaging in e-commerce",
+    "audience": "B2B"
+  }
+}
+
+### Start research assistant agent
+POST {{base}}/agents/start
+Content-Type: application/json
+
+{
+  "agentName": "researchAssistant",
+  "input": {
+    "message": "What is the latest news on the war in Iran?"
+  }
+}
+
+### Get run status
+GET {{base}}/runs/{{workflowId}}
+
+### Get run result (wait until status is COMPLETED)
+GET {{base}}/runs/{{workflowId}}/result
