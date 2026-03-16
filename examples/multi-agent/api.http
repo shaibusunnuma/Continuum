@@ -1,0 +1,23 @@
+# Multi-Agent — REST Client (VS Code: REST Client by Huachao Mao)
+# Run worker: npm run worker:multi-agent (from repo root)
+# Pattern B: run orchestrator with worker up: npm run orchestrate:multi-agent -- "Your question"
+
+@base = http://localhost:3000
+@workflowId = <paste workflowId from start response>
+
+### Start multi-agent workflow — Pattern A (Researcher → Coder → Analyst in one workflow)
+POST {{base}}/workflows/start
+Content-Type: application/json
+
+{
+  "workflowType": "multiAgentWorkflow",
+  "input": {
+    "query": "What are the main risks of adopting microservices?"
+  }
+}
+
+### Get run status
+GET {{base}}/runs/{{workflowId}}
+
+### Get run result (wait until status is COMPLETED)
+GET {{base}}/runs/{{workflowId}}/result
