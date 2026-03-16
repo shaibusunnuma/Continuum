@@ -22,7 +22,8 @@
     "worker:cognitive-layered": "cd examples && npm run worker:cognitive-layered",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
-    "eval:run": "ts-node scripts/eval-run.ts"
+    "eval:run": "ts-node scripts/eval-run.ts",
+    "test": "turbo run test"
   },
   "dependencies": {
     "@ai-runtime/sdk": "*",
