@@ -20,8 +20,8 @@ const TASK_QUEUE = 'ai-runtime-cognitive-layered';
 
 async function main() {
   initObservability({
-    tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
-    metrics: { enabled: process.env.AI_RUNTIME_ENABLE_METRICS === '1' },
+    tracing: { enabled: true },
+    metrics: { enabled: true },
   });
 
   initEvaluation({
