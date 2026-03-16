@@ -13,6 +13,12 @@
     "api:dev": "ts-node packages/server/src/api/index.ts",
     "worker:customer-support": "cd examples && npm run worker:customer-support",
     "worker:research-assistant": "cd examples && npm run worker:research-assistant",
+    "worker:react": "cd examples && npm run worker:react",
+    "worker:reflection": "cd examples && npm run worker:reflection",
+    "worker:multi-agent": "cd examples && npm run worker:multi-agent",
+    "orchestrate:multi-agent": "cd examples && npm run orchestrate:multi-agent",
+    "worker:memory-augmented": "cd examples && npm run worker:memory-augmented",
+    "worker:cognitive-layered": "cd examples && npm run worker:cognitive-layered",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts"

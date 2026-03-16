@@ -5,11 +5,18 @@
   "description": "Example worker and workflows for AI Runtime SDK",
   "scripts": {
     "worker:customer-support": "ts-node customer-support/worker.ts",
-    "worker:research-assistant": "ts-node research-assistant/worker.ts"
+    "worker:research-assistant": "ts-node research-assistant/worker.ts",
+    "worker:react": "ts-node react/worker.ts",
+    "worker:reflection": "ts-node reflection/worker.ts",
+    "worker:multi-agent": "ts-node multi-agent/worker.ts",
+    "orchestrate:multi-agent": "ts-node multi-agent/orchestrate.ts",
+    "worker:memory-augmented": "ts-node memory-augmented/worker.ts",
+    "worker:cognitive-layered": "ts-node cognitive-layered/worker.ts"
   },
   "dependencies": {
     "@ai-runtime/eval": "file:../packages/eval",
     "@ai-runtime/sdk": "file:../packages/sdk",
+    "@temporalio/client": "^1.15.0",
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.41",
     "@tavily/core": "^0.7.2",
