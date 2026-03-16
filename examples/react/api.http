@@ -1,0 +1,22 @@
+# ReAct — REST Client (VS Code: REST Client by Huachao Mao)
+# Run worker: npm run worker:react (from repo root)
+
+@base = http://localhost:3000
+@workflowId = <paste workflowId from start response>
+
+### Start ReAct agent
+POST {{base}}/agents/start
+Content-Type: application/json
+
+{
+  "agentName": "reactAgent",
+  "input": {
+    "message": "What is (15 + 27) * 2?"
+  }
+}
+
+### Get run status
+GET {{base}}/runs/{{workflowId}}
+
+### Get run result (wait until status is COMPLETED)
+GET {{base}}/runs/{{workflowId}}/result
