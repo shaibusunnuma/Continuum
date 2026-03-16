@@ -13,6 +13,19 @@ const startWorkflowBodySchema = {
   },
 } as const;
 
+// Route each example workflow type to its dedicated task queue.
+// Unknown workflow types fall back to the default config.TASK_QUEUE.
+const WORKFLOW_TASK_QUEUE_MAP: Record<string, string> = {
+  // Examples:
+  customerSupport: 'ai-runtime-customer-support',
+  contentBrief: 'ai-runtime-research-assistant',
+  dagWorkflow: 'ai-runtime-dag',
+  treeSearchWorkflow: 'ai-runtime-tree-search',
+  reflectionWorkflow: 'ai-runtime-reflection',
+  multiAgentWorkflow: 'ai-runtime-multi-agent',
+  structuredLoopWorkflow: 'ai-runtime-structured-loop',
+};
+
 export async function workflowsRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
@@ -41,8 +54,11 @@ export async function workflowsRoutes(
       try {
         const client = await getTemporalClient();
         const workflowId = `wf-${nanoid()}`;
+        const taskQueue =
+          WORKFLOW_TASK_QUEUE_MAP[request.body.workflowType] ??
+          config.TASK_QUEUE;
         const handle = await client.workflow.start(request.body.workflowType, {
-          taskQueue: config.TASK_QUEUE,
+          taskQueue,
           workflowId,
           args: [request.body.input],
         });

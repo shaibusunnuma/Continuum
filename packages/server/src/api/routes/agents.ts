@@ -18,6 +18,16 @@ const startAgentBodySchema = {
   },
 } as const;
 
+// Route each example agent to its dedicated task queue.
+// Unknown agent names fall back to the default config.TASK_QUEUE.
+const AGENT_TASK_QUEUE_MAP: Record<string, string> = {
+  travelAgent: 'ai-runtime-customer-support',
+  researchAssistant: 'ai-runtime-research-assistant',
+  reactAgent: 'ai-runtime-react',
+  memoryAgent: 'ai-runtime-memory-augmented',
+  planExecuteAgent: 'ai-runtime-plan-and-execute',
+};
+
 export async function agentsRoutes(
   fastify: FastifyInstance,
   _opts: FastifyPluginOptions,
@@ -48,8 +58,11 @@ export async function agentsRoutes(
       try {
         const client = await getTemporalClient();
         const workflowId = `agent-${nanoid()}`;
+        console.log('request.body.agentName', request.body.agentName);
+        const taskQueue =
+          AGENT_TASK_QUEUE_MAP[request.body.agentName] ?? config.TASK_QUEUE;
         const handle = await client.workflow.start(request.body.agentName, {
-          taskQueue: config.TASK_QUEUE,
+          taskQueue,
           workflowId,
           args: [request.body.input],
         });

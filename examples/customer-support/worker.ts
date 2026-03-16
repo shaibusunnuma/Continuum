@@ -16,6 +16,8 @@ import {
 } from '@ai-runtime/sdk';
 import { initEvaluation } from '@ai-runtime/eval';
 
+const TASK_QUEUE = 'ai-runtime-customer-support';
+
 async function main() {
   initObservability({
     tracing: { enabled: process.env.AI_RUNTIME_ENABLE_TRACING === '1' },
@@ -106,6 +108,7 @@ async function main() {
 
   const handle = await createWorker({
     workflowsPath: require.resolve('./workflows'),
+    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {

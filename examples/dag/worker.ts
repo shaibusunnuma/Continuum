@@ -16,6 +16,8 @@ import { initEvaluation } from '@ai-runtime/eval';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
+const TASK_QUEUE = 'ai-runtime-dag';
+
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
@@ -54,6 +56,7 @@ async function main() {
 
   const handle = await createWorker({
     workflowsPath: require.resolve('./workflows'),
+    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {

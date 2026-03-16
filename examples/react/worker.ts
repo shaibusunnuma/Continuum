@@ -17,6 +17,7 @@ import { initEvaluation } from '@ai-runtime/eval';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
+const TASK_QUEUE = 'ai-runtime-react';
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 async function main() {
@@ -78,6 +79,7 @@ async function main() {
 
   const handle = await createWorker({
     workflowsPath: require.resolve('./workflows'),
+    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {
