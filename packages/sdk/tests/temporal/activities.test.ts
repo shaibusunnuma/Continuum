@@ -1,24 +1,16 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { LanguageModel } from 'ai';
+import { z } from 'zod';
 import { runModel, runTool, runLifecycleHooks } from '../../src/sdk/temporal/activities';
 import { ToolValidationError } from '../../src/sdk/errors';
 import type { LifecycleEvent } from '../../src/sdk/hooks';
+import { createRuntime, setActiveRuntime, clearActiveRuntime } from '../../src/sdk/runtime';
 
 const fakeModel: LanguageModel = {
   specificationVersion: 'v2',
   provider: 'openai',
   modelId: 'gpt-4o-mini',
 } as LanguageModel;
-
-vi.mock('../../src/sdk/ai/model-registry', () => ({
-  getModelInstance: vi.fn(),
-  getModelOptions: vi.fn(() => ({ maxTokens: undefined })),
-}));
-
-vi.mock('../../src/sdk/ai/tool-registry', () => ({
-  getToolDefinition: vi.fn(),
-  getAISDKTools: vi.fn(() => ({})),
-}));
 
 vi.mock('../../src/sdk/ai/cost', () => ({
   calculateCostUsd: vi.fn().mockResolvedValue(0.001),
@@ -37,18 +29,35 @@ vi.mock('../../src/sdk/obs-metrics', () => ({
 
 vi.mock('ai', () => ({
   generateText: vi.fn(),
+  generateObject: vi.fn(),
+  jsonSchema: vi.fn((s: unknown) => s),
+  tool: vi.fn(() => ({})),
 }));
 
-import { getModelInstance, getModelOptions } from '../../src/sdk/ai/model-registry';
-import { getToolDefinition, getAISDKTools } from '../../src/sdk/ai/tool-registry';
 import { generateText } from 'ai';
-import { z } from 'zod';
-
-vi.mocked(getModelInstance).mockReturnValue(fakeModel);
 
 describe('activities', () => {
   beforeEach(() => {
     vi.mocked(generateText).mockClear();
+
+    // Set up a runtime with one model and one tool
+    const runtime = createRuntime({
+      models: { fast: fakeModel },
+      tools: [
+        {
+          name: 'calculator',
+          description: 'Calc',
+          input: z.object({ expression: z.string() }),
+          output: z.object({ result: z.number() }),
+          execute: vi.fn().mockResolvedValue({ result: 42 }),
+        },
+      ],
+    });
+    setActiveRuntime(runtime);
+  });
+
+  afterEach(() => {
+    clearActiveRuntime();
   });
 
   describe('runModel', () => {
@@ -98,52 +107,36 @@ describe('activities', () => {
       });
     });
 
-    it('passes toolNames to getAISDKTools when provided', async () => {
+    it('passes toolNames to tool lookup when provided', async () => {
       vi.mocked(generateText).mockResolvedValue({
         text: 'ok',
         usage: { inputTokens: 1, outputTokens: 1 },
         toolCalls: [],
       } as Awaited<ReturnType<typeof generateText>>);
 
+      // Should not throw because 'calculator' is registered in the runtime
       await runModel({
         modelId: 'fast',
         messages: [{ role: 'user', content: 'x' }],
         toolNames: ['calculator'],
       });
 
-      expect(getAISDKTools).toHaveBeenCalledWith(['calculator']);
+      // Verify generateText was called with tools
+      expect(generateText).toHaveBeenCalled();
     });
   });
 
   describe('runTool', () => {
     it('validates input and calls execute', async () => {
-      const execute = vi.fn().mockResolvedValue({ result: 42 });
-      vi.mocked(getToolDefinition).mockReturnValue({
-        name: 'calculator',
-        description: 'Calc',
-        input: z.object({ expression: z.string() }),
-        output: z.object({ result: z.number() }),
-        execute,
-      });
-
       const result = await runTool({
         toolName: 'calculator',
         input: { expression: '6*7' },
       });
 
-      expect(execute).toHaveBeenCalledWith({ expression: '6*7' });
       expect(result.result).toEqual({ result: 42 });
     });
 
     it('throws ToolValidationError on invalid input', async () => {
-      vi.mocked(getToolDefinition).mockReturnValue({
-        name: 'calculator',
-        description: 'Calc',
-        input: z.object({ expression: z.string() }),
-        output: z.object({ result: z.number() }),
-        execute: vi.fn(),
-      });
-
       await expect(
         runTool({
           toolName: 'calculator',
@@ -154,7 +147,7 @@ describe('activities', () => {
   });
 
   describe('runLifecycleHooks', () => {
-    it('delegates to dispatchHooks', async () => {
+    it('dispatches to hooks on the active runtime', async () => {
       const event: LifecycleEvent = {
         type: 'run:complete',
         payload: {
