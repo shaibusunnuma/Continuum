@@ -39,23 +39,37 @@ export interface MetricImpl {
 }
 
 // ---------------------------------------------------------------------------
-// Built-in metrics registry
+// Built-in metrics registry (null prototype to avoid prototype pollution)
 // ---------------------------------------------------------------------------
 
-export const metrics: Record<string, MetricImpl> = {};
+const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+const SAFE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+export const metrics = Object.create(null) as Record<string, MetricImpl>;
 
 /**
  * Register a custom metric. Built-in metrics are registered at import time.
  * Users can call this to add their own metrics.
+ * Rejects unsafe or invalid names (e.g. __proto__, non-alphanumeric).
  */
 export function defineMetric(metric: MetricImpl): void {
   if (!metric.name || typeof metric.name !== 'string' || metric.name.trim() === '') {
     throw new Error('Metric name must be a non-empty string.');
   }
+  const name = metric.name.trim();
+  if (UNSAFE_KEYS.has(name)) {
+    throw new Error(`Metric name "${name}" is reserved.`);
+  }
+  if (!SAFE_NAME_PATTERN.test(name)) {
+    throw new Error(`Metric name "${name}" must contain only letters, numbers, underscores, and hyphens.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(metrics, name)) {
+    throw new Error(`Metric "${name}" is already defined.`);
+  }
   if (typeof metric.run !== 'function') {
     throw new Error(`Metric "${metric.name}" must have a run function.`);
   }
-  metrics[metric.name] = metric;
+  metrics[name] = metric;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,9 +151,17 @@ defineMetric({
   outputKind: 'boolean',
   description: 'Scores 1 if output is valid, parseable JSON.',
   async run(ctx: MetricContext): Promise<MetricResult> {
-    // If output is already an object/array, it's valid structured data
+    // If output is an object/array, validate by attempting to serialize (catches circular refs, BigInt, etc.)
     if (typeof ctx.output === 'object' && ctx.output !== null) {
-      return { score: 1, label: 'valid' };
+      try {
+        const s = JSON.stringify(ctx.output);
+        if (typeof s === 'string') {
+          return { score: 1, label: 'valid' };
+        }
+        return { score: 0, label: 'invalid' };
+      } catch {
+        return { score: 0, label: 'invalid' };
+      }
     }
     // If it's a string, try to parse it as JSON
     if (typeof ctx.output === 'string') {

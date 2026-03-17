@@ -127,15 +127,17 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       let outputTokens = 0;
 
       if (params.outputSchema) {
-        // Structured output path: use generateText with Output.object()
+        // Structured output path: use generateText with Output.object(); tools are passed when toolNames is set
         const objResult = await generateText({
           model,
           messages: toModelMessages(params.messages),
           output: Output.object({ schema: jsonSchema(params.outputSchema) }),
+          tools,
           maxOutputTokens: options.maxTokens,
         });
         parsedObject = objResult.output;
         genText = JSON.stringify(objResult.output);
+        genToolCalls = objResult.toolCalls ?? [];
         inputTokens = objResult.usage?.inputTokens ?? 0;
         outputTokens = objResult.usage?.outputTokens ?? 0;
       } else {

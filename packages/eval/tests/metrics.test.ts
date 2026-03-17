@@ -111,12 +111,9 @@ describe('metrics', () => {
     });
 
     it('scores 0 for invalid JSON string', async () => {
-      const result = await metric.run({ input: {}, output: { reply: 'not json {{{' } });
-      // The reply field content "not json {{{" should still parse since it's nested in an object
-      // that gets JSON.stringified. Let's test with a plain string.
-      const result2 = await metric.run({ input: {}, output: 'not json {{{' });
-      expect(result2.score).toBe(0);
-      expect(result2.label).toBe('invalid');
+      const result = await metric.run({ input: {}, output: 'not json {{{' });
+      expect(result.score).toBe(0);
+      expect(result.label).toBe('invalid');
     });
 
     it('scores 1 for objects (they serialize to valid JSON)', async () => {

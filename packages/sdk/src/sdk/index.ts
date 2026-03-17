@@ -6,8 +6,6 @@
  *   const worker = await createWorker({ runtime, workflowsPath: '...' });
  *   await worker.run();
  */
-
-// Runtime (replaces defineModels, defineTool, initObservability)
 export {
   createRuntime,
   RuntimeContext,

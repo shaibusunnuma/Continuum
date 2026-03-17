@@ -2,8 +2,10 @@
  * RuntimeContext — holds all SDK state (model registry, tool registry, hooks,
  * observability config) in a single instance.
  * Usage:
- *   const runtime = createRuntime({ ... });
- *   const worker = await runtime.createWorker({ workflowsPath: '...' });
+ *   const runtime = createRuntime({ models: { ... }, tools: [ ... ] });
+ *   const worker = await createWorker({ runtime, workflowsPath: require.resolve('./workflows') });
+ *   await worker.run();
+ * (createWorker is a standalone import from '@ai-runtime/sdk', not a method on RuntimeContext.)
  */
 import type { LanguageModel } from 'ai';
 import type { ToolDefinition, ModelOptions } from '../types';
@@ -168,6 +170,21 @@ export function createRuntime(config: CreateRuntimeConfig = {}): RuntimeContext 
     for (const def of config.tools) {
       if (typeof def.name !== 'string' || def.name.trim() === '') {
         throw new ConfigurationError('Tool name must be a non-empty string.');
+      }
+      if (runtime.tools.has(def.name)) {
+        throw new ConfigurationError(`Tool "${def.name}": duplicate tool name.`);
+      }
+      if (typeof def.description !== 'string' || def.description.trim() === '') {
+        throw new ConfigurationError(`Tool "${def.name}": description must be a non-empty string.`);
+      }
+      if (
+        def.input == null ||
+        typeof def.input !== 'object' ||
+        typeof (def.input as { safeParse?: (v: unknown) => unknown }).safeParse !== 'function'
+      ) {
+        throw new ConfigurationError(
+          `Tool "${def.name}": input must be a schema with a safeParse method (e.g. Zod schema).`,
+        );
       }
       if (typeof def.execute !== 'function') {
         throw new ConfigurationError(`Tool "${def.name}": execute must be a function.`);
