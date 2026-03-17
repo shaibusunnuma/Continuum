@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { getEvaluationDbUrl } from './config';
+import { getEvaluationDbUrl, getPoolConfig } from './config';
 import type {
   EvalCaptureParams,
   EvalVariant,
@@ -17,8 +17,27 @@ function getPool(): Pool {
       'Evaluation DB URL is not configured (AI_RUNTIME_EVAL_DB_URL).',
     );
   }
-  pool = new Pool({ connectionString: dbUrl });
+  const poolConfig = getPoolConfig();
+  pool = new Pool({
+    connectionString: dbUrl,
+    max: poolConfig?.max ?? 5,
+    idleTimeoutMillis: poolConfig?.idleTimeoutMillis ?? 30000,
+  });
   return pool;
+}
+
+/** Execute a query using the shared eval pool. Used by report.ts and other modules. */
+export async function queryPool(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }> {
+  const client = getPool();
+  return client.query(sql, params);
+}
+
+/** Shut down the shared pool. Call during graceful shutdown. */
+export async function shutdownPool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
 }
 
 export async function ensureVariant(

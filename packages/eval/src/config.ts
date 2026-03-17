@@ -1,10 +1,16 @@
 import type { EvalCaptureParams } from './types';
 import { registerEvalHook } from './plugin';
 
+export type PoolConfig = {
+  max?: number;
+  idleTimeoutMillis?: number;
+};
+
 type EvaluationConfig = {
   enabled: boolean;
   dbUrl?: string;
   defaultVariantName?: string;
+  pool?: PoolConfig;
 };
 
 let config: EvaluationConfig = {
@@ -15,6 +21,7 @@ export function initEvaluation(opts: {
   enabled: boolean;
   dbUrl?: string;
   defaultVariantName?: string;
+  pool?: PoolConfig;
 }): void {
   if (!opts.enabled) {
     config = { enabled: false };
@@ -35,6 +42,7 @@ export function initEvaluation(opts: {
     enabled: true,
     dbUrl: opts.dbUrl,
     defaultVariantName: opts.defaultVariantName ?? 'baseline',
+    pool: opts.pool,
   };
   registerEvalHook();
   // eslint-disable-next-line no-console
@@ -49,6 +57,10 @@ export function getEvaluationDbUrl(): string | undefined {
   return config.dbUrl;
 }
 
+export function getPoolConfig(): PoolConfig | undefined {
+  return config.pool;
+}
+
 export function getDefaultVariantName(): string {
   return config.defaultVariantName ?? 'baseline';
 }
@@ -59,5 +71,12 @@ export function withDefaultVariantName(
 ): EvalCaptureParams {
   if (params.variantName) return params;
   return { ...params, variantName: getDefaultVariantName() };
+}
+
+/** Shut down eval resources (DB pool). Call during graceful shutdown. */
+export async function shutdownEvaluation(): Promise<void> {
+  const { shutdownPool } = await import('./store');
+  await shutdownPool();
+  config = { enabled: false };
 }
 
