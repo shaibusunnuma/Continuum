@@ -1,20 +1,31 @@
 /**
  * AI Runtime SDK — durable workflows and agents on Temporal.
- * Export workflow/agent from your workflow file; use defineModels, defineTool, createWorker in your worker entry.
+ *
+ * Usage:
+ *   const runtime = createRuntime({ models: { fast: openai('gpt-4o-mini') }, tools: [myTool] });
+ *   const worker = await createWorker({ runtime, workflowsPath: '...' });
+ *   await worker.run();
  */
+
+// Runtime (replaces defineModels, defineTool, initObservability)
+export {
+  createRuntime,
+  RuntimeContext,
+  setActiveRuntime,
+  getActiveRuntime,
+  clearActiveRuntime,
+} from './runtime';
+export type { CreateRuntimeConfig } from './runtime';
+
 // Workflow primitives (re-exported for developer's workflow files)
 export { workflow } from './temporal/workflow-adapter';
 export { agent } from './temporal/agent-workflow';
-
-// Configuration (called at worker startup)
-export { defineModels } from './ai/model-registry';
-export { defineTool, defineTools } from './ai/tool-registry';
 
 // Worker factory
 export { createWorker } from './temporal/worker-factory';
 export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory';
 
-// Observability
+// Observability (standalone init for non-worker processes like API servers)
 export { initObservability, type ObservabilityConfig } from './obs';
 
 // Errors (for programmatic handling)
@@ -29,7 +40,6 @@ export {
 } from './errors';
 
 // Lifecycle hooks (for plugins)
-export { registerHook, clearHooks } from './hooks';
 export type { LifecycleEvent, LifecycleHook } from './hooks';
 
 // Types
