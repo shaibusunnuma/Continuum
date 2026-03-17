@@ -71,6 +71,7 @@ export function workflow<TInput, TOutput>(
           messages,
           toolNames: params.tools,
           responseFormat: params.responseFormat,
+          outputSchema: params.schema as Record<string, unknown> | undefined,
           traceContext: {
             workflowId: info.workflowId,
             runId: info.runId,
@@ -81,7 +82,7 @@ export function workflow<TInput, TOutput>(
         accumulatedCost += result.usage.costUsd;
 
         return {
-          result: result.content,
+          result: result.parsedObject ?? result.content,
           usage: result.usage,
         };
       },

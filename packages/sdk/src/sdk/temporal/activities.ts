@@ -1,7 +1,7 @@
-import { generateText, type ModelMessage } from 'ai';
-import { getModelInstance, getModelOptions } from '../ai/model-registry';
-import { getToolDefinition, getAISDKTools } from '../ai/tool-registry';
+import { generateText, jsonSchema, Output, type ModelMessage } from 'ai';
+import { tool as aiTool, type Tool } from 'ai';
 import { calculateCostUsd } from '../ai/cost';
+import { getActiveRuntime } from '../runtime';
 import { withSpan } from '../obs';
 import {
   recordModelCall,
@@ -18,13 +18,17 @@ import type {
   ToolCall,
 } from '../types';
 import type { LifecycleEvent } from '../hooks';
-import { dispatchHooks } from '../hooks';
 import { ToolValidationError } from '../errors';
 
 // ---------------------------------------------------------------------------
 // runModel — calls an LLM via Vercel AI SDK
 // ---------------------------------------------------------------------------
 
+/**
+ * Converts SDK Message types to Vercel AI SDK ModelMessage types.
+ * NOTE: This mapping is tightly coupled to AI SDK's ModelMessage shape (v6.x).
+ * If the AI SDK changes its message format, this function must be updated accordingly.
+ */
 function toModelMessages(messages: Message[]): ModelMessage[] {
   return messages.map((m): ModelMessage => {
     if (m.role === 'tool') {
@@ -81,13 +85,22 @@ function traceContextAttrs(tc?: { workflowId?: string; runId?: string; workflowN
 }
 
 export async function runModel(params: RunModelParams): Promise<RunModelResult> {
-  const model = getModelInstance(params.modelId);
-  const options = getModelOptions(params.modelId);
+  const runtime = getActiveRuntime();
+  const model = runtime.getModelInstance(params.modelId);
+  const options = runtime.getModelOptions(params.modelId);
 
-  const tools =
-    params.toolNames && params.toolNames.length > 0
-      ? getAISDKTools(params.toolNames)
-      : undefined;
+  // Build AI SDK tool objects from runtime tool registry
+  let tools: Record<string, Tool> | undefined;
+  if (params.toolNames && params.toolNames.length > 0) {
+    tools = {};
+    for (const name of params.toolNames) {
+      const def = runtime.getToolDefinition(name);
+      tools[name] = aiTool({
+        description: def.description,
+        inputSchema: def.input,
+      });
+    }
+  }
 
   const baseAttrs: Record<string, string | number> = {
     'ai.model_id': params.modelId,
@@ -95,7 +108,9 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
   };
 
   let result: {
-    genResult: Awaited<ReturnType<typeof generateText>>;
+    genText: string;
+    genToolCalls: Array<{ toolCallId: string; toolName: string; input?: unknown }>;
+    parsedObject: unknown | undefined;
     inputTokens: number;
     outputTokens: number;
     costUsd: number;
@@ -105,15 +120,37 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     'ai.run_model',
     baseAttrs,
     async (span) => {
-      const genResult = await generateText({
-        model,
-        messages: toModelMessages(params.messages),
-        tools,
-        maxOutputTokens: options.maxTokens,
-      });
+      let genText: string = '';
+      let genToolCalls: Array<{ toolCallId: string; toolName: string; input?: unknown }> = [];
+      let parsedObject: unknown | undefined;
+      let inputTokens = 0;
+      let outputTokens = 0;
 
-      const inputTokens = genResult.usage?.inputTokens ?? 0;
-      const outputTokens = genResult.usage?.outputTokens ?? 0;
+      if (params.outputSchema) {
+        // Structured output path: use generateText with Output.object()
+        const objResult = await generateText({
+          model,
+          messages: toModelMessages(params.messages),
+          output: Output.object({ schema: jsonSchema(params.outputSchema) }),
+          maxOutputTokens: options.maxTokens,
+        });
+        parsedObject = objResult.output;
+        genText = JSON.stringify(objResult.output);
+        inputTokens = objResult.usage?.inputTokens ?? 0;
+        outputTokens = objResult.usage?.outputTokens ?? 0;
+      } else {
+        // Standard text generation path
+        const textResult = await generateText({
+          model,
+          messages: toModelMessages(params.messages),
+          tools,
+          maxOutputTokens: options.maxTokens,
+        });
+        genText = textResult.text ?? '';
+        genToolCalls = textResult.toolCalls ?? [];
+        inputTokens = textResult.usage?.inputTokens ?? 0;
+        outputTokens = textResult.usage?.outputTokens ?? 0;
+      }
 
       let costUsd = 0;
       if (
@@ -154,7 +191,9 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       }
 
       return {
-        genResult,
+        genText,
+        genToolCalls,
+        parsedObject,
         inputTokens,
         outputTokens,
         costUsd,
@@ -176,7 +215,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     throw err;
   }
 
-  const toolCalls: ToolCall[] = (result.genResult.toolCalls ?? []).map((tc) => ({
+  const toolCalls: ToolCall[] = (result.genToolCalls ?? []).map((tc) => ({
     id: tc.toolCallId,
     name: tc.toolName,
     arguments: (tc.input ?? {}) as Record<string, unknown>,
@@ -198,7 +237,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
   recordModelCost(params.modelId, provider, result.costUsd);
 
   return {
-    content: result.genResult.text ?? '',
+    content: result.genText,
     toolCalls,
     usage: {
       promptTokens: result.inputTokens,
@@ -206,6 +245,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       totalTokens: result.inputTokens + result.outputTokens,
       costUsd: result.costUsd,
     },
+    ...(result.parsedObject !== undefined ? { parsedObject: JSON.stringify(result.parsedObject) } : {}),
   };
 }
 
@@ -214,7 +254,8 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
 // ---------------------------------------------------------------------------
 
 export async function runLifecycleHooks(event: LifecycleEvent): Promise<void> {
-  await dispatchHooks(event);
+  const runtime = getActiveRuntime();
+  await runtime.dispatchHooks(event);
 }
 
 // ---------------------------------------------------------------------------
@@ -228,7 +269,8 @@ export async function runLifecycleHooks(event: LifecycleEvent): Promise<void> {
  * @throws If the tool is not registered or input validation fails
  */
 export async function runTool(params: RunToolParams): Promise<RunToolResult> {
-  const def = getToolDefinition(params.toolName);
+  const runtime = getActiveRuntime();
+  const def = runtime.getToolDefinition(params.toolName);
 
   const parsed = def.input.safeParse(params.input);
   if (!parsed.success) {
