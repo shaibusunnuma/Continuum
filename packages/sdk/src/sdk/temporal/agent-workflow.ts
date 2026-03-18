@@ -9,16 +9,10 @@ import type {
   AgentConfig,
   AgentResult,
   Message,
+  StreamState,
   Usage,
 } from '../types';
 import { ConfigurationError } from '../errors';
-
-const { runModel, runTool, runLifecycleHooks } = wf.proxyActivities<
-  typeof sdkActivities
->({
-  startToCloseTimeout: '5 minutes',
-  retry: { maximumAttempts: 3 },
-});
 
 function validateAgentConfig(name: string, config: AgentConfig): void {
   if (typeof name !== 'string' || name.trim() === '') {
@@ -39,7 +33,7 @@ function validateAgentConfig(name: string, config: AgentConfig): void {
  * Defines a durable agent workflow that runs a model–tool loop (model can call tools; results are fed back until the model responds with text).
  * The returned function is a Temporal workflow; export it and use the export name as the workflow type when starting (e.g. "travelAgent").
  * @param name - Logical name for the agent (use same as export name for the workflow type)
- * @param config - model id, instructions (system prompt), tools (registered names), maxSteps, optional budgetLimit
+ * @param config - model id, instructions (system prompt), tools (registered names), maxSteps, optional budgetLimit, optional activityTimeout
  * @returns A Temporal workflow function (input: { message: string }) => Promise<AgentResult>
  */
 export function agent(
@@ -50,6 +44,12 @@ export function agent(
   const maxSteps = config.maxSteps ?? 10;
 
   const agentFn = async function (input: { message: string }): Promise<AgentResult> {
+    const { runModel, runTool, runLifecycleHooks } = wf.proxyActivities<
+      typeof sdkActivities
+    >({
+      startToCloseTimeout: (config.activityTimeout ?? '5 minutes') as import('@temporalio/common').Duration,
+      retry: { maximumAttempts: 3 },
+    });
     const info = wf.workflowInfo();
     const traceCtx = {
       workflowId: info.workflowId,
@@ -72,6 +72,18 @@ export function agent(
     let stepCount = 0;
     let finishReason: AgentResult['finishReason'] = 'complete';
 
+    // Stream state for progressive UX via Temporal queries
+    let streamState: StreamState = {
+      status: 'running',
+      currentStep: 0,
+      partialReply: undefined,
+      messages: [...messages],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const streamStateQuery = wf.defineQuery<StreamState>('streamState');
+    wf.setHandler(streamStateQuery, () => streamState);
+
     while (stepCount < maxSteps) {
       if (config.budgetLimit?.maxCostUsd && totalUsage.costUsd >= config.budgetLimit.maxCostUsd) {
         finishReason = 'budget_exceeded';
@@ -83,6 +95,12 @@ export function agent(
       }
 
       stepCount++;
+      streamState = {
+        ...streamState,
+        status: 'running',
+        currentStep: stepCount,
+        updatedAt: new Date().toISOString(),
+      };
 
       const result = await runModel({
         modelId: config.model,
@@ -128,20 +146,28 @@ export function agent(
         toolCalls: result.toolCalls,
       });
 
-      for (const tc of result.toolCalls) {
-        const toolResult = await runTool({
-          toolName: tc.name,
-          input: tc.arguments,
-          traceContext: traceCtx,
-        });
+      // Execute all tool calls in parallel (each is an independent Temporal activity)
+      const toolResults = await Promise.all(
+        result.toolCalls.map((tc) =>
+          runTool({
+            toolName: tc.name,
+            input: tc.arguments,
+            traceContext: traceCtx,
+          }).then((toolResult) => ({
+            role: 'tool' as const,
+            content: JSON.stringify(toolResult.result),
+            toolCallId: tc.id,
+            toolName: tc.name,
+          })),
+        ),
+      );
 
-        messages.push({
-          role: 'tool',
-          content: JSON.stringify(toolResult.result),
-          toolCallId: tc.id,
-          toolName: tc.name,
-        });
-      }
+      messages.push(...toolResults);
+      streamState = {
+        ...streamState,
+        messages: [...messages],
+        updatedAt: new Date().toISOString(),
+      };
     }
 
     if (finishReason === 'complete') {
@@ -169,6 +195,14 @@ export function agent(
         output: finalResult,
       },
     });
+
+    streamState = {
+      status: 'completed',
+      currentStep: stepCount,
+      partialReply: finalResult.reply,
+      messages: [...messages],
+      updatedAt: new Date().toISOString(),
+    };
 
     return finalResult;
   };
