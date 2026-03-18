@@ -60,17 +60,14 @@ export async function agentsRoutes(
         const workflowId = `agent-${nanoid()}`;
         const taskQueue =
           AGENT_TASK_QUEUE_MAP[request.body.agentName] ?? config.TASK_QUEUE;
-        const handle = await client.workflow.start(request.body.agentName, {
+        const handle = await client.startWorkflow(request.body.agentName, {
           taskQueue,
           workflowId,
-          args: [request.body.input],
+          input: request.body.input,
         });
         const body: { workflowId: string; runId?: string } = {
           workflowId: handle.workflowId,
         };
-        if (handle.firstExecutionRunId != null) {
-          body.runId = handle.firstExecutionRunId;
-        }
         return reply.status(201).send(body);
       } catch (err) {
         request.log.error(err);

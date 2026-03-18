@@ -30,7 +30,7 @@ export async function runsRoutes(
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const handle = client.workflow.getHandle(request.params.workflowId);
+        const handle = client.getWorkflowHandle(request.params.workflowId);
         const description = await handle.describe();
 
         return reply.send({
@@ -67,7 +67,7 @@ export async function runsRoutes(
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const handle = client.workflow.getHandle(request.params.workflowId);
+        const handle = client.getWorkflowHandle(request.params.workflowId);
         const description = await handle.describe();
 
         if (description.status.name === 'RUNNING') {

@@ -58,17 +58,17 @@ export async function workflowsRoutes(
         const taskQueue =
           WORKFLOW_TASK_QUEUE_MAP[request.body.workflowType] ??
           config.TASK_QUEUE;
-        const handle = await client.workflow.start(request.body.workflowType, {
+        const handle = await client.startWorkflow(request.body.workflowType, {
           taskQueue,
           workflowId,
-          args: [request.body.input],
+          input: request.body.input,
         });
         const body: { workflowId: string; runId?: string } = {
           workflowId: handle.workflowId,
         };
-        if (handle.firstExecutionRunId != null) {
-          body.runId = handle.firstExecutionRunId;
-        }
+        // SDK Client doesn't expose firstExecutionRunId directly right now
+        // so we omit it or get it from describe() if needed.
+        // It's not strictly required in the response.
         return reply.status(201).send(body);
       } catch (err) {
         request.log.error(err);

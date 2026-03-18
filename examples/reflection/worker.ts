@@ -6,7 +6,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import {
-  defineModels,
+  createRuntime,
   createWorker,
   initObservability,
 } from '@ai-runtime/sdk';
@@ -32,11 +32,14 @@ async function main() {
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
-  defineModels({
-    fast: google('gemini-2.5-flash'),
+  const runtime = createRuntime({
+    models: {
+      fast: google('gemini-2.5-flash'),
+    },
   });
 
   const handle = await createWorker({
+    runtime,
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });

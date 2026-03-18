@@ -7,7 +7,7 @@
  *   const run = await client.startWorkflow('customerSupport', { input: { message: 'Help' } });
  *   const result = await run.result();
  */
-import { Client, Connection } from '@temporalio/client';
+import { Client, Connection, WorkflowExecutionDescription } from '@temporalio/client';
 import { config } from '../../shared/config';
 import type { StreamState } from '../types';
 
@@ -45,6 +45,8 @@ export interface WorkflowRun<TResult = unknown> {
   signal(name: string, data: unknown): Promise<void>;
   /** Request cancellation of the workflow. */
   cancel(): Promise<void>;
+  /** Get details about the workflow execution (status, etc). */
+  describe(): Promise<WorkflowExecutionDescription>;
 }
 
 /** The SDK client. Use `createClient()` to create an instance. */
@@ -54,6 +56,8 @@ export interface SdkClient {
     workflowType: string,
     options: StartWorkflowOptions<TInput>,
   ): Promise<WorkflowRun<TResult>>;
+  /** Get a handle to an existing workflow by ID. */
+  getWorkflowHandle<TResult = unknown>(workflowId: string): WorkflowRun<TResult>;
   /** Close the underlying Temporal connection. */
   close(): Promise<void>;
 }
@@ -104,6 +108,38 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
 
         async cancel(): Promise<void> {
           await handle.cancel();
+        },
+
+        async describe(): Promise<WorkflowExecutionDescription> {
+          return handle.describe();
+        },
+      };
+    },
+
+    getWorkflowHandle<TResult>(workflowId: string): WorkflowRun<TResult> {
+      const handle = temporalClient.workflow.getHandle(workflowId);
+
+      return {
+        workflowId: handle.workflowId,
+
+        async result(): Promise<TResult> {
+          return handle.result() as Promise<TResult>;
+        },
+
+        async queryStreamState(): Promise<StreamState> {
+          return handle.query<StreamState>('streamState');
+        },
+
+        async signal(name: string, data: unknown): Promise<void> {
+          await handle.signal(name, data);
+        },
+
+        async cancel(): Promise<void> {
+          await handle.cancel();
+        },
+
+        async describe(): Promise<WorkflowExecutionDescription> {
+          return handle.describe();
         },
       };
     },

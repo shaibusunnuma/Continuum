@@ -8,8 +8,7 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import {
-  defineModels,
-  defineTool,
+  createRuntime,
   createWorker,
   initObservability,
 } from '@ai-runtime/sdk';
@@ -37,38 +36,41 @@ async function main() {
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
-  defineModels({
-    fast: google('gemini-2.5-flash'),
-  });
-
-  defineTool({
-    name: 'remember_fact',
-    description: 'Store a fact in memory. Use when the user tells you something to remember (e.g. name, preference, event).',
-    input: z.object({ fact: z.string(), key: z.string().optional() }),
-    output: z.object({ stored: z.boolean(), count: z.number() }),
-    execute: async ({ fact, key }) => {
-      memory.push({ fact, key });
-      return { stored: true, count: memory.length };
+  const runtime = createRuntime({
+    models: {
+      fast: google('gemini-2.5-flash'),
     },
-  });
-
-  defineTool({
-    name: 'recall',
-    description: 'Search memory for facts. Returns matching facts (by keyword or key). Use when answering questions about what the user told you.',
-    input: z.object({ query: z.string() }),
-    output: z.object({ facts: z.array(z.string()) }),
-    execute: async ({ query }) => {
-      const q = query.toLowerCase();
-      const matches = memory.filter(
-        (m) =>
-          m.fact.toLowerCase().includes(q) ||
-          (m.key && m.key.toLowerCase().includes(q)),
-      );
-      return { facts: matches.map((m) => m.fact) };
-    },
+    tools: [
+      {
+        name: 'remember_fact',
+        description: 'Store a fact in memory. Use when the user tells you something to remember (e.g. name, preference, event).',
+        input: z.object({ fact: z.string(), key: z.string().optional() }),
+        output: z.object({ stored: z.boolean(), count: z.number() }),
+        execute: async ({ fact, key }) => {
+          memory.push({ fact, key });
+          return { stored: true, count: memory.length };
+        },
+      },
+      {
+        name: 'recall',
+        description: 'Search memory for facts. Returns matching facts (by keyword or key). Use when answering questions about what the user told you.',
+        input: z.object({ query: z.string() }),
+        output: z.object({ facts: z.array(z.string()) }),
+        execute: async ({ query }) => {
+          const q = query.toLowerCase();
+          const matches = memory.filter(
+            (m) =>
+              m.fact.toLowerCase().includes(q) ||
+              (m.key && m.key.toLowerCase().includes(q)),
+          );
+          return { facts: matches.map((m) => m.fact) };
+        },
+      }
+    ]
   });
 
   const handle = await createWorker({
+    runtime,
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });

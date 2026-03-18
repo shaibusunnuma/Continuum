@@ -7,8 +7,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
 import {
-  defineModels,
-  defineTool,
+  createRuntime,
   createWorker,
   initObservability,
 } from '@ai-runtime/sdk';
@@ -30,29 +29,33 @@ async function main() {
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
-  defineModels({
-    fast: openai.chat('gpt-4o-mini'),
-    reasoning: openai.chat('gpt-4o'),
-  });
-
-  defineTool({
-    name: 'get_time',
-    description: 'Return the current date and time in ISO and a short, human-readable form.',
-    input: z.object({}),
-    output: z.object({
-      iso: z.string(),
-      human: z.string(),
-    }),
-    execute: async () => {
-      const now = new Date();
-      return {
-        iso: now.toISOString(),
-        human: now.toLocaleString(),
-      };
+  const runtime = createRuntime({
+    models: {
+      fast: openai.chat('gpt-4o-mini'),
+      reasoning: openai.chat('gpt-4o'),
     },
+    tools: [
+      {
+        name: 'get_time',
+        description: 'Return the current date and time in ISO and a short, human-readable form.',
+        input: z.object({}),
+        output: z.object({
+          iso: z.string(),
+          human: z.string(),
+        }),
+        execute: async () => {
+          const now = new Date();
+          return {
+            iso: now.toISOString(),
+            human: now.toLocaleString(),
+          };
+        },
+      }
+    ]
   });
 
   const handle = await createWorker({
+    runtime,
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });

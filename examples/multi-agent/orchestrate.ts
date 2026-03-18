@@ -7,7 +7,7 @@
 import path from 'path';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-import { Connection, Client } from '@temporalio/client';
+import { createClient } from '@ai-runtime/sdk';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -24,39 +24,38 @@ interface AgentResult {
 }
 
 async function runChain(query: string): Promise<{ research: string; coder: string; analyst: string }> {
-  const connection = await Connection.connect({ address: TEMPORAL_ADDRESS });
-  const client = new Client({
-    connection,
-    namespace: TEMPORAL_NAMESPACE,
+  const client = await createClient({
+    temporalAddress: TEMPORAL_ADDRESS,
+    temporalNamespace: TEMPORAL_NAMESPACE,
   });
 
   const runId = crypto.randomBytes(4).toString('hex');
 
-  const researchHandle = await client.workflow.start('researchAgent', {
+  const researchHandle = await client.startWorkflow('researchAgent', {
     taskQueue: TASK_QUEUE,
     workflowId: `multi-b-${runId}-research`,
-    args: [{ message: query }],
+    input: { message: query },
   });
   const researchResult = await researchHandle.result() as AgentResult;
   const researchReply = researchResult.reply ?? '';
 
-  const coderHandle = await client.workflow.start('coderAgent', {
+  const coderHandle = await client.startWorkflow('coderAgent', {
     taskQueue: TASK_QUEUE,
     workflowId: `multi-b-${runId}-coder`,
-    args: [{ message: researchReply }],
+    input: { message: researchReply },
   });
   const coderResult = await coderHandle.result() as AgentResult;
   const coderReply = coderResult.reply ?? '';
 
-  const analystHandle = await client.workflow.start('analystAgent', {
+  const analystHandle = await client.startWorkflow('analystAgent', {
     taskQueue: TASK_QUEUE,
     workflowId: `multi-b-${runId}-analyst`,
-    args: [{ message: coderReply }],
+    input: { message: coderReply },
   });
   const analystResult = await analystHandle.result() as AgentResult;
   const analystReply = analystResult.reply ?? '';
 
-  await connection.close();
+  await client.close();
   return { research: researchReply, coder: coderReply, analyst: analystReply };
 }
 

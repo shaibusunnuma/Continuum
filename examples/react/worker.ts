@@ -8,8 +8,7 @@ import dotenv from 'dotenv';
 import { tavily } from '@tavily/core';
 import { openai } from '@ai-sdk/openai';
 import {
-  defineModels,
-  defineTool,
+  createRuntime,
   createWorker,
   initObservability,
 } from '@ai-runtime/sdk';
@@ -32,52 +31,55 @@ async function main() {
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
-  defineModels({
-    fast: openai.chat('gpt-4o-mini'),
-  });
-
-  defineTool({
-    name: 'calculator',
-    description: 'Evaluate a simple math expression (e.g. 2 + 3 * 4). Use for arithmetic.',
-    input: z.object({ expression: z.string() }),
-    output: z.object({ result: z.number() }),
-    execute: async ({ expression }) => {
-      try {
-        const sanitized = expression.replace(/[^0-9+\-*/().\s]/g, '');
-        const result = Function(`"use strict"; return (${sanitized})`)();
-        const numeric = Number(result);
-        if (!Number.isFinite(numeric)) {
-          return { result: NaN };
-        }
-        return { result: numeric };
-      } catch {
-        return { result: NaN };
+  const runtime = createRuntime({
+    models: {
+      fast: openai.chat('gpt-4o-mini'),
+    },
+    tools: [
+      {
+        name: 'calculator',
+        description: 'Evaluate a simple math expression (e.g. 2 + 3 * 4). Use for arithmetic.',
+        input: z.object({ expression: z.string() }),
+        output: z.object({ result: z.number() }),
+        execute: async ({ expression }) => {
+          try {
+            const sanitized = expression.replace(/[^0-9+\-*/().\s]/g, '');
+            const result = Function(`"use strict"; return (${sanitized})`)();
+            const numeric = Number(result);
+            if (!Number.isFinite(numeric)) {
+              return { result: NaN };
+            }
+            return { result: numeric };
+          } catch {
+            return { result: NaN };
+          }
+        },
+      },
+      {
+        name: 'search',
+        description: 'Search the web for information. Uses Tavily; good for factual or up-to-date questions.',
+        input: z.object({ query: z.string() }),
+        output: z.array(
+          z.object({
+            title: z.string(),
+            content: z.string(),
+            url: z.string().optional(),
+          }),
+        ),
+        execute: async ({ query }) => {
+          const response = await tvly.search(query);
+          return response.results.map((result) => ({
+            title: result.title,
+            content: result.content,
+            url: result.url,
+          }));
+        },
       }
-    },
-  });
-
-  defineTool({
-    name: 'search',
-    description: 'Search the web for information. Uses Tavily; good for factual or up-to-date questions.',
-    input: z.object({ query: z.string() }),
-    output: z.array(
-      z.object({
-        title: z.string(),
-        content: z.string(),
-        url: z.string().optional(),
-      }),
-    ),
-    execute: async ({ query }) => {
-      const response = await tvly.search(query);
-      return response.results.map((result) => ({
-        title: result.title,
-        content: result.content,
-        url: result.url,
-      }));
-    },
+    ]
   });
 
   const handle = await createWorker({
+    runtime,
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });

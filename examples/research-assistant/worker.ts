@@ -12,11 +12,9 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 import { z } from 'zod';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import {
-  defineModels,
-  defineTool,
+  createRuntime,
   createWorker,
   initObservability,
-  defineTools,
 } from '@ai-runtime/sdk';
 import { initEvaluation } from '@ai-runtime/eval';
 
@@ -40,44 +38,47 @@ async function main() {
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
-  defineModels({
-    fast: google('gemini-2.5-flash'),
-    reasoning: google('gemini-2.5-pro'),
-  });
-
-  defineTools([{
-    name: 'search_web',
-    description: 'Search the web for information. Use for factual or up-to-date queries.',
-    input: z.object({ query: z.string() }),
-    output: z.array(
-      z.object({
-        title: z.string(),
-        content: z.string(),
-        url: z.string().optional(),
-      }),
-    ),
-    execute: async ({ query }) => {
-      const response = await tvly.search(query);
-      return response.results.map((result) => ({
-        title: result.title,
-        content: result.content,
-        url: result.url,
-      }));
-    }
-  }]);
-
-  defineTool({
-    name: 'save_note',
-    description: 'Save a research note or finding for the summary.',
-    input: z.object({
-      content: z.string(),
-      label: z.string().optional(),
-    }),
-    output: z.object({ saved: z.boolean(), id: z.string() }),
-    execute: async () => ({ saved: true, id: `note-${Date.now()}` }),
+  const runtime = createRuntime({
+    models: {
+      fast: google('gemini-2.5-flash'),
+      reasoning: google('gemini-2.5-pro'),
+    },
+    tools: [
+      {
+        name: 'search_web',
+        description: 'Search the web for information. Use for factual or up-to-date queries.',
+        input: z.object({ query: z.string() }),
+        output: z.array(
+          z.object({
+            title: z.string(),
+            content: z.string(),
+            url: z.string().optional(),
+          }),
+        ),
+        execute: async ({ query }) => {
+          const response = await tvly.search(query);
+          return response.results.map((result) => ({
+            title: result.title,
+            content: result.content,
+            url: result.url,
+          }));
+        }
+      },
+      {
+        name: 'save_note',
+        description: 'Save a research note or finding for the summary.',
+        input: z.object({
+          content: z.string(),
+          label: z.string().optional(),
+        }),
+        output: z.object({ saved: z.boolean(), id: z.string() }),
+        execute: async () => ({ saved: true, id: `note-${Date.now()}` }),
+      }
+    ]
   });
 
   const handle = await createWorker({
+    runtime,
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });
