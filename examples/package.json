@@ -11,7 +11,11 @@
     "worker:multi-agent": "ts-node multi-agent/worker.ts",
     "orchestrate:multi-agent": "ts-node multi-agent/orchestrate.ts",
     "worker:memory-augmented": "ts-node memory-augmented/worker.ts",
-    "worker:cognitive-layered": "ts-node cognitive-layered/worker.ts"
+    "worker:cognitive-layered": "ts-node cognitive-layered/worker.ts",
+    "worker:streaming": "ts-node streaming/worker.ts",
+    "client:streaming": "ts-node streaming/client.ts",
+    "worker:hitl": "ts-node human-in-the-loop/worker.ts",
+    "client:hitl": "ts-node human-in-the-loop/client.ts"
   },
   "dependencies": {
     "@ai-runtime/eval": "file:../packages/eval",
