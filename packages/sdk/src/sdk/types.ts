@@ -66,6 +66,8 @@ export interface ModelCallParams {
   responseFormat?: 'text' | 'json';
   /** Optional JSON Schema for structured output. When provided, the model call uses `generateObject()` and returns the parsed, validated object as a JSON string in `result`. Pass a plain JSON Schema object (e.g. from `zodToJsonSchema(myZodSchema)` or `z.toJSONSchema(myZodSchema)`). */
   schema?: Record<string, unknown>;
+  /** Optional per-call activity timeout (e.g. '10 minutes'). Overrides the default 5 minute timeout for this specific model call. */
+  timeout?: string | number;
 }
 
 /** Metadata about the current run. Read-only, available as `ctx.run` inside workflows. */
@@ -120,6 +122,8 @@ export interface AgentConfig {
   tools: string[];
   maxSteps?: number;
   budgetLimit?: BudgetLimit;
+  /** Temporal activity timeout for all model and tool calls in this agent (e.g. '10 minutes'). Defaults to '5 minutes'. */
+  activityTimeout?: string | number;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +136,24 @@ export interface AgentResult {
   finishReason: 'complete' | 'max_steps' | 'budget_exceeded';
   steps: number;
   usage: Usage;
+}
+
+// ---------------------------------------------------------------------------
+// Streaming (query-based progressive state)
+// ---------------------------------------------------------------------------
+
+/** Queryable state for progressive UX. Exposed via Temporal `streamState` query on workflows and agents. */
+export interface StreamState {
+  /** Current phase of the workflow/agent. */
+  status: 'running' | 'waiting_for_input' | 'completed' | 'error';
+  /** For agents: current step number in the tool loop. */
+  currentStep?: number;
+  /** The latest assistant reply (partial for agents mid-loop, final when complete). */
+  partialReply?: string;
+  /** Full conversation history so far (for agents). */
+  messages?: Message[];
+  /** Timestamp of the last state update. */
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------

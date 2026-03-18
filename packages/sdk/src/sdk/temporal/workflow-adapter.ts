@@ -12,6 +12,7 @@ import type {
   ToolResult,
   Message,
   RunMetadata,
+  StreamState,
 } from '../types';
 import { ConfigurationError } from '../errors';
 
@@ -57,6 +58,14 @@ export function workflow<TInput, TOutput>(
 
     const info = wf.workflowInfo();
 
+    // Stream state for progressive UX via Temporal queries
+    let streamState: StreamState = {
+      status: 'running',
+      updatedAt: new Date().toISOString(),
+    };
+    const streamStateQuery = wf.defineQuery<StreamState>('streamState');
+    wf.setHandler(streamStateQuery, () => streamState);
+
     const ctx: WorkflowContext<TInput> = {
       input,
 
@@ -66,7 +75,7 @@ export function workflow<TInput, TOutput>(
           messages.push({ role: 'user', content: params.prompt });
         }
 
-        const result = await runModel({
+        const runModelParams = {
           modelId,
           messages,
           toolNames: params.tools,
@@ -77,7 +86,19 @@ export function workflow<TInput, TOutput>(
             runId: info.runId,
             workflowName: name,
           },
-        });
+        };
+
+        // Use a custom-timeout proxy if caller specified a per-call timeout
+        let result;
+        if (params.timeout) {
+          const customActivities = wf.proxyActivities<typeof sdkActivities>({
+            startToCloseTimeout: params.timeout as import('@temporalio/common').Duration,
+            retry: { maximumAttempts: 3 },
+          });
+          result = await customActivities.runModel(runModelParams);
+        } else {
+          result = await runModel(runModelParams);
+        }
 
         accumulatedCost += result.usage.costUsd;
 
@@ -121,6 +142,11 @@ export function workflow<TInput, TOutput>(
     };
 
     const result = await fn(ctx);
+
+    streamState = {
+      status: 'completed',
+      updatedAt: new Date().toISOString(),
+    };
 
     await runLifecycleHooks({
       type: 'run:complete',
