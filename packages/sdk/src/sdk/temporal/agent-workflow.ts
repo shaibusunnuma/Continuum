@@ -81,7 +81,9 @@ export function agent(
       updatedAt: new Date().toISOString(),
     };
 
-    const streamStateQuery = wf.defineQuery<StreamState>('streamState');
+    // Namespaced internal query name to avoid collisions with user-defined queries.
+    // TODO: We will change the 'ai-runtime:' prefix to something shorter like 'ar:' in the future when the SDK name is finalized.
+    const streamStateQuery = wf.defineQuery<StreamState>('ai-runtime:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
 
     while (stepCount < maxSteps) {

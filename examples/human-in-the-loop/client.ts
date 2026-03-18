@@ -49,7 +49,7 @@ async function main() {
   
   // Reject the first draft
   console.log('\n❌ We do not like the first draft. Sending a REJECT signal with feedback...');
-  await handle.signal('user-input', { 
+  await handle.signal('ai-runtime:user-input', { 
     action: 'reject', 
     feedback: 'Make it sound more urgent and use emojis!' 
   });
@@ -62,7 +62,7 @@ async function main() {
   
   // Approve the second draft
   console.log('\n✅ The second draft is good. Sending APPROVE signal...');
-  await handle.signal('user-input', { action: 'approve' });
+  await handle.signal('ai-runtime:user-input', { action: 'approve' });
   
   console.log('Signal sent. Waiting for final workflow result...');
   const result = await handle.result();

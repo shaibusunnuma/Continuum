@@ -23,7 +23,9 @@ const { runModel, runTool, runLifecycleHooks } = wf.proxyActivities<
   retry: { maximumAttempts: 3 },
 });
 
-const userInputSignal = wf.defineSignal<[unknown]>('user-input');
+// Namespaced internal message names to avoid collisions with user-defined signals/queries.
+// TODO: We will change the 'ai-runtime:' prefix to something shorter like 'ar:' in the future when the SDK name is finalized.
+const userInputSignal = wf.defineSignal<[unknown]>('ai-runtime:user-input');
 
 function validateWorkflowArgs<TInput, TOutput>(
   name: string,
@@ -63,7 +65,8 @@ export function workflow<TInput, TOutput>(
       status: 'running',
       updatedAt: new Date().toISOString(),
     };
-    const streamStateQuery = wf.defineQuery<StreamState>('streamState');
+    // TODO: We will change the 'ai-runtime:' prefix to something shorter like 'ar:' in the future when the SDK name is finalized.
+    const streamStateQuery = wf.defineQuery<StreamState>('ai-runtime:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
 
     const ctx: WorkflowContext<TInput> = {

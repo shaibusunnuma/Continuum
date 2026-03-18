@@ -41,7 +41,7 @@ export interface WorkflowRun<TResult = unknown> {
   result(): Promise<TResult>;
   /** Query the workflow's current stream state (for progressive UX). */
   queryStreamState(): Promise<StreamState>;
-  /** Send a signal to the workflow (e.g. user input via 'user-input' signal). */
+  /** Send a signal to the workflow (advanced). Prefer helper methods when available. */
   signal(name: string, data: unknown): Promise<void>;
   /** Request cancellation of the workflow. */
   cancel(): Promise<void>;
@@ -99,7 +99,7 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
         },
 
         async queryStreamState(): Promise<StreamState> {
-          return handle.query<StreamState>('streamState');
+          return handle.query<StreamState>('ai-runtime:streamState');
         },
 
         async signal(name: string, data: unknown): Promise<void> {
@@ -127,7 +127,7 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
         },
 
         async queryStreamState(): Promise<StreamState> {
-          return handle.query<StreamState>('streamState');
+          return handle.query<StreamState>('ai-runtime:streamState');
         },
 
         async signal(name: string, data: unknown): Promise<void> {
