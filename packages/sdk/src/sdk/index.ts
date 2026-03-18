@@ -23,6 +23,10 @@ export { agent } from './temporal/agent-workflow';
 export { createWorker } from './temporal/worker-factory';
 export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory';
 
+// Client (for starting workflows programmatically)
+export { createClient } from './temporal/client';
+export type { SdkClient, WorkflowRun, CreateClientConfig, StartWorkflowOptions } from './temporal/client';
+
 // Observability (standalone init for non-worker processes like API servers)
 export { initObservability, type ObservabilityConfig } from './obs';
 
@@ -54,4 +58,5 @@ export type {
   ModelCallParams,
   RunMetadata,
   BudgetLimit,
+  StreamState,
 } from './types';
