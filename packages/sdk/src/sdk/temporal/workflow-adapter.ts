@@ -122,7 +122,20 @@ export function workflow<TInput, TOutput>(
       },
 
       async waitForInput<T = unknown>(_description: string): Promise<T> {
+        streamState = {
+          ...streamState,
+          status: 'waiting_for_input',
+          updatedAt: new Date().toISOString(),
+        };
+
         await wf.condition(() => inputQueue.length > 0);
+
+        streamState = {
+          ...streamState,
+          status: 'running',
+          updatedAt: new Date().toISOString(),
+        };
+
         return inputQueue.shift() as T;
       },
 
