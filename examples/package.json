@@ -13,7 +13,10 @@
     "worker:memory-augmented": "ts-node memory-augmented/worker.ts",
     "worker:cognitive-layered": "ts-node cognitive-layered/worker.ts",
     "worker:streaming": "ts-node streaming/worker.ts",
+    "worker:streaming-redis": "ts-node streaming/redis-worker.ts",
     "client:streaming": "ts-node streaming/client.ts",
+    "server:streaming": "ts-node streaming/server.ts",
+    "server:streaming-redis": "ts-node streaming/redis-api-server.ts",
     "worker:hitl": "ts-node human-in-the-loop/worker.ts",
     "client:hitl": "ts-node human-in-the-loop/client.ts"
   },

@@ -85,7 +85,7 @@ async function main() {
       // Subscribe *before* starting the workflow: LocalStreamBus has no buffer — events published
       // before subscribe are dropped (unlike Trigger.dev Realtime + Electric SQL replay).
       const workflowId = `streaming-sse-${crypto.randomUUID()}`;
-      pipeStreamToResponse(runtime.streamBus, workflowId, res);
+      await pipeStreamToResponse(runtime.streamBus, workflowId, res);
 
       const handle = await client.startWorkflow('streamingWorkflow', {
         taskQueue: TASK_QUEUE,
