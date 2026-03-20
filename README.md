@@ -73,7 +73,7 @@ import { workflow, agent } from '@ai-runtime/sdk/workflow';
 
 export const myWorkflow = workflow('myWorkflow', async (ctx) => {
   const reply = await ctx.model('fast', { prompt: ctx.input.prompt });
-  return { reply: reply.result, cost: ctx.run.accumulatedCost };
+  return { reply: reply.result, cost: ctx.metadata.accumulatedCost };
 });
 
 export const myAgent = agent('myAgent', {
@@ -84,22 +84,25 @@ export const myAgent = agent('myAgent', {
 });
 ```
 
-In your worker entry, register models and tools, then create the worker:
+In your worker entry, register models and tools with `createRuntime`, then create the worker:
 
 ```ts
 // worker.ts
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
-import { defineModels, defineTool, createWorker } from '@ai-runtime/sdk';
+import { createRuntime, createWorker } from '@ai-runtime/sdk';
 
-defineModels({ fast: openai.chat('gpt-4o-mini') });
-
-defineTool({
-  name: 'my_tool',
-  description: 'Does something useful',
-  input: z.object({ q: z.string() }),
-  output: z.object({ answer: z.string() }),
-  execute: async ({ q }) => ({ answer: `Result for ${q}` }),
+createRuntime({
+  models: { fast: openai.chat('gpt-4o-mini') },
+  tools: [
+    {
+      name: 'my_tool',
+      description: 'Does something useful',
+      input: z.object({ q: z.string() }),
+      output: z.object({ answer: z.string() }),
+      execute: async ({ q }) => ({ answer: `Result for ${q}` }),
+    },
+  ],
 });
 
 const handle = await createWorker({
@@ -111,11 +114,53 @@ await handle.run();
 
 Workflows and agents are Temporal workflows; activities run your model and tool calls. Each `ctx.model()` and `ctx.tool()` is durable — if the worker stops, the run resumes from the last step.
 
+## Composability
+
+Workflows and agents can call each other via `ctx.run()`. It executes a child workflow on the same task queue and returns its result directly.
+
+```ts
+// workflows.ts
+import { workflow, agent } from '@ai-runtime/sdk/workflow';
+
+export const researcher = agent('researcher', {
+  model: 'fast',
+  instructions: 'You research topics thoroughly.',
+  tools: ['web_search'],
+});
+
+export const summarizer = workflow('summarizer', async (ctx) => {
+  const result = await ctx.model('fast', { prompt: `Summarize: ${ctx.input.text}` });
+  return { summary: result.result };
+});
+
+// Parent workflow calling both
+export const pipeline = workflow('pipeline', async (ctx) => {
+  const research = await ctx.run(researcher, { message: ctx.input.topic });
+  const summary = await ctx.run(summarizer, { text: research.reply });
+  return summary;
+});
+```
+
+Agents can also delegate to other agents or workflows as tools using `delegates`:
+
+```ts
+export const orchestrator = agent('orchestrator', {
+  model: 'reasoning',
+  instructions: 'You coordinate research and summarization.',
+  tools: ['format_output'],
+  delegates: [
+    { name: 'research', description: 'Deep research on a topic', fn: researcher },
+  ],
+});
+```
+
+When the model calls the `research` tool, the SDK executes `researcher` as a child workflow and returns the result to the model's tool loop.
+
 ## What's in the repo
 
 | Path | Description |
 |------|-------------|
-| `packages/sdk` | Core SDK: `workflow()`, `agent()`, `defineModels()`, `defineTool()`, `createWorker()` |
+| `packages/sdk` | Core SDK: `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()` |
 | `packages/eval` | Optional evaluation plugin (capture runs, datasets, metrics) |
 | `example-server/` | Reference REST API to start workflows/agents and poll results |
 | `examples/` | Per-example workers and workflows (ReAct, multi-agent, etc.); see [examples/README.md](examples/README.md) |
@@ -149,7 +194,7 @@ initObservability({
   tracing: { enabled: true },
   metrics: { enabled: true },
 });
-// ... then defineModels, defineTool, createWorker, etc.
+// ... then createRuntime, createWorker, etc.
 ```
 
 For evaluation, call `initEvaluation({ enabled: true, dbUrl: '...' })` when you want to capture runs (and ensure Postgres and the eval schema are in place). Use `enabled: false` or omit the call otherwise. See `scripts/` and `packages/eval` for dataset build and run.
