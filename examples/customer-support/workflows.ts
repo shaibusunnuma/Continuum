@@ -46,7 +46,7 @@ export const customerSupport = workflow(
       return {
         reply: response.result,
         intent,
-        cost: ctx.run.accumulatedCost,
+        cost: ctx.metadata.accumulatedCost,
       };
     }
 
@@ -59,7 +59,7 @@ export const customerSupport = workflow(
       return {
         reply: `Your order ${ctx.input.orderId} status is: ${order.result.status}`,
         intent,
-        cost: ctx.run.accumulatedCost,
+        cost: ctx.metadata.accumulatedCost,
       };
     }
 
@@ -76,7 +76,7 @@ export const customerSupport = workflow(
     return {
       reply: general.result,
       intent,
-      cost: ctx.run.accumulatedCost,
+      cost: ctx.metadata.accumulatedCost,
     };
   },
 );

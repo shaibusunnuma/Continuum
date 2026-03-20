@@ -36,7 +36,7 @@ export const contentBrief = workflow(
       audience,
       outline: outline.result.trim().split('\n').filter(Boolean),
       suggestedTone: tone.result.trim(),
-      cost: ctx.run.accumulatedCost,
+      cost: ctx.metadata.accumulatedCost,
     };
   },
 );

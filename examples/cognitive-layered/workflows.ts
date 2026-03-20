@@ -29,7 +29,7 @@ export const cognitiveWorkflow = workflow(
           query: q,
           layer: 'reactive',
           reply: `The current date and time is ${now.result.human} (ISO: ${now.result.iso}).`,
-          cost: ctx.run.accumulatedCost,
+          cost: ctx.metadata.accumulatedCost,
         };
       }
 
@@ -40,7 +40,7 @@ export const cognitiveWorkflow = workflow(
         query: q,
         layer: 'reactive',
         reply: fastReply.result.trim(),
-        cost: ctx.run.accumulatedCost,
+        cost: ctx.metadata.accumulatedCost,
       };
     }
 
@@ -51,7 +51,7 @@ export const cognitiveWorkflow = workflow(
       query: q,
       layer: 'deliberative',
       reply: reasoningReply.result.trim(),
-      cost: ctx.run.accumulatedCost,
+      cost: ctx.metadata.accumulatedCost,
     };
   },
 );

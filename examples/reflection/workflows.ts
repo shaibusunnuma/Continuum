@@ -43,7 +43,7 @@ export const reflectionWorkflow = workflow(
       draft: draftText,
       feedback,
       revision: revision.result.trim(),
-      cost: ctx.run.accumulatedCost,
+      cost: ctx.metadata.accumulatedCost,
     };
   },
 );

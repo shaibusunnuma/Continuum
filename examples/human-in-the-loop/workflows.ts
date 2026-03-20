@@ -43,7 +43,7 @@ export const draftEmail = workflow(
 
     return {
       finalEmail: currentDraft,
-      cost: ctx.run.accumulatedCost,
+      cost: ctx.metadata.accumulatedCost,
     };
   },
 );

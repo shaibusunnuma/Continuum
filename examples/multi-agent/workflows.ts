@@ -44,7 +44,7 @@ export const multiAgentWorkflow = workflow(
       researchSummary,
       coderSuggestion,
       recommendation: analyst.result.trim(),
-      cost: ctx.run.accumulatedCost,
+      cost: ctx.metadata.accumulatedCost,
     };
   },
 );
