@@ -18,7 +18,9 @@
     "server:streaming": "ts-node streaming/server.ts",
     "server:streaming-redis": "ts-node streaming/redis-api-server.ts",
     "worker:hitl": "ts-node human-in-the-loop/worker.ts",
-    "client:hitl": "ts-node human-in-the-loop/client.ts"
+    "client:hitl": "ts-node human-in-the-loop/client.ts",
+    "worker:composability": "ts-node composability/worker.ts",
+    "client:composability": "ts-node composability/client.ts"
   },
   "dependencies": {
     "@ai-runtime/eval": "file:../packages/eval",

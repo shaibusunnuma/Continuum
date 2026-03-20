@@ -15,6 +15,7 @@ Each example is self-contained in its own folder (`worker.ts`, `workflows.ts`, a
 | **memory-augmented** | Agent with remember_fact and recall tools (in-memory stub). Uses Gemini. |
 | **cognitive-layered** | Classify simple vs complex; fast model for simple, reasoning model for complex. Uses OpenAI. |
 | **structured-loop** | Retrieve → Cognition → Control → Action → Memory workflow with stub tools. Uses Gemini. |
+| **composability** | `ctx.run()` parent→child workflow and orchestrator agent with `delegates` to a specialist. Uses OpenAI. |
 
 ## Run an example worker
 
@@ -42,6 +43,8 @@ npm run worker:memory-augmented
 npm run worker:cognitive-layered
 # or
 npm run worker:structured-loop
+# or
+npm run worker:composability
 ```
 
 From this directory:
@@ -58,8 +61,11 @@ npm run worker:tree-search
 npm run worker:memory-augmented
 npm run worker:cognitive-layered
 npm run worker:structured-loop
+npm run worker:composability
 ```
 
 For Pattern B multi-agent chain, run the orchestrator (with worker already running): `npm run orchestrate:multi-agent -- "Your question"`.
+
+For composability, with `worker:composability` running: `npm run client:composability -- parent "hello"` or `npm run client:composability -- orchestrator "Ask the specialist: ..."`. See [composability/README.md](composability/README.md).
 
 Set `OPENAI_API_KEY` or `GEMINI_API_KEY` in the repo root `.env` as needed per example.

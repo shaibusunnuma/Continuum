@@ -20,6 +20,8 @@
     "orchestrate:multi-agent": "cd examples && npm run orchestrate:multi-agent",
     "worker:memory-augmented": "cd examples && npm run worker:memory-augmented",
     "worker:cognitive-layered": "cd examples && npm run worker:cognitive-layered",
+    "worker:composability": "cd examples && npm run worker:composability",
+    "client:composability": "cd examples && npm run client:composability",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts",
