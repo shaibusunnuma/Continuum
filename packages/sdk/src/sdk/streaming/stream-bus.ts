@@ -22,7 +22,11 @@ export type StreamChunk =
 
 export interface StreamBus {
   publish(channel: string, chunk: StreamChunk): void;
-  subscribe(channel: string, cb: (chunk: StreamChunk) => void): () => void;
+  /**
+   * Register a listener for a channel. Resolves when the subscription is active
+   * (important for Redis Pub/Sub — messages published before subscribe completes are lost).
+   */
+  subscribe(channel: string, cb: (chunk: StreamChunk) => void): Promise<() => void>;
   shutdown?(): Promise<void>;
 }
 
@@ -41,7 +45,7 @@ export class LocalStreamBus implements StreamBus {
     this.emitter.emit(channel, chunk);
   }
 
-  subscribe(channel: string, cb: (chunk: StreamChunk) => void): () => void {
+  async subscribe(channel: string, cb: (chunk: StreamChunk) => void): Promise<() => void> {
     this.emitter.on(channel, cb);
     return () => {
       this.emitter.off(channel, cb);

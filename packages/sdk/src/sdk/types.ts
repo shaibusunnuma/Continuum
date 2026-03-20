@@ -63,6 +63,8 @@ export interface ModelCallParams {
   prompt?: string;
   messages?: Message[];
   tools?: string[];
+  /** If true, stream token deltas via the runtime stream bus (out-of-band). */
+  stream?: boolean;
   responseFormat?: 'text' | 'json';
   /** Optional JSON Schema for structured output. When provided, the model call uses `generateObject()` and returns the parsed, validated object as a JSON string in `result`. Pass a plain JSON Schema object (e.g. from `zodToJsonSchema(myZodSchema)` or `z.toJSONSchema(myZodSchema)`). */
   schema?: Record<string, unknown>;
@@ -181,6 +183,8 @@ export interface RunModelParams {
   messages: Message[];
   toolNames?: string[];
   responseFormat?: 'text' | 'json';
+  /** If true, stream token deltas via the runtime stream bus (out-of-band). */
+  stream?: boolean;
   /** JSON Schema for structured output. When present, runModel uses generateObject() instead of generateText(). Serialized from a Zod schema at the workflow boundary. */
   outputSchema?: Record<string, unknown>;
   /** Optional; set by SDK workflow/agent adapters for span attributes. */

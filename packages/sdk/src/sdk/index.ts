@@ -42,6 +42,7 @@ export {
 } from './errors';
 
 // Lifecycle hooks (for plugins)
+export { registerHook } from './hooks';
 export type { LifecycleEvent, LifecycleHook } from './hooks';
 
 // Types
@@ -60,3 +61,10 @@ export type {
   BudgetLimit,
   StreamState,
 } from './types';
+
+// Streaming (token streaming via StreamBus + SSE helpers)
+export type { StreamBus, StreamChunk } from './streaming/stream-bus';
+export { LocalStreamBus } from './streaming/stream-bus';
+export { pipeStreamToResponse } from './streaming/sse';
+export { RedisStreamBus } from './streaming/redis-stream-bus';
+export type { RedisStreamBusConfig } from './streaming/redis-stream-bus';

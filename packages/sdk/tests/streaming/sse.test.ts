@@ -25,7 +25,7 @@ describe('pipeStreamToResponse', () => {
       },
     } as any;
 
-    pipeStreamToResponse(bus, 'wf-1', res);
+    await pipeStreamToResponse(bus, 'wf-1', res);
 
     bus.publish('wf-1', { type: 'text-delta', workflowId: 'wf-1', payload: { text: 'hi' } });
     bus.publish('wf-1', { type: 'finish', workflowId: 'wf-1' });
@@ -52,14 +52,12 @@ describe('pipeStreamToResponse', () => {
       },
     } as any;
 
-    pipeStreamToResponse(bus, 'wf-2', res);
+    await pipeStreamToResponse(bus, 'wf-2', res);
 
     bus.publish('wf-2', { type: 'text-delta', workflowId: 'wf-2', payload: { text: 'a' } });
 
-    // Simulate client disconnect
     for (const cb of listeners['close'] ?? []) cb();
 
-    // After close, further publishes should not crash or add writes
     bus.publish('wf-2', { type: 'text-delta', workflowId: 'wf-2', payload: { text: 'b' } });
 
     expect(writes.some((w) => w.includes('"delta":"a"'))).toBe(true);

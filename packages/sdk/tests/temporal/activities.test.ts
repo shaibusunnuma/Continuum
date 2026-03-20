@@ -135,7 +135,7 @@ describe('activities', () => {
       setActiveRuntime(runtime);
 
       const received: string[] = [];
-      const unsubscribe = runtime.streamBus.subscribe('wf-123', (chunk) => {
+      const unsubscribe = await runtime.streamBus.subscribe('wf-123', (chunk) => {
         if (chunk.type === 'text-delta') received.push(chunk.payload.text);
         if (chunk.type === 'finish') received.push('[finish]');
       });
