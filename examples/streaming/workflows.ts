@@ -1,8 +1,10 @@
 /**
  * Streaming example workflow definitions.
- * Provides a simple agent that takes multiple slow steps so the client can stream real-time state.
+ * Provides:
+ * - `streamingAgent`: step-level progressive state via `streamState` query polling
+ * - `streamingWorkflow`: token streaming via StreamBus (ctx.model({ stream: true }))
  */
-import { agent } from '@ai-runtime/sdk/workflow';
+import { agent, workflow, type WorkflowContext } from '@ai-runtime/sdk/workflow';
 
 export const streamingAgent = agent('streaming-agent', {
   model: 'fast',
@@ -12,3 +14,14 @@ export const streamingAgent = agent('streaming-agent', {
   tools: ['slow_search'],
   maxSteps: 5,
 });
+
+export const streamingWorkflow = workflow(
+  'streamingWorkflow',
+  async (ctx: WorkflowContext<{ message: string }>) => {
+    const r = await ctx.model('fast', {
+      prompt: ctx.input.message,
+      stream: true,
+    });
+    return { reply: r.result };
+  },
+);

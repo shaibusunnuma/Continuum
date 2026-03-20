@@ -1,4 +1,4 @@
-import { generateText, jsonSchema, Output, type ModelMessage } from 'ai';
+import { generateText, jsonSchema, Output, streamText, type ModelMessage } from 'ai';
 import { tool as aiTool, type Tool } from 'ai';
 import { calculateCostUsd } from '../ai/cost';
 import { getActiveRuntime } from '../runtime';
@@ -18,7 +18,7 @@ import type {
   ToolCall,
 } from '../types';
 import type { LifecycleEvent } from '../hooks';
-import { ToolValidationError } from '../errors';
+import { ConfigurationError, ToolValidationError } from '../errors';
 
 // ---------------------------------------------------------------------------
 // runModel — calls an LLM via Vercel AI SDK
@@ -126,7 +126,83 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       let inputTokens = 0;
       let outputTokens = 0;
 
-      if (params.outputSchema) {
+      if (params.stream) {
+        const workflowId = params.traceContext?.workflowId;
+        if (!workflowId || typeof workflowId !== 'string' || workflowId.trim() === '') {
+          throw new ConfigurationError(
+            'Streaming requires traceContext.workflowId to be set so chunks can be routed safely.',
+          );
+        }
+
+        const st = streamText({
+          model,
+          messages: toModelMessages(params.messages),
+          tools,
+          maxRetries: 3,
+          maxOutputTokens: options.maxTokens,
+        });
+
+        const channel = workflowId;
+        let assembled = '';
+
+        try {
+          for await (const part of st.fullStream) {
+            if (part.type === 'text-delta') {
+              const delta =
+                (part as unknown as { textDelta?: string }).textDelta ??
+                (part as unknown as { text?: string }).text ??
+                '';
+              if (delta) {
+                assembled += delta;
+                runtime.streamBus.publish(channel, {
+                  type: 'text-delta',
+                  workflowId: channel,
+                  payload: { text: delta },
+                });
+              }
+            } else if (part.type === 'tool-call') {
+              // Capture tool calls in the return value (consistent with non-streaming generateText path)
+              genToolCalls.push({
+                toolCallId: (part as unknown as { toolCallId?: string }).toolCallId ?? '',
+                toolName: (part as unknown as { toolName?: string }).toolName ?? '',
+                input: (part as unknown as { args?: unknown; input?: unknown }).args ??
+                  (part as unknown as { input?: unknown }).input,
+              });
+              runtime.streamBus.publish(channel, {
+                type: 'tool-call',
+                workflowId: channel,
+                payload: part,
+              });
+            } else if (part.type === 'tool-result') {
+              runtime.streamBus.publish(channel, {
+                type: 'tool-result',
+                workflowId: channel,
+                payload: part,
+              });
+            } else if (part.type === 'finish') {
+              const totalUsage =
+                (part as unknown as { totalUsage?: { inputTokens?: number; outputTokens?: number } })
+                  .totalUsage ??
+                (part as unknown as { usage?: { inputTokens?: number; outputTokens?: number } }).usage;
+              inputTokens = totalUsage?.inputTokens ?? 0;
+              outputTokens = totalUsage?.outputTokens ?? 0;
+            }
+          }
+          runtime.streamBus.publish(channel, {
+            type: 'finish',
+            workflowId: channel,
+          });
+        } catch (err) {
+          runtime.streamBus.publish(channel, {
+            type: 'error',
+            workflowId: channel,
+            payload: { message: (err as Error).message },
+          });
+          throw err;
+        }
+
+        genText = assembled;
+      } else if (params.outputSchema) {
         // Structured output path: use generateText with Output.object(); tools are passed when toolNames is set
         const objResult = await generateText({
           model,
