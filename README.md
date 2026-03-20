@@ -114,6 +114,35 @@ await handle.run();
 
 Workflows and agents are Temporal workflows; activities run your model and tool calls. Each `ctx.model()` and `ctx.tool()` is durable — if the worker stops, the run resumes from the last step.
 
+### `createApp()` (single config for worker + client)
+
+`createApp` builds one `RuntimeContext`, shares `taskQueue` / Temporal address with both `createWorker()` and a cached `client()`, and exposes `start()` / `startWorkflow()` like the client:
+
+```ts
+import { createApp } from '@ai-runtime/sdk';
+import { openai } from '@ai-sdk/openai';
+
+// Worker process
+const app = await createApp({
+  models: { fast: openai.chat('gpt-4o-mini') },
+  tools: [/* ... */],
+  workflowsPath: require.resolve('./workflows'),
+  taskQueue: 'my-queue',
+});
+const worker = await app.createWorker();
+await worker.run();
+
+// API / script process (same bundle path + queue; models can be minimal if only starting runs)
+const app2 = await createApp({
+  models: {},
+  workflowsPath: require.resolve('./workflows'),
+  taskQueue: 'my-queue',
+});
+const handle = await app2.start(myWorkflow, { input: { message: 'Hi' } });
+await handle.result();
+await app2.close();
+```
+
 ## Starting workflows from code
 
 Use `createClient` and the type-safe `start()` method with a direct function reference:
@@ -135,6 +164,32 @@ await client.close();
 ```
 
 `taskQueue` on `createClient` sets the default for all starts; you can override per call. For REST/HTTP bridges where the workflow type is a string, use `client.startWorkflow('myWorkflow', { input })`.
+
+## React: progressive workflow UI
+
+Install `@ai-runtime/react` and poll **stream state** (status, partial reply, messages) through your backend. The reference server exposes `GET /runs/:workflowId/stream-state`.
+
+```tsx
+import { useWorkflowStreamState } from '@ai-runtime/react';
+
+function RunProgress({ workflowId }: { workflowId: string }) {
+  const { state, error, loading } = useWorkflowStreamState({
+    workflowId,
+    apiBaseUrl: process.env.NEXT_PUBLIC_API_URL,
+    pollIntervalMs: 1500,
+  });
+  if (error) return <p>{error.message}</p>;
+  if (!state) return <p>{loading ? 'Loading…' : 'No data'}</p>;
+  return (
+    <pre>
+      {state.status} — step {state.currentStep ?? '—'}
+      {state.partialReply ? `\n${state.partialReply}` : ''}
+    </pre>
+  );
+}
+```
+
+Use a custom `queryFn` if your API shape differs. Token-level SSE remains a separate HTTP/stream integration (see streaming examples).
 
 ## Composability
 
@@ -182,7 +237,8 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 
 | Path | Description |
 |------|-------------|
-| `packages/sdk` | Core SDK: `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()` |
+| `packages/sdk` | Core SDK: `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()`, `createApp()` |
+| `packages/react` | React hooks: `useWorkflowStreamState` (poll stream state via your API) |
 | `packages/eval` | Optional evaluation plugin (capture runs, datasets, metrics) |
 | `example-server/` | Reference REST API to start workflows/agents and poll results |
 | `examples/` | Per-example workers and workflows (ReAct, multi-agent, etc.); see [examples/README.md](examples/README.md) |

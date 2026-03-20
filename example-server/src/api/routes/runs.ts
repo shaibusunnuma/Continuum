@@ -17,6 +17,36 @@ export async function runsRoutes(
   fastify.get<{
     Params: { workflowId: string };
   }>(
+    '/:workflowId/stream-state',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['workflowId'],
+          properties: { workflowId: { type: 'string' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const client = await getTemporalClient();
+        const handle = client.getWorkflowHandle(request.params.workflowId);
+        const state = await handle.queryStreamState();
+        return reply.send(state);
+      } catch (err) {
+        request.log.error(err);
+        const status = isNotFoundError(err) ? 404 : 500;
+        return reply.status(status).send({
+          error: status === 404 ? 'Run not found' : 'Internal server error',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  );
+
+  fastify.get<{
+    Params: { workflowId: string };
+  }>(
     '/:workflowId',
     {
       schema: {

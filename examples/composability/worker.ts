@@ -1,12 +1,12 @@
 /**
- * Composability example worker.
+ * Composability example worker (uses createApp).
  * Run from repo root: npm run worker:composability
  * Requires OPENAI_API_KEY in repo root .env and Temporal on TEMPORAL_ADDRESS.
  */
 import path from 'path';
 import dotenv from 'dotenv';
 import { openai } from '@ai-sdk/openai';
-import { createRuntime, createWorker, initObservability } from '@ai-runtime/sdk';
+import { createApp, initObservability } from '@ai-runtime/sdk';
 import { initEvaluation } from '@ai-runtime/eval';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
@@ -25,18 +25,16 @@ async function main() {
     defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
   });
 
-  const runtime = createRuntime({
+  const app = await createApp({
     models: {
       fast: openai.chat('gpt-4o-mini'),
     },
     tools: [],
-  });
-
-  const handle = await createWorker({
-    runtime,
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });
+
+  const handle = await app.createWorker();
 
   const shutdown = (): void => {
     handle.shutdown().catch((err) => {
@@ -48,7 +46,7 @@ async function main() {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  console.log(`Composability worker listening on task queue: ${TASK_QUEUE}`);
+  console.log(`Composability worker listening on task queue: ${app.taskQueue}`);
   await handle.run();
 }
 
