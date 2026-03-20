@@ -19,6 +19,7 @@ import {
   createClient,
   pipeStreamToResponse,
 } from '@ai-runtime/sdk';
+import { streamingWorkflow } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -52,7 +53,7 @@ async function main() {
     taskQueue: TASK_QUEUE,
   });
 
-  const client = await createClient();
+  const client = await createClient({ taskQueue: TASK_QUEUE });
 
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST' || req.url !== '/stream') {
@@ -87,8 +88,7 @@ async function main() {
       const workflowId = `streaming-sse-${crypto.randomUUID()}`;
       await pipeStreamToResponse(runtime.streamBus, workflowId, res);
 
-      const handle = await client.startWorkflow('streamingWorkflow', {
-        taskQueue: TASK_QUEUE,
+      const handle = await client.start(streamingWorkflow, {
         workflowId,
         input: { message: check.data.message },
       });

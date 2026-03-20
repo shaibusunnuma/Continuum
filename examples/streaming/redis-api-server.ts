@@ -12,6 +12,7 @@ import dotenv from 'dotenv';
 import http from 'node:http';
 import { z } from 'zod';
 import { createClient, pipeStreamToResponse, RedisStreamBus } from '@ai-runtime/sdk';
+import { streamingWorkflow } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -21,7 +22,7 @@ const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 async function main() {
   const bus = new RedisStreamBus({ url: REDIS_URL });
-  const client = await createClient();
+  const client = await createClient({ taskQueue: TASK_QUEUE });
 
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST' || req.url !== '/stream') {
@@ -63,8 +64,7 @@ async function main() {
         return;
       }
 
-      const handle = await client.startWorkflow('streamingWorkflow', {
-        taskQueue: TASK_QUEUE,
+      const handle = await client.start(streamingWorkflow, {
         workflowId,
         input: { message: check.data.message },
       });

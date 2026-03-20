@@ -1,54 +1,37 @@
 /**
  * Multi-Agent Pattern B: Orchestrator script.
- * Runs researchAgent → coderAgent → analystAgent in sequence via the Temporal client.
+ * Runs researchAgent -> coderAgent -> analystAgent in sequence via the Temporal client.
  * Prerequisites: Temporal server running, worker running (npm run worker:multi-agent).
  * Usage: npx ts-node multi-agent/orchestrate.ts "Your question here"
  */
 import path from 'path';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-import { createClient } from '@ai-runtime/sdk';
+import { createClient, type AgentResult } from '@ai-runtime/sdk';
+import { researchAgent, coderAgent, analystAgent } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-// Match the dedicated task queue used by examples/multi-agent/worker.ts
-const TASK_QUEUE = 'ai-runtime-multi-agent';
-const TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS ?? 'localhost:7233';
-const TEMPORAL_NAMESPACE = process.env.TEMPORAL_NAMESPACE ?? 'default';
-
-interface AgentResult {
-  reply: string;
-  finishReason: string;
-  steps: number;
-  usage: { costUsd: number; totalTokens: number };
-}
-
 async function runChain(query: string): Promise<{ research: string; coder: string; analyst: string }> {
-  const client = await createClient({
-    temporalAddress: TEMPORAL_ADDRESS,
-    temporalNamespace: TEMPORAL_NAMESPACE,
-  });
+  const client = await createClient({ taskQueue: 'ai-runtime-multi-agent' });
 
   const runId = crypto.randomBytes(4).toString('hex');
 
-  const researchHandle = await client.startWorkflow('researchAgent', {
-    taskQueue: TASK_QUEUE,
+  const researchHandle = await client.start(researchAgent, {
     workflowId: `multi-b-${runId}-research`,
     input: { message: query },
   });
   const researchResult = await researchHandle.result() as AgentResult;
   const researchReply = researchResult.reply ?? '';
 
-  const coderHandle = await client.startWorkflow('coderAgent', {
-    taskQueue: TASK_QUEUE,
+  const coderHandle = await client.start(coderAgent, {
     workflowId: `multi-b-${runId}-coder`,
     input: { message: researchReply },
   });
   const coderResult = await coderHandle.result() as AgentResult;
   const coderReply = coderResult.reply ?? '';
 
-  const analystHandle = await client.startWorkflow('analystAgent', {
-    taskQueue: TASK_QUEUE,
+  const analystHandle = await client.start(analystAgent, {
     workflowId: `multi-b-${runId}-analyst`,
     input: { message: coderReply },
   });
@@ -62,7 +45,7 @@ async function runChain(query: string): Promise<{ research: string; coder: strin
 async function main() {
   const query = process.argv.slice(2).join(' ');
   console.log('Query:', query);
-  console.log('Running Pattern B chain: researchAgent → coderAgent → analystAgent\n');
+  console.log('Running Pattern B chain: researchAgent -> coderAgent -> analystAgent\n');
   const result = await runChain(query);
   console.log('Research:', result.research);
   console.log('Coder:', result.coder);

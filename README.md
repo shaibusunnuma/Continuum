@@ -114,6 +114,28 @@ await handle.run();
 
 Workflows and agents are Temporal workflows; activities run your model and tool calls. Each `ctx.model()` and `ctx.tool()` is durable — if the worker stops, the run resumes from the last step.
 
+## Starting workflows from code
+
+Use `createClient` and the type-safe `start()` method with a direct function reference:
+
+```ts
+// client.ts
+import { createClient } from '@ai-runtime/sdk';
+import { myWorkflow, myAgent } from './workflows';
+
+const client = await createClient({ taskQueue: 'my-queue' });
+
+const handle = await client.start(myWorkflow, { input: { prompt: 'Hello' } });
+const result = await handle.result();
+
+const agentHandle = await client.start(myAgent, { input: { message: 'Help me plan a trip' } });
+const agentResult = await agentHandle.result();
+
+await client.close();
+```
+
+`taskQueue` on `createClient` sets the default for all starts; you can override per call. For REST/HTTP bridges where the workflow type is a string, use `client.startWorkflow('myWorkflow', { input })`.
+
 ## Composability
 
 Workflows and agents can call each other via `ctx.run()`. It executes a child workflow on the same task queue and returns its result directly.
