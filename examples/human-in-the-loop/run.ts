@@ -1,24 +1,64 @@
 /**
- * Human-in-the-loop example client.
- * Starts the draft workflow, intercepts it while waiting, and sends signals.
- * Usage: npx ts-node human-in-the-loop/client.ts
+ * Human-in-the-loop example — one entry file.
+ *
+ *   worker — Temporal worker (terminal 1).
+ *   demo   — start draftEmail + signals via createClient (terminal 2).
  */
 import path from 'path';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-import { createClient } from '@ai-runtime/sdk';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createClient, createRuntime, createWorker, initObservability } from '@ai-runtime/sdk';
+import { initEvaluation } from '@ai-runtime/eval';
 import { draftEmail } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-async function main() {
-  const client = await createClient({ taskQueue: 'ai-runtime-hitl' });
+const TASK_QUEUE = 'ai-runtime-hitl';
+
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+});
+
+async function runWorker(): Promise<void> {
+  initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
+  initEvaluation({
+    enabled: false,
+    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
+    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+  });
+
+  const runtime = createRuntime({
+    models: { fast: google('gemini-2.5-flash') },
+    tools: [],
+  });
+
+  const handle = await createWorker({
+    runtime,
+    workflowsPath: require.resolve('./workflows'),
+    taskQueue: TASK_QUEUE,
+  });
+
+  const shutdown = (): void => {
+    handle.shutdown().catch((err) => {
+      console.error('Worker shutdown error:', err);
+      process.exit(1);
+    });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
+  console.log(`HITL worker — task queue: ${TASK_QUEUE}`);
+  await handle.run();
+}
+
+async function runDemo(): Promise<void> {
+  const client = await createClient({ taskQueue: TASK_QUEUE });
 
   const runId = crypto.randomBytes(4).toString('hex');
   const workflowId = `hitl-${runId}`;
 
   console.log('Starting email drafter workflow...');
-
   const handle = await client.start(draftEmail, {
     workflowId,
     input: { topic: 'Announcing a new 20% discount on all cloud services on Friday' },
@@ -46,7 +86,6 @@ async function main() {
   });
 
   console.log('Signal sent. Waiting for second draft...');
-
   const state2 = await waitUntilWaiting();
   console.log('\n--- Second Draft Generated ---');
   console.log(`Workflow status: ${state2.status}`);
@@ -58,10 +97,20 @@ async function main() {
   const result = await handle.result();
 
   console.log('\n--- Final Approved Email ---');
-  console.log((result as any).finalEmail);
+  console.log((result as { finalEmail?: string }).finalEmail);
   console.log('----------------------------');
 
   await client.close();
+}
+
+async function main(): Promise<void> {
+  const mode = process.argv[2] ?? 'worker';
+  if (mode === 'worker') await runWorker();
+  else if (mode === 'demo') await runDemo();
+  else {
+    console.error('Usage: run.ts [worker|demo]');
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

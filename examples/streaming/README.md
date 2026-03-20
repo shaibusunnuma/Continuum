@@ -52,3 +52,5 @@ Different workflow (`streamingAgent`): progress via Temporal query, not SSE.
 npm run worker:streaming
 npm run client:streaming -- "Your prompt here"
 ```
+
+(`worker` and `client` both invoke `streaming/run.ts` with different subcommands.)

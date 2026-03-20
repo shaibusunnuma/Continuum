@@ -114,34 +114,47 @@ await handle.run();
 
 Workflows and agents are Temporal workflows; activities run your model and tool calls. Each `ctx.model()` and `ctx.tool()` is durable — if the worker stops, the run resumes from the last step.
 
-### `createApp()` (single config for worker + client)
+### How many files and processes?
 
-`createApp` builds one `RuntimeContext`, shares `taskQueue` / Temporal address with both `createWorker()` and a cached `client()`, and exposes `start()` / `startWorkflow()` like the client:
+| Piece | Required? | Why |
+|-------|------------|-----|
+| **Workflows file** (`workflows.ts`) | Yes | Temporal bundles it in the workflow isolate; keep imports workflow-safe. |
+| **Worker entry** | Yes (somewhere) | Must run `createWorker` + `run()` with your models/tools so activities execute. |
+| **Client / API** | Only if something starts workflows | Any process with a Temporal client can call `start()`; it does **not** need your model registry. |
+
+**You do not need three separate files.** Common layouts:
+
+1. **Two files** — `workflows.ts` + one `main.ts` that runs **worker + HTTP API in the same Node process** (see `examples/streaming/server.ts`): one `createRuntime` / `createApp`, worker + `client.start` in one place. `worker.run()` blocks that thread; the HTTP server runs on the same event loop (Temporal worker uses its own threading model internally).
+
+2. **Two processes (typical production)** — worker service + API service. Worker file has full runtime; API uses **`createClient({ taskQueue })` only** — no `createApp`, no empty `models`, no `workflowsPath` on the API. Import workflow **functions** in the API only for type-safe `client.start(myWorkflow, { input })` (or use `startWorkflow` with strings).
+
+3. **DRY config** — If worker and client are different repos/processes, share **`TASK_QUEUE` / Temporal address via env** or a tiny `shared/temporal.ts` that exports constants. That is normal duplication of *settings*, not of runtime state.
+
+**`createApp` twice is redundant** when the second process only starts workflows: use `createClient` there. Use **`createApp` in one process** when that process both runs a worker and starts workflows (co-located dev or single binary), so `taskQueue` and address stay in one object.
+
+### `createApp()` (one config when worker + starts live together)
+
+`createApp` builds one `RuntimeContext` and wires the same `taskQueue` / Temporal settings to `createWorker()` and a cached `client()`:
 
 ```ts
 import { createApp } from '@ai-runtime/sdk';
 import { openai } from '@ai-sdk/openai';
 
-// Worker process
 const app = await createApp({
   models: { fast: openai.chat('gpt-4o-mini') },
   tools: [/* ... */],
   workflowsPath: require.resolve('./workflows'),
   taskQueue: 'my-queue',
 });
-const worker = await app.createWorker();
-await worker.run();
 
-// API / script process (same bundle path + queue; models can be minimal if only starting runs)
-const app2 = await createApp({
-  models: {},
-  workflowsPath: require.resolve('./workflows'),
-  taskQueue: 'my-queue',
-});
-const handle = await app2.start(myWorkflow, { input: { message: 'Hi' } });
-await handle.result();
-await app2.close();
+const worker = await app.createWorker();
+// Dedicated worker process: await worker.run() (blocks until shutdown).
+
+// Same Node process as an HTTP server: start the server first, then await worker.run()
+// at the bottom of main() — see examples/streaming/server.ts.
 ```
+
+For a **separate API or CLI** that only starts runs, use **`createClient`** below — do **not** call `createApp` again unless you want a second full app instance.
 
 ## Starting workflows from code
 

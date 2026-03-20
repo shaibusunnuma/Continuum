@@ -27,6 +27,10 @@ export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory
 export { createClient, resolveWorkflowType } from './temporal/client';
 export type { SdkClient, WorkflowRun, CreateClientConfig, StartWorkflowOptions } from './temporal/client';
 
+// App (runtime + worker + client defaults)
+export { createApp } from './app';
+export type { App, CreateAppConfig } from './app';
+
 // Observability (standalone init for non-worker processes like API servers)
 export { initObservability, type ObservabilityConfig } from './obs';
 

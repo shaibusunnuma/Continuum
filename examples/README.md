@@ -1,6 +1,6 @@
 # Examples
 
-Each example is self-contained in its own folder (`worker.ts`, `workflows.ts`, and `api.http`) and shares this directory’s `package.json` and `node_modules`. Use the `api.http` in each folder with the REST Client VS Code extension to trigger and poll runs.
+Each example is self-contained in its own folder (`workflows.ts`, and often `worker.ts` or a unified `run.ts`, plus `api.http` where present) and shares this directory’s `package.json` and `node_modules`. **Composability, streaming (polling demo), human-in-the-loop, and multi-agent** use a single **`run.ts`** with subcommands (`worker` vs `demo` / `orchestrate`) so worker and client code sit in one file; you still run **two processes** for Temporal (worker + client). For a minimal client in another repo, see [REMOTE_CLIENT.md](REMOTE_CLIENT.md). Use the `api.http` in each folder with the REST Client VS Code extension to trigger and poll runs where applicable.
 
 | Folder | Description |
 |--------|-------------|
@@ -10,7 +10,7 @@ Each example is self-contained in its own folder (`worker.ts`, `workflows.ts`, a
 | **dag** | Graph/DAG workflow: validate → route → model or tool → respond. Uses Gemini (`GEMINI_API_KEY`). |
 | **plan-and-execute** | Planner emits plan (JSON steps); executor runs steps. Uses OpenAI (`OPENAI_API_KEY`). |
 | **reflection** | Generate → Critic → Improve workflow. Uses Gemini (`GEMINI_API_KEY`). |
-| **multi-agent** | Pattern A: one workflow with Researcher/Coder/Analyst steps. Pattern B: three agents + orchestrator script. Uses Gemini. |
+| **multi-agent** | Pattern A: one workflow with Researcher/Coder/Analyst steps. Pattern B: three agents + `run.ts orchestrate`. Uses Gemini. |
 | **tree-search** | Multiple reasoning paths (optimistic/cautious/neutral), then judge picks best. Uses OpenAI. |
 | **memory-augmented** | Agent with remember_fact and recall tools (in-memory stub). Uses Gemini. |
 | **cognitive-layered** | Classify simple vs complex; fast model for simple, reasoning model for complex. Uses OpenAI. |
