@@ -3,7 +3,7 @@ import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import { runModel, runTool, runLifecycleHooks } from '../../src/sdk/temporal/activities';
 import { ToolValidationError } from '../../src/sdk/errors';
-import type { LifecycleEvent } from '../../src/sdk/hooks';
+import { registerHook, clearHooks, type LifecycleEvent } from '../../src/sdk/hooks';
 import { createRuntime, setActiveRuntime, clearActiveRuntime } from '../../src/sdk/runtime';
 
 const fakeModel: LanguageModel = {
@@ -59,6 +59,7 @@ describe('activities', () => {
   });
 
   afterEach(() => {
+    clearHooks();
     clearActiveRuntime();
   });
 
@@ -200,6 +201,25 @@ describe('activities', () => {
         },
       };
       await expect(runLifecycleHooks(event)).resolves.toBeUndefined();
+    });
+
+    it('invokes hooks registered via package registerHook (eval plugin path)', async () => {
+      const fn = vi.fn().mockResolvedValue(undefined);
+      registerHook(fn);
+      const event: LifecycleEvent = {
+        type: 'run:complete',
+        payload: {
+          kind: 'workflow',
+          name: 'test',
+          workflowId: 'wf-1',
+          runId: 'run-1',
+          input: {},
+          output: {},
+        },
+      };
+      await runLifecycleHooks(event);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenCalledWith(event);
     });
   });
 });

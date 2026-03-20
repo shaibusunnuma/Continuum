@@ -17,7 +17,7 @@ import type {
   Message,
   ToolCall,
 } from '../types';
-import type { LifecycleEvent } from '../hooks';
+import { dispatchHooks as dispatchRegisteredHooks, type LifecycleEvent } from '../hooks';
 import { ConfigurationError, ToolValidationError } from '../errors';
 
 // ---------------------------------------------------------------------------
@@ -347,6 +347,8 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
 export async function runLifecycleHooks(event: LifecycleEvent): Promise<void> {
   const runtime = getActiveRuntime();
   await runtime.dispatchHooks(event);
+  // Plugins (e.g. @ai-runtime/eval) use the package-level registerHook from hooks.ts.
+  await dispatchRegisteredHooks(event);
 }
 
 // ---------------------------------------------------------------------------
