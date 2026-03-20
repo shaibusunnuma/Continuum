@@ -5,8 +5,14 @@
   "main": "dist/sdk/index.js",
   "types": "dist/sdk/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/sdk/index.d.ts", "default": "./dist/sdk/index.js" },
-    "./workflow": { "types": "./dist/sdk/workflow.d.ts", "default": "./dist/sdk/workflow.js" }
+    ".": {
+      "types": "./dist/sdk/index.d.ts",
+      "default": "./dist/sdk/index.js"
+    },
+    "./workflow": {
+      "types": "./dist/sdk/workflow.d.ts",
+      "default": "./dist/sdk/workflow.js"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -14,14 +20,15 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "@temporalio/activity": "^1.15.0",
     "@temporalio/worker": "^1.15.0",
     "@temporalio/workflow": "^1.15.0",
     "ai": "^6.0.116",
     "dotenv": "^17.3.1",
+    "redis": "^5.11.0",
     "token-costs": "^3.5.0",
-    "zod": "^4.3.6",
-    "@opentelemetry/api": "^1.9.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@temporalio/testing": "^1.15.0",

@@ -11,6 +11,7 @@ import type { LanguageModel } from 'ai';
 import type { ToolDefinition, ModelOptions } from '../types';
 import type { LifecycleEvent, LifecycleHook } from '../hooks';
 import type { ObservabilityConfig } from '../obs';
+import { LocalStreamBus, type StreamBus } from '../streaming/stream-bus';
 import { ConfigurationError, ModelNotFoundError, ToolNotRegisteredError } from '../errors';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,8 @@ export class RuntimeContext {
   /** Observability config */
   tracingEnabled = false;
   metricsEnabled = false;
+  /** Ephemeral streaming bus for token streaming (out-of-band from Temporal history). */
+  streamBus: StreamBus = new LocalStreamBus();
 
   // -- Models --
 
@@ -117,6 +120,7 @@ export interface CreateRuntimeConfig {
   models?: Record<string, LanguageModel | { model: LanguageModel; maxTokens?: number }>;
   tools?: ToolDefinition[];
   observability?: ObservabilityConfig;
+  streaming?: { bus?: StreamBus };
 }
 
 /**
@@ -126,6 +130,11 @@ export interface CreateRuntimeConfig {
  */
 export function createRuntime(config: CreateRuntimeConfig = {}): RuntimeContext {
   const runtime = new RuntimeContext();
+
+  // Configure streaming bus (defaults to LocalStreamBus)
+  if (config.streaming?.bus) {
+    runtime.streamBus = config.streaming.bus;
+  }
 
   // Register models
   if (config.models) {

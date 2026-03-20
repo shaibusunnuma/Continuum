@@ -30,11 +30,13 @@ vi.mock('../../src/sdk/obs-metrics', () => ({
 vi.mock('ai', () => ({
   generateText: vi.fn(),
   generateObject: vi.fn(),
+  streamText: vi.fn(),
   jsonSchema: vi.fn((s: unknown) => s),
   tool: vi.fn(() => ({})),
+  Output: { object: vi.fn(() => ({})) },
 }));
 
-import { generateText } from 'ai';
+import { generateText, streamText } from 'ai';
 
 describe('activities', () => {
   beforeEach(() => {
@@ -123,6 +125,44 @@ describe('activities', () => {
 
       // Verify generateText was called with tools
       expect(generateText).toHaveBeenCalled();
+    });
+
+    it('streams text deltas to the runtime stream bus when stream=true', async () => {
+      const runtime = createRuntime({
+        models: { fast: fakeModel },
+        tools: [],
+      });
+      setActiveRuntime(runtime);
+
+      const received: string[] = [];
+      const unsubscribe = runtime.streamBus.subscribe('wf-123', (chunk) => {
+        if (chunk.type === 'text-delta') received.push(chunk.payload.text);
+        if (chunk.type === 'finish') received.push('[finish]');
+      });
+
+      const fullStream = (async function* () {
+        yield { type: 'text-delta', textDelta: 'Hel' };
+        yield { type: 'text-delta', textDelta: 'lo' };
+        yield { type: 'finish', totalUsage: { inputTokens: 2, outputTokens: 2 } };
+      })();
+
+      vi.mocked(streamText).mockReturnValue({
+        fullStream,
+      } as any);
+
+      const result = await runModel({
+        modelId: 'fast',
+        messages: [{ role: 'user', content: 'Hi' }],
+        stream: true,
+        traceContext: { workflowId: 'wf-123' },
+      });
+
+      unsubscribe();
+
+      expect(result.content).toBe('Hello');
+      expect(received).toEqual(['Hel', 'lo', '[finish]']);
+      expect(result.usage.promptTokens).toBe(2);
+      expect(result.usage.completionTokens).toBe(2);
     });
   });
 
