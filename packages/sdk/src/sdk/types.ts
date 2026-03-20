@@ -72,7 +72,7 @@ export interface ModelCallParams {
   timeout?: string | number;
 }
 
-/** Metadata about the current run. Read-only, available as `ctx.run` inside workflows. */
+/** Metadata about the current run. Read-only, available as `ctx.metadata` inside workflows. */
 export interface RunMetadata {
   id: string;
   workflowName: string;
@@ -80,17 +80,36 @@ export interface RunMetadata {
   accumulatedCost: number;
 }
 
+/** Options for ctx.run() child workflow execution. */
+export interface ChildRunOptions {
+  /** Override the task queue for this child (defaults to parent's queue). */
+  taskQueue?: string;
+  /** Explicit workflow ID for idempotency. Auto-generated if omitted. */
+  workflowId?: string;
+}
+
 /**
- * The context object passed to workflow functions. Provides `input`, `model()`, `tool()`, `waitForInput()`, `log()`, and `run`.
+ * The context object passed to workflow functions. Provides `input`, `model()`, `tool()`,
+ * `run()`, `waitForInput()`, `log()`, and `metadata`.
  * This is the primary interface developers use inside `workflow()` and is never constructed manually.
  */
 export interface WorkflowContext<TInput = unknown> {
   input: TInput;
   model(modelId: string, params: ModelCallParams): Promise<ModelResult>;
   tool<T = unknown>(toolName: string, input: unknown): Promise<ToolResult<T>>;
+  /**
+   * Run a child workflow or agent and await its result.
+   * Uses Temporal child workflows under the hood — same task queue by default.
+   */
+  run<TChildInput, TChildOutput>(
+    child: (input: TChildInput) => Promise<TChildOutput>,
+    input: TChildInput,
+    options?: ChildRunOptions,
+  ): Promise<TChildOutput>;
   waitForInput<T = unknown>(description: string): Promise<T>;
   log(event: string, data?: unknown): void;
-  run: RunMetadata;
+  /** Metadata about the current run (id, name, cost). Renamed from `run` to avoid collision with ctx.run(). */
+  metadata: RunMetadata;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +136,20 @@ export interface BudgetLimit {
   maxTokens?: number;
 }
 
+/**
+ * A child workflow/agent exposed as a callable tool inside an agent's loop.
+ * The model sees it as a tool with the given name and description; the SDK
+ * executes it as a Temporal child workflow (not an activity).
+ */
+export interface Delegate {
+  /** Tool name the model will call. */
+  name: string;
+  /** Description shown to the model so it knows when to use this delegate. */
+  description: string;
+  /** The workflow or agent function to execute as a child workflow. */
+  fn: (input: any) => Promise<any>;
+}
+
 /** Configuration for an agent passed to `agent()`. Specifies model, system prompt, tools, and limits. */
 export interface AgentConfig {
   model: string;
@@ -126,6 +159,8 @@ export interface AgentConfig {
   budgetLimit?: BudgetLimit;
   /** Temporal activity timeout for all model and tool calls in this agent (e.g. '10 minutes'). Defaults to '5 minutes'. */
   activityTimeout?: string | number;
+  /** Child workflows/agents callable as tools. Executed as Temporal child workflows, not activities. */
+  delegates?: Delegate[];
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +222,8 @@ export interface RunModelParams {
   stream?: boolean;
   /** JSON Schema for structured output. When present, runModel uses generateObject() instead of generateText(). Serialized from a Zod schema at the workflow boundary. */
   outputSchema?: Record<string, unknown>;
+  /** Extra tool definitions not in the registry (e.g. delegate descriptions). The model sees these but execution is handled by the caller. */
+  extraTools?: Array<{ name: string; description: string }>;
   /** Optional; set by SDK workflow/agent adapters for span attributes. */
   traceContext?: TraceContext;
 }

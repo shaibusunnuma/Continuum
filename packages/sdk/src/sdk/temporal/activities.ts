@@ -102,6 +102,19 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     }
   }
 
+  // Merge delegate tool descriptions (child workflows exposed as tools to the model).
+  // These have a fixed { message: string } input schema — execution is handled by the
+  // workflow (via executeChild), not the activity.
+  if (params.extraTools && params.extraTools.length > 0) {
+    if (!tools) tools = {};
+    for (const extra of params.extraTools) {
+      tools[extra.name] = aiTool({
+        description: extra.description,
+        inputSchema: jsonSchema({ type: 'object', properties: { message: { type: 'string' } }, required: ['message'] }),
+      });
+    }
+  }
+
   const baseAttrs: Record<string, string | number> = {
     'ai.model_id': params.modelId,
     ...traceContextAttrs(params.traceContext),

@@ -7,6 +7,7 @@ import * as wf from '@temporalio/workflow';
 import type * as sdkActivities from './activities';
 import type {
   WorkflowContext,
+  ChildRunOptions,
   ModelCallParams,
   ModelResult,
   ToolResult,
@@ -125,6 +126,18 @@ export function workflow<TInput, TOutput>(
         return { result: result.result as T };
       },
 
+      async run<TChildInput, TChildOutput>(
+        child: (input: TChildInput) => Promise<TChildOutput>,
+        childInput: TChildInput,
+        options?: ChildRunOptions,
+      ): Promise<TChildOutput> {
+        return wf.executeChild(child, {
+          args: [childInput],
+          ...(options?.taskQueue ? { taskQueue: options.taskQueue } : {}),
+          ...(options?.workflowId ? { workflowId: options.workflowId } : {}),
+        });
+      },
+
       async waitForInput<T = unknown>(_description: string): Promise<T> {
         streamState = {
           ...streamState,
@@ -148,7 +161,7 @@ export function workflow<TInput, TOutput>(
         wf.log.info(`[${name}] ${event}${payload}`);
       },
 
-      run: {
+      metadata: {
         id: info.workflowId,
         workflowName: name,
         startedAt: new Date(),

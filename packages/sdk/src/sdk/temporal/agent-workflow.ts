@@ -8,6 +8,7 @@ import type * as sdkActivities from './activities';
 import type {
   AgentConfig,
   AgentResult,
+  Delegate,
   Message,
   StreamState,
   Usage,
@@ -86,6 +87,20 @@ export function agent(
     const streamStateQuery = wf.defineQuery<StreamState>('ai-runtime:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
 
+    // Build delegate lookup map (name → Delegate) for routing tool calls.
+    const delegateMap = new Map<string, Delegate>();
+    if (config.delegates) {
+      for (const d of config.delegates) {
+        delegateMap.set(d.name, d);
+      }
+    }
+
+    // Build extraTools list so the model knows about delegates.
+    const extraTools = config.delegates?.map((d) => ({
+      name: d.name,
+      description: d.description,
+    }));
+
     while (stepCount < maxSteps) {
       if (config.budgetLimit?.maxCostUsd && totalUsage.costUsd >= config.budgetLimit.maxCostUsd) {
         finishReason = 'budget_exceeded';
@@ -108,6 +123,7 @@ export function agent(
         modelId: config.model,
         messages,
         toolNames: config.tools.length > 0 ? config.tools : undefined,
+        extraTools,
         traceContext: traceCtx,
       });
 
@@ -148,20 +164,40 @@ export function agent(
         toolCalls: result.toolCalls,
       });
 
-      // Execute all tool calls in parallel (each is an independent Temporal activity)
+      // Execute all tool calls in parallel.
+      // Delegates → child workflow (executeChild). Regular tools → activity (runTool).
       const toolResults = await Promise.all(
-        result.toolCalls.map((tc) =>
-          runTool({
+        result.toolCalls.map(async (tc) => {
+          const delegate = delegateMap.get(tc.name);
+          if (delegate) {
+            const msg = (tc.arguments as { message?: string }).message ?? JSON.stringify(tc.arguments);
+            const childResult = await wf.executeChild(delegate.fn, {
+              args: [{ message: msg }],
+            });
+            const content = typeof childResult === 'string'
+              ? childResult
+              : typeof childResult === 'object' && childResult !== null && 'reply' in childResult
+                ? String((childResult as { reply: string }).reply)
+                : JSON.stringify(childResult);
+            return {
+              role: 'tool' as const,
+              content,
+              toolCallId: tc.id,
+              toolName: tc.name,
+            };
+          }
+          const toolResult = await runTool({
             toolName: tc.name,
             input: tc.arguments,
             traceContext: traceCtx,
-          }).then((toolResult) => ({
+          });
+          return {
             role: 'tool' as const,
             content: JSON.stringify(toolResult.result),
             toolCallId: tc.id,
             toolName: tc.name,
-          })),
-        ),
+          };
+        }),
       );
 
       messages.push(...toolResults);

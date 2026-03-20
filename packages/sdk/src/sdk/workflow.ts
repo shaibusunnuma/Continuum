@@ -4,4 +4,4 @@
  */
 export { workflow } from './temporal/workflow-adapter';
 export { agent } from './temporal/agent-workflow';
-export type { WorkflowContext, ModelResult, ToolResult, Usage, Message, AgentConfig, AgentResult } from './types';
+export type { WorkflowContext, ChildRunOptions, ModelResult, ToolResult, Usage, Message, AgentConfig, AgentResult, Delegate } from './types';

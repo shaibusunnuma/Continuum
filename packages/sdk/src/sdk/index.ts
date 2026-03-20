@@ -48,6 +48,7 @@ export type { LifecycleEvent, LifecycleHook } from './hooks';
 // Types
 export type {
   WorkflowContext,
+  ChildRunOptions,
   ModelResult,
   ToolResult,
   Usage,
@@ -56,6 +57,7 @@ export type {
   ToolDefinition,
   AgentConfig,
   AgentResult,
+  Delegate,
   ModelCallParams,
   RunMetadata,
   BudgetLimit,
