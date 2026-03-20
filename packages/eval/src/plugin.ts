@@ -2,11 +2,11 @@
  * Eval plugin: registers a lifecycle hook to capture run completion for evaluation.
  * Call registerEvalHook() when initEvaluation() is enabled (done automatically by initEvaluation).
  */
-import { registerHook } from '@ai-runtime/sdk';
+import { registerHook, type LifecycleEvent } from '@ai-runtime/sdk';
 import { recordEvalRun } from './capture';
 
 export function registerEvalHook(): void {
-  registerHook(async (event) => {
+  registerHook(async (event: LifecycleEvent) => {
     if (event.type === 'run:complete') {
       await recordEvalRun({
         kind: event.payload.kind,
