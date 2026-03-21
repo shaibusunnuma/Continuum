@@ -18,7 +18,6 @@ import {
 } from '@ai-runtime/sdk';
 import { initEvaluation } from '@ai-runtime/eval';
 
-const TASK_QUEUE = 'ai-runtime-research-assistant';
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -80,7 +79,6 @@ async function main() {
   const handle = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {
