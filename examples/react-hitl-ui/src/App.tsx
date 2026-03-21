@@ -1,10 +1,9 @@
 /* Default import: some TS tooling still typechecks JSX as classic runtime (needs React in scope). */
 import React, { useEffect, useState, type ChangeEvent } from 'react';
-import { useGatewayV0StreamState, useGatewayV0TokenStream } from '@ai-runtime/react';
+import { useRunStream, useSendSignal } from '@ai-runtime/react';
 import {
   AI_RUNTIME_USER_INPUT_SIGNAL,
   fetchWorkflowResult,
-  sendWorkflowSignal,
   startWorkflow,
 } from './exampleServerClient';
 
@@ -24,103 +23,82 @@ const GATEWAY_ACCESS_TOKEN =
 export default function App() {
   const [topic, setTopic] = useState('Launch announcement for our AI platform');
   const [workflowId, setWorkflowId] = useState<string | null>(null);
-  /** Avoid polling stream-state before Temporal has the run (prevents 404 flash after "Start draft"). */
-  const [streamStatePollReady, setStreamStatePollReady] = useState(false);
-  const [signalError, setSignalError] = useState<string | null>(null);
   const [doneResult, setDoneResult] = useState<string | null>(null);
   const [rejectFeedback, setRejectFeedback] = useState('Make it shorter and friendlier.');
 
-  const stream = useGatewayV0TokenStream({
+  const { text, status, run, error: streamError, isStreaming, reset } = useRunStream(
+    doneResult ? null : workflowId, // Stop streaming once we have the done result
+    {
+      baseURL: API_BASE,
+      accessToken: GATEWAY_ACCESS_TOKEN,
+      pollIntervalMs: 1200,
+    }
+  );
+
+  const { send, isSending, error: signalError } = useSendSignal({
     baseURL: API_BASE,
     accessToken: GATEWAY_ACCESS_TOKEN,
   });
 
-  const { state, error: pollError, loading: pollLoading } = useGatewayV0StreamState({
-    workflowId,
-    baseURL: API_BASE,
-    accessToken: GATEWAY_ACCESS_TOKEN,
-    pollIntervalMs: 1200,
-    enabled: Boolean(workflowId) && !doneResult && streamStatePollReady,
-  });
-
-  const handleStart = () => {
+  const handleStart = async () => {
     setDoneResult(null);
-    setSignalError(null);
-    setStreamStatePollReady(false);
-    stream.reset();
+    reset();
+    
+    // Generate an ID up front so we can subscribe and start concurrently
     const id = `hitl-ui-${crypto.randomUUID()}`;
     setWorkflowId(id);
 
-    stream.subscribeThenStart(id, async () => {
-      try {
-        await startWorkflow(API_BASE, {
-          workflowType: 'draftEmail',
-          input: { topic },
-          workflowId: id,
-          taskQueue: TASK_QUEUE,
-        });
-        setStreamStatePollReady(true);
-      } catch {
-        setWorkflowId(null);
-        setStreamStatePollReady(false);
-        stream.reset();
-      }
-    });
+    try {
+      await startWorkflow(API_BASE, {
+        workflowType: 'draftEmail',
+        input: { topic },
+        workflowId: id,
+        taskQueue: TASK_QUEUE,
+      });
+    } catch {
+      setWorkflowId(null);
+      reset();
+    }
   };
 
   const handleApprove = async () => {
     if (!workflowId) return;
-    stream.close();
-    setSignalError(null);
-    try {
-      await sendWorkflowSignal(API_BASE, workflowId, AI_RUNTIME_USER_INPUT_SIGNAL, {
-        action: 'approve',
-      });
-    } catch (e) {
-      setSignalError(e instanceof Error ? e.message : String(e));
-    }
+    await send(workflowId, { action: 'approve' }, AI_RUNTIME_USER_INPUT_SIGNAL);
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!workflowId) return;
-    const id = workflowId;
-    setSignalError(null);
-    stream.subscribeThenStart(id, async () => {
-      await sendWorkflowSignal(API_BASE, id, AI_RUNTIME_USER_INPUT_SIGNAL, {
-        action: 'reject',
-        feedback: rejectFeedback.trim() || undefined,
-      });
-    });
+    await send(workflowId, {
+      action: 'reject',
+      feedback: rejectFeedback.trim() || undefined,
+    }, AI_RUNTIME_USER_INPUT_SIGNAL);
   };
 
   useEffect(() => {
-    if (state?.status !== 'completed' || !workflowId || doneResult) return;
+    if (status !== 'completed' || !workflowId || doneResult) return;
     void (async () => {
       try {
         const j = await fetchWorkflowResult<{ finalEmail?: string }>(API_BASE, workflowId);
         const email = j.result?.finalEmail;
         if (email != null) setDoneResult(email);
       } catch {
-        /* ignore — poll will retry or user refreshes */
+        /* ignore — user refreshes */
       }
     })();
-  }, [state?.status, workflowId, doneResult]);
+  }, [status, workflowId, doneResult]);
 
-  const waiting = state?.status === 'waiting_for_input';
-  const draftDisplay =
-    waiting && state?.partialReply
-      ? state.partialReply
-      : stream.text || state?.partialReply || '';
+  const waiting = status === 'waiting_for_input';
 
-  const streamError = stream.error?.message ?? null;
-  const displayError = streamError ?? signalError ?? (pollError instanceof Error ? pollError.message : pollError ? String(pollError) : null);
+  // Prefer stream text, falback to run partialReply
+  const draftDisplay = text || run?.partialReply || '';
+
+  const displayError = (streamError?.message ?? null) || (signalError?.message ?? null);
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '2rem 1rem' }}>
       <h1 style={{ marginTop: 0 }}>HITL + LLM token streaming</h1>
       <p style={{ color: '#9ab', fontSize: '0.95rem' }}>
-        Uses <code>useGatewayV0TokenStream</code> + <code>useGatewayV0StreamState</code> (Gateway API v0) and{' '}
-        <code>exampleServerClient.ts</code> for start/signal/result <code>fetch</code>.{' '}
+        Uses <code>useRunStream</code> and <code>useSendSignal</code> (Gateway API v0). 
         (similar idea to{' '}
         <a href="https://trigger.dev/docs/realtime/react-hooks/streams" style={{ color: '#8af' }}>
           Trigger.dev stream hooks
@@ -140,15 +118,15 @@ export default function App() {
         <button
           type="button"
           className="primary"
-          onClick={handleStart}
-          disabled={stream.isStreaming || workflowId !== null}
+          onClick={() => void handleStart()}
+          disabled={isStreaming || workflowId !== null}
         >
           {doneResult
             ? 'Start draft'
             : workflowId
-              ? state?.status === 'waiting_for_input'
+              ? status === 'waiting_for_input'
                 ? 'Waiting for review…'
-                : stream.isStreaming
+                : isStreaming
                   ? 'Streaming draft…'
                   : 'Run in progress…'
               : 'Start draft'}
@@ -158,10 +136,8 @@ export default function App() {
             type="button"
             onClick={() => {
               setWorkflowId(null);
-              setStreamStatePollReady(false);
               setDoneResult(null);
-              setSignalError(null);
-              stream.reset();
+              reset();
             }}
           >
             New run
@@ -175,15 +151,14 @@ export default function App() {
         </p>
       )}
 
-      <h2 style={{ marginTop: '1.5rem', fontSize: '1.1rem' }}>Live tokens (SSE)</h2>
-      <pre className="stream">{draftDisplay || (stream.isStreaming ? '…' : '—')}</pre>
-      {stream.isStreaming && <p style={{ color: '#8af' }}>Streaming…</p>}
+      <h2 style={{ marginTop: '1.5rem', fontSize: '1.1rem' }}>Live tokens (SSE + Polling)</h2>
+      <pre className="stream">{draftDisplay || (isStreaming ? '…' : '—')}</pre>
+      {isStreaming && <p style={{ color: '#8af' }}>Streaming…</p>}
 
-      <h2 style={{ marginTop: '1.25rem', fontSize: '1.1rem' }}>Stream state (poll)</h2>
+      <h2 style={{ marginTop: '1.25rem', fontSize: '1.1rem' }}>Stream state (metadata)</h2>
       <pre className="stream" style={{ minHeight: '4rem' }}>
-        {state ? JSON.stringify(state, null, 2) : workflowId ? 'Loading…' : '—'}
+        {run ? JSON.stringify(run, null, 2) : workflowId ? 'Loading…' : '—'}
       </pre>
-      {pollLoading && !state && <p style={{ color: '#8af' }}>Loading stream state…</p>}
 
       {waiting && (
         <div style={{ marginTop: '1.5rem' }}>
@@ -195,10 +170,10 @@ export default function App() {
             onChange={(e: TextAreaChangeEvent) => setRejectFeedback(e.currentTarget.value)}
           />
           <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-            <button type="button" className="primary" onClick={() => void handleApprove()} disabled={stream.isStreaming}>
+            <button type="button" className="primary" onClick={() => void handleApprove()} disabled={isStreaming || isSending}>
               Approve
             </button>
-            <button type="button" onClick={handleReject} disabled={stream.isStreaming}>
+            <button type="button" onClick={() => void handleReject()} disabled={isStreaming || isSending}>
               Reject &amp; revise
             </button>
           </div>

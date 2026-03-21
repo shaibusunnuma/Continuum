@@ -1,56 +1,82 @@
 # @ai-runtime/react
 
-Universal React helpers for **Temporal + a gateway HTTP API**.
+Universal React hooks for **AI Runtime workflows** (Temporal + Gateway HTTP API).
 
-## Gateway API v0 (recommended)
+## Quick Start — `useRunStream` (recommended)
 
-When your server implements **[Gateway API v0](../../docs/gateway-api-v0.md)** (reference: `example-server` in this monorepo), use **Trigger-style** options: `baseURL`, `workflowId` / `runId`, optional `accessToken`.
-
-| Hook | Purpose |
-|------|--------|
-| **`useGatewayV0TokenStream`** | SSE token stream — `GET /v0/runs/:id/token-stream`. `accessToken` is sent as `access_token` query (EventSource cannot set headers). |
-| **`useGatewayV0StreamState`** | Polls `GET /v0/runs/:id/stream-state` — **not** streaming. Optional `accessToken` as `Authorization: Bearer`. |
-
-URL builders (for your own `fetch` calls): **`gatewayV0WorkflowsStartUrl`**, **`gatewayV0SignalUrl`**, **`gatewayV0ResultUrl`**, **`createGatewayV0StreamStateQueryFn`**, etc.
+A single hook that merges SSE token streaming + polled stream-state. Pass a `runId` and get back real-time text, run status, and metadata.
 
 ```tsx
-import { useGatewayV0TokenStream, useGatewayV0StreamState } from '@ai-runtime/react';
+import { useRunStream, useSendSignal } from '@ai-runtime/react';
 
-const accessToken = import.meta.env.VITE_AI_RUNTIME_GATEWAY_TOKEN || undefined;
+function ChatResponse({ runId }: { runId: string }) {
+  const { text, status, run, error } = useRunStream(runId, {
+    baseURL: '',        // same-origin or your gateway URL
+    accessToken: token, // optional
+    pollIntervalMs: 1000,
+    onToken: (delta) => console.log(delta),
+  });
 
-const stream = useGatewayV0TokenStream({ baseURL: '', accessToken });
-const { state, loading, error } = useGatewayV0StreamState({
-  workflowId,
-  baseURL: '',
-  accessToken,
-  pollIntervalMs: 1500,
-});
+  const { send } = useSendSignal({ baseURL: '' });
+
+  if (error) return <div>Error: {error.message}</div>;
+  if (status === 'waiting_for_input') {
+    return <button onClick={() => send(runId, { approved: true })}>Approve</button>;
+  }
+
+  return <div>{text}</div>;
+}
 ```
 
-`"sideEffects": false` for predictable bundling.
+### What `useRunStream` does internally
+
+1. Opens `EventSource` to `GET /v0/runs/:id/token-stream` → accumulates text deltas
+2. Polls `GET /v0/runs/:id/stream-state` → provides run metadata (status, step count, messages)
+3. Falls back to polled `partialReply` if SSE misses early tokens
+
+### `useSendSignal`
+
+Sends signals (e.g. HITL input) to a running workflow via `POST /v0/runs/:id/signal`.
+
+```tsx
+const { send, isSending, error } = useSendSignal({ baseURL: '', accessToken });
+await send(runId, { approved: true });
+await send(runId, 'some text', 'custom:signal-name'); // custom signal name
+```
 
 ---
 
-## Low-level hooks (escape hatch)
+## Low-level hooks (escape hatches)
 
-For **non-gateway** or custom paths, use:
+For non-gateway or custom paths:
 
-| Concern | Mechanism |
-|--------|-----------|
-| Token SSE | **`useWorkflowTokenStream`** + **`getTokenStreamUrl(runId)`** — full URL string. |
-| Polled UI state | **`useWorkflowStreamState`** + **`queryFn`** — your `fetch` / JSON. |
+| Concern | Hook | Notes |
+|---------|------|-------|
+| Token SSE | **`useWorkflowTokenStream`** | Requires `getTokenStreamUrl(runId)`. Has `subscribeThenStart` for zero-drop. |
+| Polled UI state | **`useWorkflowStreamState`** | Requires custom `queryFn`. |
+
+---
+
+## Gateway v0 helpers
+
+URL builders and pre-wired wrappers for the standard Gateway API v0 paths:
+
+| Helper | Purpose |
+|--------|---------|
+| `useGatewayV0TokenStream` | SSE via `GET /v0/runs/:id/token-stream` |
+| `useGatewayV0StreamState` | Polls `GET /v0/runs/:id/stream-state` |
+| `gatewayV0WorkflowsStartUrl` | URL builder for `POST /v0/workflows/start` |
+| `gatewayV0SignalUrl` | URL builder for `POST /v0/runs/:id/signal` |
+| `gatewayV0ResultUrl` | URL builder for `GET /v0/runs/:id/result` |
+| `createGatewayV0StreamStateQueryFn` | Factory for poll `queryFn` |
+
+> **Note:** These are now considered low-level. Prefer `useRunStream` for new code.
 
 ---
 
 ## Compared to [Trigger.dev realtime streams](https://trigger.dev/docs/realtime/react-hooks/streams)
 
-Trigger’s hooks use `runId` + `accessToken` + optional `baseURL` against **their** API. **Gateway v0** is the same idea: fixed paths under **`/v0`**, your **`baseURL`** (self-host or future cloud), and optional **scoped/shared token** (`AI_RUNTIME_GATEWAY_TOKEN` on the server; `access_token` / `Authorization` on the client).
-
----
-
-## Full-stack demo
-
-**[examples/react-hitl-ui](../../examples/react-hitl-ui)** — Gateway v0 + `exampleServerClient.ts` for `fetch` helpers.
+Trigger's hooks use `runId` + `accessToken` + optional `baseURL` against **their** managed API. Our `useRunStream` follows the same pattern but targets **your self-hosted** gateway (or future managed platform). Same DX, full ownership.
 
 ---
 

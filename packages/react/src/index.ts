@@ -1,3 +1,24 @@
+// ---------------------------------------------------------------------------
+// Recommended API — unified hooks
+// ---------------------------------------------------------------------------
+
+export { useRunStream } from './useRunStream';
+export type {
+  UseRunStreamOptions,
+  UseRunStreamReturn,
+  RunStreamStatus,
+} from './useRunStream';
+
+export { useSendSignal } from './useSendSignal';
+export type {
+  UseSendSignalOptions,
+  UseSendSignalReturn,
+} from './useSendSignal';
+
+// ---------------------------------------------------------------------------
+// Low-level hooks (escape hatches)
+// ---------------------------------------------------------------------------
+
 export { useWorkflowStreamState } from './useWorkflowStreamState';
 export type { UseWorkflowStreamStateOptions } from './useWorkflowStreamState';
 
