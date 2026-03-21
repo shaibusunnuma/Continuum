@@ -29,7 +29,8 @@
   },
   "dependencies": {
     "@ai-runtime/sdk": "*",
-    "@ai-runtime/eval": "*"
+    "@ai-runtime/eval": "*",
+    "@ai-runtime/react": "*"
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
