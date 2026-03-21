@@ -16,7 +16,8 @@ import { openai } from '@ai-sdk/openai';
 import { createApp, createClient, initObservability } from '@ai-runtime/sdk';
 import { initEvaluation } from '@ai-runtime/eval';
 import { composabilityParent, composabilityOrchestrator } from './workflows';
-import { COMPOSABILITY_TASK_QUEUE } from './temporal-config';
+
+const COMPOSABILITY_TASK_QUEUE = 'ai-runtime-composability';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
