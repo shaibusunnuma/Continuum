@@ -6,12 +6,8 @@
   "scripts": {
     "worker:customer-support": "ts-node customer-support/worker.ts",
     "worker:research-assistant": "ts-node research-assistant/worker.ts",
-    "worker:react": "ts-node react/worker.ts",
-    "worker:reflection": "ts-node reflection/worker.ts",
     "worker:multi-agent": "ts-node multi-agent/run.ts worker",
     "orchestrate:multi-agent": "ts-node multi-agent/run.ts orchestrate",
-    "worker:memory-augmented": "ts-node memory-augmented/worker.ts",
-    "worker:cognitive-layered": "ts-node cognitive-layered/worker.ts",
     "worker:streaming": "ts-node streaming/run.ts worker",
     "worker:streaming-redis": "ts-node streaming/redis-worker.ts",
     "client:streaming": "ts-node streaming/run.ts demo",
