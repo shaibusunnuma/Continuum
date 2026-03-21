@@ -13,9 +13,9 @@
     "client:streaming": "ts-node streaming/run.ts demo",
     "server:streaming": "ts-node streaming/server.ts",
     "server:streaming-redis": "ts-node streaming/redis-api-server.ts",
-    "worker:hitl": "ts-node human-in-the-loop/run.ts worker",
+    "hitl": "ts-node human-in-the-loop/run.ts worker",
     "client:hitl": "ts-node human-in-the-loop/run.ts demo",
-    "worker:composability": "ts-node composability/run.ts worker",
+    "run:composability": "ts-node composability/run.ts worker",
     "client:composability": "ts-node composability/run.ts demo"
   },
   "dependencies": {

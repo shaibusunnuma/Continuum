@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { config } from '../config';
 import { initObservability } from '@ai-runtime/sdk';
 import { startTelemetry, shutdownTelemetry } from '../otel';
+import { gatewayV0AuthPreHandler } from './gateway-v0-auth';
 import { workflowsRoutes } from './routes/workflows';
 import { agentsRoutes } from './routes/agents';
 import { runsRoutes } from './routes/runs';
@@ -19,6 +20,17 @@ async function main(): Promise<void> {
   await fastify.register(workflowsRoutes, { prefix: '/workflows' });
   await fastify.register(agentsRoutes, { prefix: '/agents' });
   await fastify.register(runsRoutes, { prefix: '/runs' });
+
+  /** Gateway API v0 — same handlers + optional `AI_RUNTIME_GATEWAY_TOKEN`. See docs/gateway-api-v0.md */
+  await fastify.register(
+    async (f) => {
+      f.addHook('preHandler', gatewayV0AuthPreHandler);
+      await f.register(workflowsRoutes, { prefix: '/workflows' });
+      await f.register(agentsRoutes, { prefix: '/agents' });
+      await f.register(runsRoutes, { prefix: '/runs' });
+    },
+    { prefix: '/v0' },
+  );
 
   try {
     await fastify.listen({ port: config.API_PORT, host: '0.0.0.0' });

@@ -16,6 +16,7 @@ Each example is self-contained in its own folder (`workflows.ts`, and often `wor
 | **cognitive-layered** | Classify simple vs complex; fast model for simple, reasoning model for complex. Uses OpenAI. |
 | **structured-loop** | Retrieve → Cognition → Control → Action → Memory workflow with stub tools. Uses Gemini. |
 | **composability** | `ctx.run()` parent→child workflow and orchestrator agent with `delegates` to a specialist. Uses OpenAI. |
+| **react-hitl-ui** | Vite + React demo: `useWorkflowStreamState`, SSE token streaming, HITL signals via `example-server` + Redis. See [react-hitl-ui/README.md](react-hitl-ui/README.md). |
 
 ## Run an example worker
 

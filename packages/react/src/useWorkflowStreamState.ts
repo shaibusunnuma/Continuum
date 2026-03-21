@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { StreamState } from '@ai-runtime/sdk';
 
 export interface UseWorkflowStreamStateOptions {
@@ -7,34 +7,19 @@ export interface UseWorkflowStreamStateOptions {
   /** Polling interval in ms. Default 1500. */
   pollIntervalMs?: number;
   /**
-   * API base URL (no trailing slash required).
-   * When set without `queryFn`, polls `GET {apiBaseUrl}/runs/{workflowId}/stream-state`
-   * (matches example-server).
+   * Poll your backend for `StreamState` JSON (e.g. Temporal `streamState` query behind HTTP).
+   * Not streaming — interval polling only. Implement with `fetch` to **your** route(s).
    */
-  apiBaseUrl?: string;
-  /** Custom fetcher for stream state (Temporal query behind your API). */
-  queryFn?: (workflowId: string, signal: AbortSignal) => Promise<StreamState>;
-  /** Optional headers for default fetch (e.g. Authorization). */
-  headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
+  queryFn: (workflowId: string, signal: AbortSignal) => Promise<StreamState>;
   /** When false, no polling. Default true when workflowId is set. */
   enabled?: boolean;
 }
 
-function trimBase(url: string): string {
-  return url.replace(/\/$/, '');
-}
-
-async function resolveHeaders(
-  h?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>),
-): Promise<HeadersInit | undefined> {
-  if (h == null) return undefined;
-  return typeof h === 'function' ? await h() : h;
-}
-
 /**
- * Polls workflow stream state (progressive UX: status, partial reply, messages).
- * Point `apiBaseUrl` at your backend that exposes `GET /runs/:workflowId/stream-state`
- * (see example-server), or pass `queryFn` for full control.
+ * Polls JSON workflow UI state (status, partial reply, HITL flags, …) via **`queryFn`** — not SSE.
+ *
+ * `loading` is **only** true until the first successful fetch for the current `workflowId`
+ * (background interval polls do not flip it — avoids UI flicker).
  */
 export function useWorkflowStreamState(
   options: UseWorkflowStreamStateOptions,
@@ -46,9 +31,7 @@ export function useWorkflowStreamState(
   const {
     workflowId,
     pollIntervalMs = 1500,
-    apiBaseUrl,
     queryFn: userQueryFn,
-    headers,
     enabled: enabledOpt,
   } = options;
 
@@ -59,47 +42,46 @@ export function useWorkflowStreamState(
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const queryFn = useCallback(
-    async (id: string, signal: AbortSignal): Promise<StreamState> => {
-      if (userQueryFn) return userQueryFn(id, signal);
-      if (apiBaseUrl) {
-        const base = trimBase(apiBaseUrl);
-        const hdrs = await resolveHeaders(headers);
-        const res = await fetch(`${base}/runs/${encodeURIComponent(id)}/stream-state`, {
-          signal,
-          headers: hdrs,
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          throw new Error(`Stream state failed (${res.status}): ${text || res.statusText}`);
-        }
-        return (await res.json()) as StreamState;
-      }
-      throw new Error(
-        'useWorkflowStreamState: provide `queryFn` or `apiBaseUrl` (with example-server-compatible /runs/:id/stream-state).',
-      );
-    },
-    [userQueryFn, apiBaseUrl, headers],
-  );
+  const queryFnRef = useRef(userQueryFn);
+  queryFnRef.current = userQueryFn;
 
-  const queryFnRef = useRef(queryFn);
-  queryFnRef.current = queryFn;
+  /** After first successful poll for this workflowId, background ticks keep loading false. */
+  const hasDataRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || !workflowId) {
+    if (!workflowId) {
+      hasDataRef.current = false;
+      setState(null);
+      setError(null);
       setLoading(false);
       return;
     }
+
+    if (!enabled) {
+      setLoading(false);
+      setError(null);
+      setState(null);
+      return;
+    }
+
+    hasDataRef.current = false;
+    setState(null);
+    setError(null);
 
     const ac = new AbortController();
     let timer: ReturnType<typeof setInterval> | undefined;
 
     const tick = async () => {
       try {
-        setLoading(true);
+        if (!hasDataRef.current) {
+          setLoading(true);
+        }
         setError(null);
         const next = await queryFnRef.current(workflowId, ac.signal);
-        if (!ac.signal.aborted) setState(next);
+        if (!ac.signal.aborted) {
+          setState(next);
+          hasDataRef.current = true;
+        }
       } catch (e) {
         if ((e as Error).name === 'AbortError') return;
         if (!ac.signal.aborted) setError(e instanceof Error ? e : new Error(String(e)));

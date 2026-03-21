@@ -17,5 +17,5 @@
     "resolveJsonModule": true
   },
   "include": ["examples/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist", "examples/react-hitl-ui"]
 }

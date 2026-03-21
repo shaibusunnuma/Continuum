@@ -1,7 +1,7 @@
 {
   "name": "@ai-runtime/react",
   "version": "0.1.0",
-  "description": "React hooks for AI Runtime — workflow stream state polling and helpers",
+  "description": "Path-agnostic React hooks for workflow stream state + token SSE (no reference-server code)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -10,6 +10,7 @@
       "default": "./dist/index.js"
     }
   },
+  "sideEffects": false,
   "scripts": {
     "build": "tsc",
     "test": "vitest run --passWithNoTests"

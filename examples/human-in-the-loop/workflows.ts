@@ -20,8 +20,9 @@ export const draftEmail = workflow(
       }
 
       ctx.log('generating-draft', { prompt });
-      const draft = await ctx.model('fast', { prompt });
-      currentDraft = draft.result;
+      const draft = await ctx.model('fast', { prompt, stream: true });
+      currentDraft =
+        typeof draft.result === 'string' ? draft.result : String(draft.result ?? '');
       
       ctx.log('draft-ready', { draft: currentDraft });
 

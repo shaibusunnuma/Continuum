@@ -1,36 +1,59 @@
 # @ai-runtime/react
 
-React hooks for AI Runtime.
+Universal React helpers for **Temporal + a gateway HTTP API**.
 
-## `useWorkflowStreamState`
+## Gateway API v0 (recommended)
 
-Polls workflow **stream state** (Temporal query behind your API): `status`, `partialReply`, `messages`, etc.
+When your server implements **[Gateway API v0](../../docs/gateway-api-v0.md)** (reference: `example-server` in this monorepo), use **Trigger-style** options: `baseURL`, `workflowId` / `runId`, optional `accessToken`.
 
-### With example-server
+| Hook | Purpose |
+|------|--------|
+| **`useGatewayV0TokenStream`** | SSE token stream — `GET /v0/runs/:id/token-stream`. `accessToken` is sent as `access_token` query (EventSource cannot set headers). |
+| **`useGatewayV0StreamState`** | Polls `GET /v0/runs/:id/stream-state` — **not** streaming. Optional `accessToken` as `Authorization: Bearer`. |
 
-Start the example API, then:
+URL builders (for your own `fetch` calls): **`gatewayV0WorkflowsStartUrl`**, **`gatewayV0SignalUrl`**, **`gatewayV0ResultUrl`**, **`createGatewayV0StreamStateQueryFn`**, etc.
 
 ```tsx
-const { state, error, loading } = useWorkflowStreamState({
+import { useGatewayV0TokenStream, useGatewayV0StreamState } from '@ai-runtime/react';
+
+const accessToken = import.meta.env.VITE_AI_RUNTIME_GATEWAY_TOKEN || undefined;
+
+const stream = useGatewayV0TokenStream({ baseURL: '', accessToken });
+const { state, loading, error } = useGatewayV0StreamState({
   workflowId,
-  apiBaseUrl: 'http://localhost:3000',
+  baseURL: '',
+  accessToken,
+  pollIntervalMs: 1500,
 });
 ```
 
-Requires `GET /runs/:workflowId/stream-state` on your backend (implemented in `example-server`).
+`"sideEffects": false` for predictable bundling.
 
-### Custom backend
+---
 
-```tsx
-useWorkflowStreamState({
-  workflowId,
-  queryFn: async (id, signal) => {
-    const res = await fetch(`/api/runs/${id}/stream`, { signal });
-    return res.json();
-  },
-});
-```
+## Low-level hooks (escape hatch)
 
-### Peer dependency
+For **non-gateway** or custom paths, use:
+
+| Concern | Mechanism |
+|--------|-----------|
+| Token SSE | **`useWorkflowTokenStream`** + **`getTokenStreamUrl(runId)`** — full URL string. |
+| Polled UI state | **`useWorkflowStreamState`** + **`queryFn`** — your `fetch` / JSON. |
+
+---
+
+## Compared to [Trigger.dev realtime streams](https://trigger.dev/docs/realtime/react-hooks/streams)
+
+Trigger’s hooks use `runId` + `accessToken` + optional `baseURL` against **their** API. **Gateway v0** is the same idea: fixed paths under **`/v0`**, your **`baseURL`** (self-host or future cloud), and optional **scoped/shared token** (`AI_RUNTIME_GATEWAY_TOKEN` on the server; `access_token` / `Authorization` on the client).
+
+---
+
+## Full-stack demo
+
+**[examples/react-hitl-ui](../../examples/react-hitl-ui)** — Gateway v0 + `exampleServerClient.ts` for `fetch` helpers.
+
+---
+
+## Peer dependency
 
 - `react` ^18 or ^19

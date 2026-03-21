@@ -16,5 +16,13 @@ export const config = {
   TEMPORAL_ADDRESS: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233',
   TEMPORAL_NAMESPACE: process.env.TEMPORAL_NAMESPACE ?? 'default',
   TASK_QUEUE: process.env.TASK_QUEUE ?? 'ai-runtime',
+  /** Same URL as the HITL worker’s RedisStreamBus for token SSE (`GET /runs/:id/token-stream` or `/v0/runs/:id/token-stream`). */
+  REDIS_URL: process.env.REDIS_URL ?? 'redis://127.0.0.1:6379',
   API_PORT: parsePort(process.env.API_PORT, 3000),
+  /**
+   * When set, Gateway v0 routes (`/v0/*`) require `Authorization: Bearer <token>` on fetch endpoints
+   * and the same value as `access_token` query (or Bearer) on `GET .../token-stream`.
+   * Unset = open access (typical local dev).
+   */
+  AI_RUNTIME_GATEWAY_TOKEN: process.env.AI_RUNTIME_GATEWAY_TOKEN?.trim() || undefined,
 };

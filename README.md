@@ -180,15 +180,15 @@ await client.close();
 
 ## React: progressive workflow UI
 
-Install `@ai-runtime/react` and poll **stream state** (status, partial reply, messages) through your backend. The reference server exposes `GET /runs/:workflowId/stream-state`.
+Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@ai-runtime/react`** and use **`useGatewayV0StreamState`** + **`useGatewayV0TokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: `example-server`).
 
 ```tsx
-import { useWorkflowStreamState } from '@ai-runtime/react';
+import { useGatewayV0StreamState, useGatewayV0TokenStream } from '@ai-runtime/react';
 
-function RunProgress({ workflowId }: { workflowId: string }) {
-  const { state, error, loading } = useWorkflowStreamState({
+function RunProgress({ workflowId, apiBase }: { workflowId: string; apiBase: string }) {
+  const { state, error, loading } = useGatewayV0StreamState({
     workflowId,
-    apiBaseUrl: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: apiBase,
     pollIntervalMs: 1500,
   });
   if (error) return <p>{error.message}</p>;
@@ -202,7 +202,7 @@ function RunProgress({ workflowId }: { workflowId: string }) {
 }
 ```
 
-Use a custom `queryFn` if your API shape differs. Token-level SSE remains a separate HTTP/stream integration (see streaming examples).
+For **custom** HTTP shapes, use low-level **`useWorkflowStreamState`** (`queryFn`) and **`useWorkflowTokenStream`** (`getTokenStreamUrl`). See **`packages/react/README.md`** and **`examples/react-hitl-ui`**.
 
 ## Composability
 
@@ -253,8 +253,9 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | `packages/sdk` | Core SDK: `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()`, `createApp()` |
 | `packages/react` | React hooks: `useWorkflowStreamState` (poll stream state via your API) |
 | `packages/eval` | Optional evaluation plugin (capture runs, datasets, metrics) |
-| `example-server/` | Reference REST API to start workflows/agents and poll results |
+| `example-server/` | Reference REST API to start workflows/agents, stream state, token SSE (Redis), and signals |
 | `examples/` | Per-example workers and workflows (ReAct, multi-agent, etc.); see [examples/README.md](examples/README.md) |
+| `examples/react-hitl-ui/` | Vite + React: HITL + token streaming against `example-server` — [examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md) |
 
 ## Requirements
 
@@ -268,7 +269,9 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | `npm run build` | Build all packages |
 | `npm run api` | Start the example API server |
 | `npm run api:dev` | Start the API with ts-node |
-| `npm run worker:<name>` | Run an example worker — see [examples/README.md](examples/README.md) for names |
+| `npm run worker:hitl` | HITL example worker (Redis stream bus; pair with `api:dev` + `ui:hitl`) |
+| `npm run ui:hitl` | Vite app for HITL + SSE token streaming ([examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md)) |
+| `npm run worker:<name>` | Other example workers — see [examples/README.md](examples/README.md) |
 | `npm run test` | Run SDK tests |
 | `npm run eval:build-dataset` | Build evaluation dataset (optional) |
 | `npm run eval:run` | Run evaluation metrics (optional) |

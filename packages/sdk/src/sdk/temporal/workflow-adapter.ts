@@ -107,6 +107,16 @@ export function workflow<TInput, TOutput>(
 
         accumulatedCost += result.usage.costUsd;
 
+        const textForStream =
+          result.parsedObject != null && result.parsedObject !== ''
+            ? result.parsedObject
+            : result.content ?? '';
+        streamState = {
+          ...streamState,
+          partialReply: textForStream,
+          updatedAt: new Date().toISOString(),
+        };
+
         return {
           result: result.parsedObject ?? result.content,
           usage: result.usage,

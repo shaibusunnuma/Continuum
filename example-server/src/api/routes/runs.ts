@@ -1,5 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
+import { pipeStreamToResponse } from '@ai-runtime/sdk';
 import { getTemporalClient } from '../temporal';
+import { getStreamBus } from '../../stream-bus';
 
 function isNotFoundError(err: unknown): boolean {
   if (err instanceof Error) {
@@ -33,6 +35,72 @@ export async function runsRoutes(
         const handle = client.getWorkflowHandle(request.params.workflowId);
         const state = await handle.queryStreamState();
         return reply.send(state);
+      } catch (err) {
+        request.log.error(err);
+        const status = isNotFoundError(err) ? 404 : 500;
+        return reply.status(status).send({
+          error: status === 404 ? 'Run not found' : 'Internal server error',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  );
+
+  fastify.get<{
+    Params: { workflowId: string };
+  }>(
+    '/:workflowId/token-stream',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['workflowId'],
+          properties: { workflowId: { type: 'string' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      reply.hijack();
+      try {
+        await pipeStreamToResponse(getStreamBus(), request.params.workflowId, reply.raw);
+      } catch (err) {
+        request.log.error(err);
+        if (!reply.raw.headersSent) {
+          reply.raw.statusCode = 500;
+          reply.raw.end();
+        }
+      }
+    },
+  );
+
+  fastify.post<{
+    Params: { workflowId: string };
+    Body: { name: string; data?: unknown };
+  }>(
+    '/:workflowId/signal',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['workflowId'],
+          properties: { workflowId: { type: 'string' } },
+        },
+        body: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            data: {},
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const client = await getTemporalClient();
+        const handle = client.getWorkflowHandle(request.params.workflowId);
+        await handle.signal(request.body.name, request.body.data);
+        return reply.status(204).send();
       } catch (err) {
         request.log.error(err);
         const status = isNotFoundError(err) ? 404 : 500;

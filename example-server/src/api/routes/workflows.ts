@@ -10,6 +10,9 @@ const startWorkflowBodySchema = {
   properties: {
     workflowType: { type: 'string' },
     input: { type: 'object' },
+    /** Client-generated id so the UI can subscribe to SSE before start (same as Temporal workflow id). */
+    workflowId: { type: 'string' },
+    taskQueue: { type: 'string' },
   },
 } as const;
 
@@ -18,7 +21,12 @@ export async function workflowsRoutes(
   _opts: FastifyPluginOptions,
 ): Promise<void> {
   fastify.post<{
-    Body: { workflowType: string; input: Record<string, unknown> };
+    Body: {
+      workflowType: string;
+      input: Record<string, unknown>;
+      workflowId?: string;
+      taskQueue?: string;
+    };
     Reply: StartWorkflowResponse | { error: string; message: string };
   }>(
     '/start',
@@ -40,8 +48,8 @@ export async function workflowsRoutes(
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const workflowId = `wf-${nanoid()}`;
-        const taskQueue = config.TASK_QUEUE;
+        const workflowId = request.body.workflowId ?? `wf-${nanoid()}`;
+        const taskQueue = request.body.taskQueue ?? config.TASK_QUEUE;
         const handle = await client.startWorkflow(request.body.workflowType, {
           taskQueue,
           workflowId,
