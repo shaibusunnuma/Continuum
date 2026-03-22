@@ -19,7 +19,14 @@ Published packages: **`@durion/sdk`**, **`@durion/react`**, **`@durion/eval`**. 
 ## GitHub setup
 
 - Add an npm **automation** token as repository secret **`NPM_TOKEN`** so CI can publish.
-- The workflow uses the default **`GITHUB_TOKEN`** to create the Version PR (ensure Actions have permission to open PRs in repo settings if needed).
+- The Release workflow uses **`GITHUB_TOKEN`** to open the **Version Packages** PR. If you see  
+  `GitHub Actions is not permitted to create or approve pull requests`, set:
+  - **Settings → Actions → General → Workflow permissions:** choose **Read and write permissions**.
+  - Enable **Allow GitHub Actions to create and approve pull requests** (same page).
+
+  Orgs can block this with a policy; an admin may need to allow it for the repo.
+
+- The workflow already requests `contents: write` and `pull-requests: write`; without the settings above, GitHub still denies PR creation.
 
 ## Further reading
 
