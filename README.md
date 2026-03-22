@@ -6,6 +6,12 @@ Durable workflows and agents on Temporal — you define `workflow()` and `agent(
 
 Durion is an SDK for durable AI execution. You get replay-safe workflows and agents that call LLMs and tools, with cost tracking and optional observability. It is built on [Temporal](https://temporal.io/) and the [Vercel AI SDK](https://ai-sdk.dev/). You write `workflow()` and `agent()` with `ctx.model()` and `ctx.tool()`; the SDK turns them into Temporal workflows and activities so runs survive restarts and scale.
 
+## Documentation
+
+End-user guides (getting started, concepts, env vars, streaming, troubleshooting) and the **[Gateway API v0](docs/gateway-api-v0.md)** spec are in **[`docs/README.md`](docs/README.md)**.
+
+- **Positioning:** [Why Durion?](docs/why-durion.md) — how this compares to using the Vercel AI SDK alone, rolling your own Temporal + AI SDK, and Temporal’s `@temporalio/ai-sdk` bridge.
+
 ## Quick start
 
 **1. Start Temporal** (from project root):
@@ -308,7 +314,7 @@ initEvaluation({
 
 ## Status
 
-Early-stage. APIs and internals may change.
+Early-stage. APIs and internals may change. See [CHANGELOG.md](CHANGELOG.md) and [docs/why-durion.md](docs/why-durion.md) for release notes and comparisons to related stacks.
 
 ## Contributing
 
