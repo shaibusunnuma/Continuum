@@ -21,7 +21,7 @@ Temporal client/worker libraries are **dependencies** of the SDK; you should not
 
 ## `@durion/react`
 
-**React hooks** for polling stream state and consuming **Gateway v0** token SSE (`useRunStream`, `useGatewayV0StreamState`, etc.).
+**React hooks** for polling stream state and consuming **Gateway v0** token SSE (`useRunStream`, `useGatewayStreamState`, etc.).
 
 ```bash
 npm install @durion/react

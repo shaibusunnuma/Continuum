@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import type { StreamState } from '@durion/sdk';
 import { useWorkflowStreamState } from '../useWorkflowStreamState';
-import { createGatewayV0StreamStateQueryFn } from './stream-state-query-fn';
+import { createGatewayStreamStateQueryFn } from './stream-state-query-fn';
 
-export interface UseGatewayV0StreamStateOptions {
+export interface UseGatewayStreamStateOptions {
   workflowId?: string | null;
   /** API origin, no trailing slash. Use `''` for same-origin. */
   baseURL: string;
@@ -13,16 +13,14 @@ export interface UseGatewayV0StreamStateOptions {
   accessToken?: string;
   extraHeaders?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
   /**
-   * Replace the default Gateway v0 poll entirely (escape hatch).
+   * Replace the default Gateway poll entirely (escape hatch).
    * When set, `baseURL` / `accessToken` / `extraHeaders` are ignored for fetching.
    */
   queryFn?: (workflowId: string, signal: AbortSignal) => Promise<StreamState>;
 }
 
-/**
- * Polls `GET /v0/runs/:id/stream-state` (Gateway API v0). See `docs/gateway-api-v0.md` in the repo.
- */
-export function useGatewayV0StreamState(options: UseGatewayV0StreamStateOptions) {
+/** Polls `GET /v0/runs/:id/stream-state` (Gateway API v0). See `docs/gateway-api-v0.md` in the repo. */
+export function useGatewayStreamState(options: UseGatewayStreamStateOptions) {
   const {
     baseURL,
     accessToken,
@@ -35,7 +33,7 @@ export function useGatewayV0StreamState(options: UseGatewayV0StreamStateOptions)
 
   const queryFn = useMemo(() => {
     if (userQueryFn) return userQueryFn;
-    return createGatewayV0StreamStateQueryFn(baseURL, {
+    return createGatewayStreamStateQueryFn(baseURL, {
       accessToken,
       headers: extraHeaders,
     });

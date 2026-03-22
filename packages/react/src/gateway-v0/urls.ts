@@ -1,3 +1,4 @@
+/** URL builders for Gateway API v0 (`/v0/...`). Names omit “v0”; the path encodes the version. */
 /** Join `baseURL` (no trailing slash) with an absolute path. */
 export function trimGatewayBase(url: string): string {
   return url.replace(/\/$/, '');
@@ -11,11 +12,11 @@ function joinBasePath(baseURL: string, path: string): string {
 const RUNS = '/v0/runs';
 const WORKFLOWS = '/v0/workflows';
 
-export function gatewayV0StreamStateUrl(baseURL: string, runId: string): string {
+export function gatewayStreamStateUrl(baseURL: string, runId: string): string {
   return joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(runId)}/stream-state`);
 }
 
-export function gatewayV0TokenStreamUrl(
+export function gatewayTokenStreamUrl(
   baseURL: string,
   runId: string,
   options?: { accessToken?: string },
@@ -27,22 +28,22 @@ export function gatewayV0TokenStreamUrl(
   return `${u}${sep}access_token=${encodeURIComponent(token)}`;
 }
 
-export function gatewayV0SignalUrl(baseURL: string, runId: string): string {
+export function gatewaySignalUrl(baseURL: string, runId: string): string {
   return joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(runId)}/signal`);
 }
 
-export function gatewayV0ResultUrl(baseURL: string, runId: string): string {
+export function gatewayResultUrl(baseURL: string, runId: string): string {
   return joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(runId)}/result`);
 }
 
-export function gatewayV0RunDescribeUrl(baseURL: string, runId: string): string {
+export function gatewayRunDescribeUrl(baseURL: string, runId: string): string {
   return joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(runId)}`);
 }
 
-export function gatewayV0WorkflowsStartUrl(baseURL: string): string {
+export function gatewayWorkflowsStartUrl(baseURL: string): string {
   return joinBasePath(baseURL, `${WORKFLOWS}/start`);
 }
 
-export function gatewayV0AgentsStartUrl(baseURL: string): string {
+export function gatewayAgentsStartUrl(baseURL: string): string {
   return joinBasePath(baseURL, '/v0/agents/start');
 }

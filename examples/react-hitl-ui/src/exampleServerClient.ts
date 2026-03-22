@@ -2,9 +2,9 @@
  * Demo-only `fetch` helpers for Gateway API v0 (`/v0/...`). URLs come from `@durion/react`.
  */
 import {
-  gatewayV0ResultUrl,
-  gatewayV0SignalUrl,
-  gatewayV0WorkflowsStartUrl,
+  gatewayResultUrl,
+  gatewaySignalUrl,
+  gatewayWorkflowsStartUrl,
 } from '@durion/react';
 
 /** Temporal signal name for `ctx.waitForInput` (SDK workflow adapter). */
@@ -27,7 +27,7 @@ export async function startWorkflow(
   apiBaseUrl: string,
   body: StartWorkflowBody,
 ): Promise<{ workflowId: string }> {
-  const res = await fetch(gatewayV0WorkflowsStartUrl(apiBaseUrl), {
+  const res = await fetch(gatewayWorkflowsStartUrl(apiBaseUrl), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body),
@@ -44,7 +44,7 @@ export async function sendWorkflowSignal(
   name: string,
   data?: unknown,
 ): Promise<void> {
-  const res = await fetch(gatewayV0SignalUrl(apiBaseUrl, workflowId), {
+  const res = await fetch(gatewaySignalUrl(apiBaseUrl, workflowId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(data !== undefined ? { name, data } : { name }),
@@ -58,7 +58,7 @@ export async function fetchWorkflowResult<T = unknown>(
   apiBaseUrl: string,
   workflowId: string,
 ): Promise<{ status: string; result: T | null }> {
-  const res = await fetch(gatewayV0ResultUrl(apiBaseUrl, workflowId), {
+  const res = await fetch(gatewayResultUrl(apiBaseUrl, workflowId), {
     headers: { ...authHeaders() },
   });
   if (!res.ok) {

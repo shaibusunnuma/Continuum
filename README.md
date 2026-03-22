@@ -181,13 +181,13 @@ await client.close();
 
 ## React: progressive workflow UI
 
-Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@durion/react`** and use **`useGatewayV0StreamState`** + **`useGatewayV0TokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: `example-server`).
+Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@durion/react`** and use **`useGatewayStreamState`** + **`useGatewayTokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: `example-server`). Hook and URL helper names omit “v0”; paths still use `/v0/...`.
 
 ```tsx
-import { useGatewayV0StreamState, useGatewayV0TokenStream } from '@durion/react';
+import { useGatewayStreamState, useGatewayTokenStream } from '@durion/react';
 
 function RunProgress({ workflowId, apiBase }: { workflowId: string; apiBase: string }) {
-  const { state, error, loading } = useGatewayV0StreamState({
+  const { state, error, loading } = useGatewayStreamState({
     workflowId,
     baseURL: apiBase,
     pollIntervalMs: 1500,

@@ -1,6 +1,6 @@
 # React HITL + LLM token streaming
 
-Full-stack demo: **Vite + React** uses **`useGatewayV0TokenStream`** + **`useGatewayV0StreamState`** from `@durion/react` against **[Gateway API v0](../../docs/gateway-api-v0.md)**. **`src/exampleServerClient.ts`** holds demo `fetch` helpers for start/signal/result. **Server-Sent Events** for token deltas; **Temporal signals** for human-in-the-loop (approve / reject).
+Full-stack demo: **Vite + React** uses **`useRunStream`** + **`useSendSignal`** from `@durion/react` against **[Gateway API v0](../../docs/gateway-api-v0.md)** (same `/v0/...` routes). **`src/exampleServerClient.ts`** holds demo `fetch` helpers for start/signal/result. **Server-Sent Events** for token deltas; **Temporal signals** for human-in-the-loop (approve / reject).
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ If `example-server` has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEW
 
 1. Client opens **SSE** `GET /v0/runs/:workflowId/token-stream` (subscribe to Redis **before** the model runs).
 2. Client **POST /v0/workflows/start** with `workflowId`, `taskQueue: durion-hitl`, `workflowType: draftEmail`, `input: { topic }`.
-3. Token deltas render from SSE; **`useGatewayV0StreamState`** polls `GET /v0/runs/:id/stream-state`.
+3. Token deltas render from SSE; **`useRunStream`** also polls `GET /v0/runs/:id/stream-state`.
 4. On **Reject**, open a **new** SSE connection, then **POST /v0/runs/:id/signal** with `durion:user-input`.
 5. **Approve** sends the signal without a new SSE round.
 

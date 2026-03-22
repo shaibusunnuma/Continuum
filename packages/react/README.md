@@ -59,16 +59,16 @@ For non-gateway or custom paths:
 
 ## Gateway v0 helpers
 
-URL builders and pre-wired wrappers for the standard Gateway API v0 paths:
+URL builders and pre-wired wrappers for the standard Gateway API v0 paths (names omit “v0”; URLs still use `/v0/...`):
 
 | Helper | Purpose |
 |--------|---------|
-| `useGatewayV0TokenStream` | SSE via `GET /v0/runs/:id/token-stream` |
-| `useGatewayV0StreamState` | Polls `GET /v0/runs/:id/stream-state` |
-| `gatewayV0WorkflowsStartUrl` | URL builder for `POST /v0/workflows/start` |
-| `gatewayV0SignalUrl` | URL builder for `POST /v0/runs/:id/signal` |
-| `gatewayV0ResultUrl` | URL builder for `GET /v0/runs/:id/result` |
-| `createGatewayV0StreamStateQueryFn` | Factory for poll `queryFn` |
+| `useGatewayTokenStream` | SSE via `GET /v0/runs/:id/token-stream` |
+| `useGatewayStreamState` | Polls `GET /v0/runs/:id/stream-state` |
+| `gatewayWorkflowsStartUrl` | URL builder for `POST /v0/workflows/start` |
+| `gatewaySignalUrl` | URL builder for `POST /v0/runs/:id/signal` |
+| `gatewayResultUrl` | URL builder for `GET /v0/runs/:id/result` |
+| `createGatewayStreamStateQueryFn` | Factory for poll `queryFn` |
 
 > **Note:** These are now considered low-level. Prefer `useRunStream` for new code.
 

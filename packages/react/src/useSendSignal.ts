@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { gatewayV0SignalUrl } from './gateway-v0/urls';
+import { gatewaySignalUrl } from './gateway-v0/urls';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +60,7 @@ export function useSendSignal(options: UseSendSignalOptions): UseSendSignalRetur
       setIsSending(true);
       setError(null);
       try {
-        const url = gatewayV0SignalUrl(baseURLRef.current, runId);
+        const url = gatewaySignalUrl(baseURLRef.current, runId);
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         if (accessTokenRef.current) {
           headers['Authorization'] = `Bearer ${accessTokenRef.current}`;

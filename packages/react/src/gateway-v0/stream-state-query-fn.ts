@@ -1,5 +1,5 @@
 import type { StreamState } from '@durion/sdk';
-import { gatewayV0StreamStateUrl } from './urls';
+import { gatewayStreamStateUrl } from './urls';
 
 async function resolveHeaders(
   h?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>),
@@ -8,20 +8,20 @@ async function resolveHeaders(
   return typeof h === 'function' ? await h() : h;
 }
 
-export interface GatewayV0StreamStateQueryFnOptions {
+export interface GatewayStreamStateQueryFnOptions {
   accessToken?: string;
   headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
 }
 
 /**
- * Default `queryFn` for {@link useGatewayV0StreamState}: `GET /v0/runs/:id/stream-state`.
+ * Default `queryFn` for {@link useGatewayStreamState}: `GET /v0/runs/:id/stream-state` (Gateway API v0).
  */
-export function createGatewayV0StreamStateQueryFn(
+export function createGatewayStreamStateQueryFn(
   baseURL: string,
-  options?: GatewayV0StreamStateQueryFnOptions,
+  options?: GatewayStreamStateQueryFnOptions,
 ): (workflowId: string, signal: AbortSignal) => Promise<StreamState> {
   return async (workflowId, signal) => {
-    const url = gatewayV0StreamStateUrl(baseURL, workflowId);
+    const url = gatewayStreamStateUrl(baseURL, workflowId);
     const extra = await resolveHeaders(options?.headers);
     const headers = new Headers(extra as HeadersInit | undefined);
     if (options?.accessToken != null && options.accessToken !== '') {

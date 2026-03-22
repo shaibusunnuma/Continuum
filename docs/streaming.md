@@ -21,7 +21,7 @@ Pub/sub channels are usually keyed by **workflow run id**. If the client opens S
 
 ## Progressive state without SSE
 
-Even without token streaming, workflows expose a Temporal **query** **`durion:streamState`** (status, optional `partialReply`, `messages`, etc.). Poll that through your backend — **`useGatewayV0StreamState`** does this against Gateway v0.
+Even without token streaming, workflows expose a Temporal **query** **`durion:streamState`** (status, optional `partialReply`, `messages`, etc.). Poll that through your backend — **`useGatewayStreamState`** does this against Gateway v0.
 
 ## Security
 

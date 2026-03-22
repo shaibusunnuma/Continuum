@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StreamState } from '@durion/sdk';
-import {
-  gatewayV0TokenStreamUrl,
-  gatewayV0StreamStateUrl,
-} from './gateway-v0/urls';
+import { gatewayTokenStreamUrl, gatewayStreamStateUrl } from './gateway-v0/urls';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -160,7 +157,7 @@ export function useRunStream(
     setError(null);
     setStatus('connecting');
 
-    const url = gatewayV0TokenStreamUrl(baseURL, runId, { accessToken });
+    const url = gatewayTokenStreamUrl(baseURL, runId, { accessToken });
     const es = new EventSource(url);
     esRef.current = es;
 
@@ -247,7 +244,7 @@ export function useRunStream(
 
     const tick = async () => {
       try {
-        const url = gatewayV0StreamStateUrl(baseURL, runId);
+        const url = gatewayStreamStateUrl(baseURL, runId);
         const headers = new Headers();
         if (accessToken) {
           headers.set('Authorization', `Bearer ${accessToken}`);

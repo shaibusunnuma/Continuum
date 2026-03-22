@@ -30,20 +30,20 @@ export type {
 
 export {
   trimGatewayBase,
-  gatewayV0StreamStateUrl,
-  gatewayV0TokenStreamUrl,
-  gatewayV0SignalUrl,
-  gatewayV0ResultUrl,
-  gatewayV0RunDescribeUrl,
-  gatewayV0WorkflowsStartUrl,
-  gatewayV0AgentsStartUrl,
+  gatewayStreamStateUrl,
+  gatewayTokenStreamUrl,
+  gatewaySignalUrl,
+  gatewayResultUrl,
+  gatewayRunDescribeUrl,
+  gatewayWorkflowsStartUrl,
+  gatewayAgentsStartUrl,
 } from './gateway-v0/urls';
 
-export { createGatewayV0StreamStateQueryFn } from './gateway-v0/stream-state-query-fn';
-export type { GatewayV0StreamStateQueryFnOptions } from './gateway-v0/stream-state-query-fn';
+export { createGatewayStreamStateQueryFn } from './gateway-v0/stream-state-query-fn';
+export type { GatewayStreamStateQueryFnOptions } from './gateway-v0/stream-state-query-fn';
 
-export { useGatewayV0TokenStream } from './gateway-v0/useGatewayV0TokenStream';
-export type { UseGatewayV0TokenStreamOptions } from './gateway-v0/useGatewayV0TokenStream';
+export { useGatewayTokenStream } from './gateway-v0/useGatewayTokenStream';
+export type { UseGatewayTokenStreamOptions } from './gateway-v0/useGatewayTokenStream';
 
-export { useGatewayV0StreamState } from './gateway-v0/useGatewayV0StreamState';
-export type { UseGatewayV0StreamStateOptions } from './gateway-v0/useGatewayV0StreamState';
+export { useGatewayStreamState } from './gateway-v0/useGatewayStreamState';
+export type { UseGatewayStreamStateOptions } from './gateway-v0/useGatewayStreamState';

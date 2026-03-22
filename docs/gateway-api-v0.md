@@ -98,4 +98,4 @@ Body: `{ "agentName": "<string>", "input": { "message": "<string>" } }`
 
 ## Client helpers
 
-`@durion/react` exports **Gateway v0** URL builders and hooks (`useGatewayV0TokenStream`, `useGatewayV0StreamState`) that target this spec. Lower-level `useWorkflowTokenStream` / `useWorkflowStreamState` remain available for non-gateway APIs.
+`@durion/react` exports **Gateway v0** URL builders and hooks (`useGatewayTokenStream`, `useGatewayStreamState`) that target this spec (names omit “v0”; routes are still `/v0/...`). Lower-level `useWorkflowTokenStream` / `useWorkflowStreamState` remain available for non-gateway APIs.
