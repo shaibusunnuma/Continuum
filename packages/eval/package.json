@@ -1,6 +1,6 @@
 {
   "name": "@durion/eval",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Durion evaluation capture and metrics",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@durion/sdk": "^0.1.0",
+    "@durion/sdk": "^1.0.0",
     "pg": "^8.20.0"
   },
   "devDependencies": {

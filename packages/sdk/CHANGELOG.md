@@ -1,0 +1,7 @@
+# @durion/sdk
+
+## 1.0.0
+
+### Minor Changes
+
+- 5fa71df: First public release (0.1.x) — durable AI workflows and agents on Temporal (workflow, agent, Gateway-oriented React hooks, optional eval capture)
