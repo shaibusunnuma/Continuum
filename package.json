@@ -17,14 +17,18 @@
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "dependencies": {
-    "@durion/sdk": "*",
     "@durion/eval": "*",
-    "@durion/react": "*"
+    "@durion/react": "*",
+    "@durion/sdk": "*"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@types/node": "^25.3.5",
     "@types/pg": "^8.18.0",
     "dotenv": "^17.3.1",
