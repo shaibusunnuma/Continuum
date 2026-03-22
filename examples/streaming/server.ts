@@ -84,7 +84,7 @@ async function main() {
 
       // Channel id must match workflow id (runModel uses traceContext.workflowId).
       // Subscribe *before* starting the workflow: LocalStreamBus has no buffer — events published
-      // before subscribe are dropped (unlike Trigger.dev Realtime + Electric SQL replay).
+      // before subscribe are dropped (no persisted replay buffer).
       const workflowId = `streaming-sse-${crypto.randomUUID()}`;
       await pipeStreamToResponse(runtime.streamBus, workflowId, res);
 

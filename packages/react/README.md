@@ -74,9 +74,9 @@ URL builders and pre-wired wrappers for the standard Gateway API v0 paths:
 
 ---
 
-## Compared to [Trigger.dev realtime streams](https://trigger.dev/docs/realtime/react-hooks/streams)
+## Run-scoped streaming
 
-Trigger's hooks use `runId` + `accessToken` + optional `baseURL` against **their** managed API. Our `useRunStream` follows the same pattern but targets **your self-hosted** gateway (or future managed platform). Same DX, full ownership.
+`useRunStream` takes a `runId`, optional `baseURL`, and optional gateway token — the same shape you’d use for any client that opens an SSE URL and polls run metadata against **your** HTTP API (e.g. Gateway API v0), not a vendor-hosted endpoint.
 
 ---
 

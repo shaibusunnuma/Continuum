@@ -68,7 +68,7 @@ export interface UseRunStreamReturn {
  * preferred, with the polled `partialReply` used as a fallback for tokens that the
  * SSE connection missed.
  *
- * Inspired by [Trigger.dev `useRealtimeStream`](https://trigger.dev/docs/realtime/react-hooks/streams).
+ * Same mental model as other run-scoped stream hooks: `runId`, optional `baseURL`, token for auth.
  */
 export function useRunStream(
   runId: string | null | undefined,

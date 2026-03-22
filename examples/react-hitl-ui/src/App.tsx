@@ -98,13 +98,9 @@ export default function App() {
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '2rem 1rem' }}>
       <h1 style={{ marginTop: 0 }}>HITL + LLM token streaming</h1>
       <p style={{ color: '#9ab', fontSize: '0.95rem' }}>
-        Uses <code>useRunStream</code> and <code>useSendSignal</code> (Gateway API v0). 
-        (similar idea to{' '}
-        <a href="https://trigger.dev/docs/realtime/react-hooks/streams" style={{ color: '#8af' }}>
-          Trigger.dev stream hooks
-        </a>
-        , but over your REST + SSE bridge). Requires Temporal, Redis, <code>worker:hitl</code>, <code>api:dev</code> — see{' '}
-        <code>README.md</code>.
+        Uses <code>useRunStream</code> and <code>useSendSignal</code> against Gateway API v0 (REST + SSE).
+        Requires Temporal, Redis, <code>{'cd examples && npm run worker:hitl'}</code>,{' '}
+        <code>npm run api:dev</code> — see <code>README.md</code>.
       </p>
 
       <label style={{ display: 'block', marginBottom: '0.35rem' }}>Topic</label>

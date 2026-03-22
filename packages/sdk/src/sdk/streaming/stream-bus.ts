@@ -6,9 +6,9 @@ import { EventEmitter } from 'node:events';
  * - **Throughput**: From an activity, `publish()` is limited by your worker’s event loop and I/O.
  *   In-process `LocalStreamBus` can handle very high frequency (thousands of small emits/sec).
  *   Redis Pub/Sub is usually network-bound (hundreds–thousands of messages/sec depending on size).
- * - **What we are not (vs Trigger.dev Realtime + Electric SQL)**: There is **no persisted log** of
- *   chunks. Subscribers only see events that arrive **after** they subscribe. Late attach = missed data.
- *   Trigger’s model tees streams into metadata that clients sync from; that gives replay/catch-up.
+ * - **What we are not**: There is **no persisted log** of chunks. Subscribers only see events that
+ *   arrive **after** they subscribe. Late attach = missed data. Some hosted stacks persist or replay
+ *   stream segments so late subscribers can catch up; pub/sub here does not.
  * - **Rule**: For token streaming, **open the SSE subscription (or Redis consumer) before starting
  *   the workflow**, and use a **known `workflowId`** as the channel so the activity’s `traceContext`
  *   matches the subscriber’s channel.

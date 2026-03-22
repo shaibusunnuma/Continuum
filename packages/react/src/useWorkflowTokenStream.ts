@@ -10,8 +10,7 @@ export type WorkflowTokenStreamStatus =
 export interface UseWorkflowTokenStreamOptions {
   /**
    * Resolves the **full URL** of the token SSE endpoint for a workflow run (your server’s contract).
-   * Analogous to how Trigger.dev’s realtime hooks use `runId` + `baseURL` against *their* API — here **you**
-   * own the host and path, so you supply the final string (see [Trigger.dev `useRealtimeStream`](https://trigger.dev/docs/realtime/react-hooks/streams)).
+   * You own host, path, and auth — pass the final string the browser’s `EventSource` should open.
    */
   getTokenStreamUrl: (workflowId: string) => string;
 }
@@ -21,8 +20,8 @@ export interface UseWorkflowTokenStreamOptions {
  * Expects Vercel AI UI–style `text-delta` / `finish` messages; accumulates deltas into `text`.
  *
  * **Subscribe-before-start:** use {@link subscribeThenStart} so the EventSource is open *before* you
- * start the workflow (or next model round), so early chunks aren’t missed — same idea as “connect then run”
- * in hosted realtime products ([Trigger.dev streams](https://trigger.dev/docs/realtime/react-hooks/streams)).
+ * start the workflow (or next model round), so early chunks aren’t missed — same “connect, then run”
+ * ordering you’d use with any ephemeral SSE channel.
  */
 export function useWorkflowTokenStream(options: UseWorkflowTokenStreamOptions) {
   const { getTokenStreamUrl } = options;
