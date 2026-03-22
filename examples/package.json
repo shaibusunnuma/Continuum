@@ -16,11 +16,17 @@
     "worker:hitl": "ts-node human-in-the-loop/run.ts worker",
     "client:hitl": "ts-node human-in-the-loop/run.ts demo",
     "worker:composability": "ts-node composability/run.ts worker",
-    "client:composability": "ts-node composability/run.ts demo"
+    "client:composability": "ts-node composability/run.ts demo",
+    "dev:react-hitl-ui": "vite --config react-hitl-ui/vite.config.ts",
+    "build:react-hitl-ui": "vite build --config react-hitl-ui/vite.config.ts",
+    "preview:react-hitl-ui": "vite preview --config react-hitl-ui/vite.config.ts"
   },
   "dependencies": {
     "@durion/eval": "file:../packages/eval",
+    "@durion/react": "file:../packages/react",
     "@durion/sdk": "file:../packages/sdk",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "@temporalio/client": "^1.15.0",
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.41",
@@ -30,7 +36,11 @@
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1"
   }
 }

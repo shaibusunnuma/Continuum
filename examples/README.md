@@ -24,10 +24,10 @@ For a minimal remote client pattern, see [REMOTE_CLIENT.md](REMOTE_CLIENT.md).
 | **research-assistant** | `worker:research-assistant` | Gemini key + optional `TAVILY_API_KEY` (web search) | Content brief + research agent. |
 | **multi-agent** | `worker:multi-agent`, `orchestrate:multi-agent` | Gemini (same as above) | `orchestrate:multi-agent -- "Your question"` runs the demo client (worker must be running). |
 | **streaming** | `server:streaming`, `worker:streaming`, `client:streaming`, plus Redis variants | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; Redis for distributed variant | See [streaming/README.md](streaming/README.md). Co-located HTTP on port 4000; Redis variant uses 4001. |
-| **human-in-the-loop** | `worker:hitl`, `client:hitl` | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; **`REDIS_URL`** for token SSE with `example-server` | Pair with repo root `api:dev` + [react-hitl-ui](react-hitl-ui/README.md) (`npm run ui:hitl`). |
+| **human-in-the-loop** | `worker:hitl`, `client:hitl` | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; **`REDIS_URL`** for token SSE with `example-server` | Pair with repo root `api:dev` + [react-hitl-ui](react-hitl-ui/README.md) (`npm run ui:hitl` from root, or `npm run dev:react-hitl-ui` from `examples/`). |
 | **composability** | `worker:composability`, `client:composability` | `OPENAI_API_KEY` | `ctx.run()` and agent `delegates`. See [composability/README.md](composability/README.md). |
 
-**UI demo:** [react-hitl-ui](react-hitl-ui/) is a separate workspace package; use `npm run ui:hitl` from the repo root (see its README).
+**UI demo:** [react-hitl-ui](react-hitl-ui/) — Vite app; `npm run ui:hitl` from the repo root or `npm run dev:react-hitl-ui` from `examples/` (see its README).
 
 ## Run (from `examples/` after repo `npm install`, `cd examples && npm install`, and `npm run build` at repo root)
 
@@ -47,6 +47,7 @@ npm run client:hitl
 npm run worker:composability
 npm run client:composability -- parent "hello"
 npm run orchestrate:multi-agent -- "Your question"
+npm run dev:react-hitl-ui
 ```
 
-Or one-liners from the repo root: `cd examples && npm run worker:customer-support`, etc.
+Or one-liners from the repo root: `cd examples && npm run worker:customer-support`, etc. For the HITL UI only: `npm run ui:hitl` from the repo root.

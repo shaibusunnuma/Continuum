@@ -1,6 +1,6 @@
 # Releasing (Changesets)
 
-Published packages: **`@durion/sdk`**, **`@durion/react`**, **`@durion/eval`**. They are **linked** in Changesets during `0.x` (one shared version line). Private workspace packages (`example-server`, `@durion/react-hitl-ui`, repo root) are not published.
+Published packages: **`@durion/sdk`**, **`@durion/react`**, **`@durion/eval`**. They are **linked** in Changesets during `0.x` (one shared version line). Private workspace packages (`example-server`, repo root) are not published. The Vite HITL demo under `examples/react-hitl-ui/` is part of the `examples` install only (not a workspace package).
 
 ## Maintainer flow
 

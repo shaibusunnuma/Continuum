@@ -6,14 +6,12 @@
   "packageManager": "npm@10.0.0",
   "workspaces": [
     "packages/*",
-    "example-server",
-    "examples/react-hitl-ui"
+    "example-server"
   ],
   "scripts": {
     "build": "turbo run build",
     "api": "node example-server/dist/api/index.js",
     "api:dev": "ts-node example-server/src/api/index.ts",
-    "ui:hitl": "npm run dev -w @durion/react-hitl-ui",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts",

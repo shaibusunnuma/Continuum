@@ -17,7 +17,7 @@ From repo root (after `npm install` and `npm run build` at least once):
 | 1 | Temporal |
 | 2 | `cd examples && npm run worker:hitl` |
 | 3 | `npm run api:dev` |
-| 4 | `npm run ui:hitl` |
+| 4 | `npm run ui:hitl` (root) or `cd examples && npm run dev:react-hitl-ui` |
 
 Open **http://localhost:5173**. The UI proxies **`/v0`**, `/workflows`, and `/runs` to `http://127.0.0.1:3000` (override with `VITE_API_PROXY` in `vite.config.ts` env if needed).
 
@@ -33,7 +33,10 @@ If `example-server` has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEW
 4. On **Reject**, open a **new** SSE connection, then **POST /v0/runs/:id/signal** with `durion:user-input`.
 5. **Approve** sends the signal without a new SSE round.
 
-## Scripts in this package
+## Scripts
 
-- `npm run dev` — Vite dev server
-- `npm run build` — production bundle to `dist/`
+Defined on **[`examples/package.json`](../package.json)** (run from `examples/`):
+
+- `npm run dev:react-hitl-ui` — Vite dev server
+- `npm run build:react-hitl-ui` — production bundle to `react-hitl-ui/dist/`
+- `npm run preview:react-hitl-ui` — preview production build

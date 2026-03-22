@@ -7,6 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiTarget = process.env.VITE_API_PROXY ?? 'http://127.0.0.1:3000';
 
 export default defineConfig({
+  /** Run `vite` from `examples/` with `--config react-hitl-ui/vite.config.ts`. */
+  root: __dirname,
   plugins: [react()],
   resolve: {
     /** CJS `dist` build breaks Vite named imports; bundle from source. */
