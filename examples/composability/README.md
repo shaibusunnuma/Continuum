@@ -5,7 +5,7 @@ Demonstrates:
 1. **`ctx.run()`** — `composabilityParent` runs `composabilityChild` as a Temporal child workflow, then calls the model.
 2. **`delegates`** — `composabilityOrchestrator` can hand off to `composabilitySpecialist` via the `specialist` tool (implemented as `executeChild`, not an activity).
 
-**Layout:** `workflows.ts` (bundle), **`run.ts`** — `worker` mode uses `createApp` + `createWorker`; **`demo`** uses **`createClient` only** (no second `createApp`). Shared queue name lives in `temporal-config.ts`. For a client in another service, copy only the `demo` path; see [REMOTE_CLIENT.md](../REMOTE_CLIENT.md).
+**Layout:** `workflows.ts` (bundle), **`run.ts`** — `worker` mode uses `createApp` + `createWorker`; **`demo`** uses **`createClient` only** (no second `createApp`). The task queue name is `durion-composability` in `run.ts`. For a client in another service, copy only the `demo` path; see [REMOTE_CLIENT.md](../REMOTE_CLIENT.md).
 
 ## Prerequisites
 
@@ -14,9 +14,11 @@ Demonstrates:
 
 ## Run
 
-From repo root (after `npm run build`):
+After `npm install` and `npm run build` at the repo root, and `npm install` under **`examples/`**:
 
 ```bash
+cd examples
+
 # Terminal 1
 npm run worker:composability
 

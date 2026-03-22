@@ -2,7 +2,7 @@
  * Example worker entry point.
  *
  * Configures models, registers tools, and starts the Temporal worker.
- * Run from repo root: npm run build && npm run worker:examples
+ * From repo root: npm run build. From examples/: npm run worker:customer-support
  *
  * Install only the provider packages you use: npm install @ai-sdk/openai
  */

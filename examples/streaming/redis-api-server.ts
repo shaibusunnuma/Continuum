@@ -1,7 +1,7 @@
 /**
  * HTTP API that subscribes to RedisStreamBus SSE — worker runs in another process.
  *
- * Prerequisites: Temporal + Redis + `npm run worker:streaming-redis`
+ * Prerequisites: Temporal + Redis + worker (`cd examples && npm run worker:streaming-redis`)
  *
  * From examples/: npm run server:streaming-redis
  * Then: curl -sN -X POST http://localhost:4001/stream -H "Content-Type: application/json" -d '{"message":"Say hi in one sentence."}'

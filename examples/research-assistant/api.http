@@ -1,5 +1,5 @@
 # Research Assistant — REST Client (VS Code: REST Client by Huachao Mao)
-# Run worker: npm run worker:research-assistant (from repo root)
+# Run worker: cd examples && npm run worker:research-assistant
 
 @base = http://localhost:3000
 @workflowId = <paste workflowId from start response>

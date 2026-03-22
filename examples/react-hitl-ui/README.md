@@ -15,7 +15,7 @@ From repo root (after `npm install` and `npm run build` at least once):
 | Terminal | Command |
 |----------|---------|
 | 1 | Temporal |
-| 2 | `npm run worker:hitl` (repo root) or `cd examples && npm run worker:hitl` |
+| 2 | `cd examples && npm run worker:hitl` |
 | 3 | `npm run api:dev` |
 | 4 | `npm run ui:hitl` |
 

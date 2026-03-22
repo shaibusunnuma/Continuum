@@ -5,7 +5,7 @@
  *   demo    — start workflows via createClient (terminal 2; worker must be running).
  *             Same file shows both sides; a real second app would copy only the demo + createClient pattern.
  *
- * From repo root:
+ * From examples/:
  *   npm run worker:composability
  *   npm run client:composability -- parent "hello world"
  *   npm run client:composability -- orchestrator "Ask the specialist: what is 2+2?"

@@ -1,6 +1,6 @@
 # Multi-Agent — REST Client (VS Code: REST Client by Huachao Mao)
-# Run worker: npm run worker:multi-agent (from repo root)
-# Pattern B: run orchestrator with worker up: npm run orchestrate:multi-agent -- "Your question"
+# Run worker: cd examples && npm run worker:multi-agent
+# Pattern B: cd examples && npm run orchestrate:multi-agent -- "Your question"
 
 @base = http://localhost:3000
 @workflowId = <paste workflowId from start response>

@@ -14,13 +14,9 @@ End-user guides (getting started, concepts, env vars, streaming, troubleshooting
 
 ## Quick start
 
-**1. Start Temporal** (from project root):
+**1. Start Temporal**
 
-```bash
-cd samples-server/compose && docker-compose -f docker-compose-dev.yml up -d
-```
-
-Temporal listens on `localhost:7233`. Leave it running.
+Use a local Temporal dev server (for example the [Temporal CLI](https://docs.temporal.io/cli): `temporal server start-dev`) or your own deployment. Default address is **`localhost:7233`** — match `TEMPORAL_ADDRESS` in `.env`.
 
 **2. Environment**
 
@@ -34,15 +30,14 @@ Set at least: `TEMPORAL_ADDRESS=localhost:7233`, `TEMPORAL_NAMESPACE=default`, `
 
 ```bash
 npm install
-cd examples && npm install
-cd ..
+cd examples && npm install && cd ..
 npm run build
 ```
 
-**Terminal 1** — run one example worker:
+**Terminal 1** — run the customer-support example worker (from `examples/`):
 
 ```bash
-npm run worker:customer-support
+cd examples && npm run worker:customer-support
 ```
 
 **Terminal 2** — start the example API:
@@ -266,7 +261,7 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 ## Requirements
 
 - **Node.js** 18+
-- **Docker** (for Temporal)
+- A **Temporal** server on `TEMPORAL_ADDRESS` (default `localhost:7233`; e.g. [Temporal CLI](https://docs.temporal.io/cli) `temporal server start-dev` or Docker)
 
 ## Scripts
 
@@ -275,9 +270,8 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | `npm run build` | Build all packages |
 | `npm run api` | Start the example API server |
 | `npm run api:dev` | Start the API with ts-node |
-| `npm run worker:hitl` | HITL example worker (Redis stream bus; pair with `api:dev` + `ui:hitl`) |
 | `npm run ui:hitl` | Vite app for HITL + SSE token streaming ([examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md)) |
-| `npm run worker:<name>` | Other example workers — see [examples/README.md](examples/README.md) |
+| *(examples)* | Example workers and clients — run from **`examples/`** with `npm run <script>`; see [examples/README.md](examples/README.md) |
 | `npm run test` | Run SDK tests |
 | `npm run eval:build-dataset` | Build evaluation dataset (optional) |
 | `npm run eval:run` | Run evaluation metrics (optional) |

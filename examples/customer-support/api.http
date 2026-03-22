@@ -1,5 +1,5 @@
 # Customer Support — REST Client (VS Code: REST Client by Huachao Mao)
-# Run worker: npm run worker:customer-support (from repo root)
+# Run worker: cd examples && npm run worker:customer-support
 
 @base = http://localhost:3000
 @workflowId = <paste workflowId from start response>
