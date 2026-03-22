@@ -29,6 +29,10 @@
 
 - [Gateway API v0](gateway-api-v0.md) — HTTP routes for browsers and BFFs (`/v0/runs/...`, `/v0/workflows/...`)
 
+## Maintainers
+
+- [Releasing](releasing.md) — Changesets, Version PRs, npm publish from CI
+
 ## Repository pointers
 
 - [Main README](../README.md) — overview, scripts, observability

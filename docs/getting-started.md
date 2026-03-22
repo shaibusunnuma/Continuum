@@ -5,7 +5,7 @@ This guide walks you through a **minimal** Durion setup: one workflow, one worke
 ## Prerequisites
 
 - **Node.js** 20+ recommended (18+ may work; see [packages/sdk/package.json](../packages/sdk/package.json) `engines`)
-- A running **Temporal** dev server (e.g. Docker) on `localhost:7233` by default
+- A running **Temporal** dev server on `localhost:7233` by default — e.g. [Temporal CLI](https://docs.temporal.io/cli) `temporal server start-dev`, or Docker / a hosted cluster; set `TEMPORAL_ADDRESS` to match
 - An API key for your LLM provider (e.g. OpenAI)
 
 ## 1. Install packages
