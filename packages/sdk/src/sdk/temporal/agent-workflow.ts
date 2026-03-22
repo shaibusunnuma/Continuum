@@ -124,6 +124,7 @@ export function agent(
         messages,
         toolNames: config.tools.length > 0 ? config.tools : undefined,
         extraTools,
+        costCalculator: config.costCalculator,
         traceContext: traceCtx,
       });
 

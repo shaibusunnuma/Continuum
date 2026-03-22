@@ -83,6 +83,7 @@ export function workflow<TInput, TOutput>(
           modelId,
           messages,
           toolNames: params.tools,
+          costCalculator: params.costCalculator,
           stream: params.stream,
           responseFormat: params.responseFormat,
           outputSchema: params.schema as Record<string, unknown> | undefined,

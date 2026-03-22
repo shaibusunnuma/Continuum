@@ -1,6 +1,6 @@
 import { generateText, jsonSchema, Output, streamText, type ModelMessage } from 'ai';
 import { tool as aiTool, type Tool } from 'ai';
-import { calculateCostUsd } from '../ai/cost';
+import { Context } from '@temporalio/activity';
 import { getActiveRuntime } from '../runtime';
 import { withSpan } from '../obs';
 import {
@@ -139,6 +139,8 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       let inputTokens = 0;
       let outputTokens = 0;
 
+      const startTime = performance.now();
+
       if (params.stream) {
         const workflowId = params.traceContext?.workflowId;
         if (!workflowId || typeof workflowId !== 'string' || workflowId.trim() === '') {
@@ -243,18 +245,38 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
         outputTokens = textResult.usage?.outputTokens ?? 0;
       }
 
+      const latencyMs = Math.round(performance.now() - startTime);
+
       let costUsd = 0;
       if (
+        params.costCalculator &&
         model &&
         typeof model === 'object' &&
         'provider' in model &&
         'modelId' in model
       ) {
-        const m = model as { provider: string; modelId: string };
-        costUsd = await calculateCostUsd(m.provider, m.modelId, {
-          promptTokens: inputTokens,
-          completionTokens: outputTokens,
-        });
+        const calc = runtime.getCostCalculator(params.costCalculator);
+        if (calc) {
+          const m = model as { provider: string; modelId: string };
+          // Attempt is 1-indexed (first try = 1)
+          let retries = 0;
+          try {
+            retries = Math.max(0, Context.current().info.attempt - 1);
+          } catch {
+            // Not running inside a Temporal Activity context (e.g. unit test fallback)
+          }
+
+          costUsd = await calc.calculate({
+            inputTokens,
+            outputTokens,
+            model: m.modelId,
+            provider: m.provider,
+            metadata: {
+              retries,
+              latencyMs,
+            },
+          });
+        }
       }
 
       if (span) {

@@ -12,9 +12,6 @@ const fakeModel: LanguageModel = {
   modelId: 'gpt-4o-mini',
 } as LanguageModel;
 
-vi.mock('../../src/sdk/ai/cost', () => ({
-  calculateCostUsd: vi.fn().mockResolvedValue(0.001),
-}));
 
 vi.mock('../../src/sdk/obs', () => ({
   withSpan: vi.fn((_name: string, _attrs: unknown, fn: (span: null) => Promise<unknown>) => fn(null)),
@@ -80,7 +77,7 @@ describe('activities', () => {
       expect(result.usage.promptTokens).toBe(10);
       expect(result.usage.completionTokens).toBe(5);
       expect(result.usage.totalTokens).toBe(15);
-      expect(result.usage.costUsd).toBe(0.001);
+      expect(result.usage.costUsd).toBe(0);
       expect(result.toolCalls).toEqual([]);
     });
 

@@ -8,7 +8,7 @@
  * (createWorker is a standalone import from '@ai-runtime/sdk', not a method on RuntimeContext.)
  */
 import type { LanguageModel } from 'ai';
-import type { ToolDefinition, ModelOptions } from '../types';
+import type { ToolDefinition, ModelOptions, CostCalculator } from '../types';
 import type { LifecycleEvent, LifecycleHook } from '../hooks';
 import type { ObservabilityConfig } from '../obs';
 import { LocalStreamBus, type StreamBus } from '../streaming/stream-bus';
@@ -32,6 +32,8 @@ export class RuntimeContext {
   readonly models = new Map<string, ModelEntry>();
   /** Tool registry: name → ToolDefinition */
   readonly tools = new Map<string, ToolDefinition>();
+  /** Cost Calculator registry: name → CostCalculator */
+  readonly costCalculators = new Map<string, CostCalculator>();
   /** Lifecycle hooks */
   readonly hooks: LifecycleHook[] = [];
   /** Observability config */
@@ -60,6 +62,12 @@ export class RuntimeContext {
     const def = this.tools.get(name);
     if (!def) throw new ToolNotRegisteredError(name);
     return def;
+  }
+
+  // -- Cost Calculators --
+
+  getCostCalculator(name: string): CostCalculator | undefined {
+    return this.costCalculators.get(name);
   }
 
   // -- Hooks --
@@ -119,6 +127,7 @@ function isValidLanguageModel(value: unknown): value is LanguageModel {
 export interface CreateRuntimeConfig {
   models?: Record<string, LanguageModel | { model: LanguageModel; maxTokens?: number }>;
   tools?: ToolDefinition[];
+  costCalculators?: Record<string, CostCalculator>;
   observability?: ObservabilityConfig;
   streaming?: { bus?: StreamBus };
 }
@@ -199,6 +208,19 @@ export function createRuntime(config: CreateRuntimeConfig = {}): RuntimeContext 
         throw new ConfigurationError(`Tool "${def.name}": execute must be a function.`);
       }
       runtime.tools.set(def.name, def);
+    }
+  }
+
+  // Register cost calculators
+  if (config.costCalculators) {
+    for (const [name, calc] of Object.entries(config.costCalculators)) {
+      if (typeof name !== 'string' || name.trim() === '') {
+        throw new ConfigurationError('CostCalculator name must be a non-empty string.');
+      }
+      if (calc == null || typeof calc !== 'object' || typeof calc.calculate !== 'function') {
+        throw new ConfigurationError(`CostCalculator "${name}": must be an object with a calculate function.`);
+      }
+      runtime.costCalculators.set(name, calc);
     }
   }
 

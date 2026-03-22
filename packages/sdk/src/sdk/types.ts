@@ -13,6 +13,28 @@ export interface Usage {
 }
 
 // ---------------------------------------------------------------------------
+// Cost Calculators
+// ---------------------------------------------------------------------------
+
+export interface CostCalculatorPayload {
+  inputTokens: number;
+  outputTokens: number;
+  model: string;
+  provider: string;
+  metadata: {
+    retries: number;
+    latencyMs: number;
+  };
+}
+
+export type CostCalculatorFn = (payload: CostCalculatorPayload) => number | Promise<number>;
+
+export interface CostCalculator {
+  calculate: CostCalculatorFn;
+}
+
+
+// ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
 
@@ -63,6 +85,8 @@ export interface ModelCallParams {
   prompt?: string;
   messages?: Message[];
   tools?: string[];
+  /** Optional registered cost calculator to execute */
+  costCalculator?: string;
   /** If true, stream token deltas via the runtime stream bus (out-of-band). */
   stream?: boolean;
   responseFormat?: 'text' | 'json';
@@ -155,6 +179,8 @@ export interface AgentConfig {
   model: string;
   instructions: string;
   tools: string[];
+  /** Optional registered cost calculator to execute */
+  costCalculator?: string;
   maxSteps?: number;
   budgetLimit?: BudgetLimit;
   /** Temporal activity timeout for all model and tool calls in this agent (e.g. '10 minutes'). Defaults to '5 minutes'. */
@@ -217,6 +243,8 @@ export interface RunModelParams {
   modelId: string;
   messages: Message[];
   toolNames?: string[];
+  /** Optional registered cost calculator to execute */
+  costCalculator?: string;
   responseFormat?: 'text' | 'json';
   /** If true, stream token deltas via the runtime stream bus (out-of-band). */
   stream?: boolean;
