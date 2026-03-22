@@ -13,6 +13,6 @@ dotenv.config({ path: path.join(projectRoot, '.env') });
 export const config = {
   TEMPORAL_ADDRESS: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233',
   TEMPORAL_NAMESPACE: process.env.TEMPORAL_NAMESPACE ?? 'default',
-  TASK_QUEUE: process.env.TASK_QUEUE ?? 'ai-runtime',
+  TASK_QUEUE: process.env.TASK_QUEUE ?? 'durion',
   API_PORT: parsePort(process.env.API_PORT, 3000),
 };

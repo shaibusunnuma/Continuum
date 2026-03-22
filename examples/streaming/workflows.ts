@@ -4,7 +4,7 @@
  * - `streamingAgent`: step-level progressive state via `streamState` query polling
  * - `streamingWorkflow`: token streaming via StreamBus (ctx.model({ stream: true }))
  */
-import { agent, workflow, type WorkflowContext } from '@ai-runtime/sdk/workflow';
+import { agent, workflow, type WorkflowContext } from '@durion/sdk/workflow';
 
 export const streamingAgent = agent('streaming-agent', {
   model: 'fast',

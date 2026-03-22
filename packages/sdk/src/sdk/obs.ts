@@ -54,7 +54,7 @@ export async function withSpan<T>(
     return fn(null);
   }
 
-  const tracer = trace.getTracer('ai-runtime-sdk');
+  const tracer = trace.getTracer('durion-sdk');
   const span = tracer.startSpan(name, undefined, context.active());
   try {
     span.setAttributes(attributes);

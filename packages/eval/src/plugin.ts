@@ -2,7 +2,7 @@
  * Eval plugin: registers a lifecycle hook to capture run completion for evaluation.
  * Call registerEvalHook() when initEvaluation() is enabled (done automatically by initEvaluation).
  */
-import { registerHook, type LifecycleEvent } from '@ai-runtime/sdk';
+import { registerHook, type LifecycleEvent } from '@durion/sdk';
 import { recordEvalRun } from './capture';
 
 export function registerEvalHook(): void {

@@ -1,5 +1,5 @@
 {
-  "name": "@ai-runtime/react-hitl-ui",
+  "name": "@durion/react-hitl-ui",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ai-runtime/react": "file:../../packages/react",
-    "@ai-runtime/sdk": "file:../../packages/sdk",
+    "@durion/react": "file:../../packages/react",
+    "@durion/sdk": "file:../../packages/sdk",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

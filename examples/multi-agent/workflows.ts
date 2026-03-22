@@ -3,7 +3,7 @@
  * Pattern A: single workflow with 3+ ctx.model() steps (Researcher, Coder, Analyst).
  * Pattern B: three agents exported for use by orchestrator script.
  */
-import { workflow, agent, type WorkflowContext } from '@ai-runtime/sdk/workflow';
+import { workflow, agent, type WorkflowContext } from '@durion/sdk/workflow';
 
 type MultiAgentInput = { query: string };
 

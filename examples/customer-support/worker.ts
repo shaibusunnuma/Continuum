@@ -12,8 +12,8 @@ import {
   createRuntime,
   createWorker,
   initObservability,
-} from '@ai-runtime/sdk';
-import { initEvaluation } from '@ai-runtime/eval';
+} from '@durion/sdk';
+import { initEvaluation } from '@durion/eval';
 
 async function main() {
   initObservability({
@@ -23,8 +23,8 @@ async function main() {
 
   initEvaluation({
     enabled: false,
-    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
-    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+    dbUrl: process.env.DURION_EVAL_DB_URL,
+    defaultVariantName: process.env.DURION_EVAL_VARIANT,
   });
 
   // -------------------------------------------------------------------------

@@ -13,7 +13,7 @@ export interface UseSendSignalOptions {
 }
 
 export interface UseSendSignalReturn {
-  /** Send a signal to a running workflow. Default signal name is `ai-runtime:user-input`. */
+  /** Send a signal to a running workflow. Default signal name is `durion:user-input`. */
   send: (
     runId: string,
     data: unknown,
@@ -55,7 +55,7 @@ export function useSendSignal(options: UseSendSignalOptions): UseSendSignalRetur
     async (
       runId: string,
       data: unknown,
-      signalName = 'ai-runtime:user-input',
+      signalName = 'durion:user-input',
     ): Promise<void> => {
       setIsSending(true);
       setError(null);

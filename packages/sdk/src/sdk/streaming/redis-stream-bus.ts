@@ -3,7 +3,7 @@ import type { StreamBus, StreamChunk } from './stream-bus';
 
 export interface RedisStreamBusConfig {
   url: string;
-  /** Optional prefix to isolate channels (default: 'ai-runtime:stream:'). */
+  /** Optional prefix to isolate channels (default: 'durion:stream:'). */
   channelPrefix?: string;
 }
 
@@ -19,7 +19,7 @@ export class RedisStreamBus implements StreamBus {
   private connectPromise: Promise<void> | null = null;
 
   constructor(cfg: RedisStreamBusConfig) {
-    this.prefix = cfg.channelPrefix ?? 'ai-runtime:stream:';
+    this.prefix = cfg.channelPrefix ?? 'durion:stream:';
     this.pub = createClient({ url: cfg.url });
     this.sub = createClient({ url: cfg.url });
   }
@@ -42,7 +42,7 @@ export class RedisStreamBus implements StreamBus {
         await this.pub.publish(this.prefix + channel, JSON.stringify(chunk));
       })
       .catch((err) => {
-        console.error('[ai-runtime] RedisStreamBus publish failed:', err);
+        console.error('[durion] RedisStreamBus publish failed:', err);
       });
   }
 
@@ -59,7 +59,7 @@ export class RedisStreamBus implements StreamBus {
         }
       });
     } catch (err) {
-      console.error('[ai-runtime] RedisStreamBus subscribe failed:', err);
+      console.error('[durion] RedisStreamBus subscribe failed:', err);
       throw err;
     }
     return () => {

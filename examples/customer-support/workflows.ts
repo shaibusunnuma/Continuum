@@ -5,7 +5,7 @@
  * It can ONLY import from @temporalio/workflow and workflow-safe SDK modules.
  * Import workflow and agent from the SDK barrel (public API).
  */
-import { workflow, agent, type WorkflowContext } from '@ai-runtime/sdk/workflow';
+import { workflow, agent, type WorkflowContext } from '@durion/sdk/workflow';
 
 // ---------------------------------------------------------------------------
 // Example 1: Customer support workflow (explicit control flow)

@@ -2,7 +2,7 @@
   "name": "examples",
   "version": "0.1.0",
   "private": true,
-  "description": "Example worker and workflows for AI Runtime SDK",
+  "description": "Example worker and workflows for Durion SDK",
   "scripts": {
     "worker:customer-support": "ts-node customer-support/worker.ts",
     "worker:research-assistant": "ts-node research-assistant/worker.ts",
@@ -19,8 +19,8 @@
     "client:composability": "ts-node composability/run.ts demo"
   },
   "dependencies": {
-    "@ai-runtime/eval": "file:../packages/eval",
-    "@ai-runtime/sdk": "file:../packages/sdk",
+    "@durion/eval": "file:../packages/eval",
+    "@durion/sdk": "file:../packages/sdk",
     "@temporalio/client": "^1.15.0",
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.41",

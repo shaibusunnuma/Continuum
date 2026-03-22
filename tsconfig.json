@@ -5,7 +5,7 @@
     "lib": ["ES2020"],
     "baseUrl": ".",
     "paths": {
-      "@ai-runtime/sdk/workflow": ["node_modules/@ai-runtime/sdk/dist/sdk/workflow"]
+      "@durion/sdk/workflow": ["node_modules/@durion/sdk/dist/sdk/workflow"]
     },
     "strict": true,
     "esModuleInterop": true,

@@ -1,8 +1,8 @@
 {
-  "name": "ai-runtime",
+  "name": "durion",
   "version": "0.1.0",
   "private": true,
-  "description": "AI Application Runtime",
+  "description": "Durion monorepo — durable AI workflows and agents on Temporal",
   "packageManager": "npm@10.0.0",
   "workspaces": [
     "packages/*",
@@ -13,7 +13,7 @@
     "build": "turbo run build",
     "api": "node example-server/dist/api/index.js",
     "api:dev": "ts-node example-server/src/api/index.ts",
-    "ui:hitl": "npm run dev -w @ai-runtime/react-hitl-ui",
+    "ui:hitl": "npm run dev -w @durion/react-hitl-ui",
     "hitl": "cd examples && npm run hitl",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
@@ -21,9 +21,9 @@
     "test": "turbo run test"
   },
   "dependencies": {
-    "@ai-runtime/sdk": "*",
-    "@ai-runtime/eval": "*",
-    "@ai-runtime/react": "*"
+    "@durion/sdk": "*",
+    "@durion/eval": "*",
+    "@durion/react": "*"
   },
   "devDependencies": {
     "@types/node": "^25.3.5",

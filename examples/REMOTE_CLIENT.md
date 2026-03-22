@@ -13,10 +13,10 @@ They only need to agree on:
 | **Namespace** | Same `TEMPORAL_NAMESPACE` (default is often fine). |
 | **Task queue** | Same string passed to the worker **and** to `createClient({ taskQueue: '...' })`. |
 
-Example minimal client (copy into your other service; add `@ai-runtime/sdk`, `@temporalio/client`, env, and your workflow import or type):
+Example minimal client (copy into your other service; add `@durion/sdk`, `@temporalio/client`, env, and your workflow import or type):
 
 ```typescript
-import { createClient } from '@ai-runtime/sdk';
+import { createClient } from '@durion/sdk';
 import { myWorkflow } from './workflows'; // or register types your way
 
 const TASK_QUEUE = 'my-queue'; // must match the worker

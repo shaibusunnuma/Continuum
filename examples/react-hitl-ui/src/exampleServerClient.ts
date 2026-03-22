@@ -1,14 +1,14 @@
 /**
- * Demo-only `fetch` helpers for Gateway API v0 (`/v0/...`). URLs come from `@ai-runtime/react`.
+ * Demo-only `fetch` helpers for Gateway API v0 (`/v0/...`). URLs come from `@durion/react`.
  */
 import {
   gatewayV0ResultUrl,
   gatewayV0SignalUrl,
   gatewayV0WorkflowsStartUrl,
-} from '@ai-runtime/react';
+} from '@durion/react';
 
 /** Temporal signal name for `ctx.waitForInput` (SDK workflow adapter). */
-export const AI_RUNTIME_USER_INPUT_SIGNAL = 'ai-runtime:user-input';
+export const DURION_USER_INPUT_SIGNAL = 'durion:user-input';
 
 export interface StartWorkflowBody {
   workflowType: string;
@@ -18,7 +18,7 @@ export interface StartWorkflowBody {
 }
 
 function authHeaders(): HeadersInit | undefined {
-  const t = import.meta.env.VITE_AI_RUNTIME_GATEWAY_TOKEN as string | undefined;
+  const t = import.meta.env.VITE_DURION_GATEWAY_TOKEN as string | undefined;
   if (t == null || t === '') return undefined;
   return { Authorization: `Bearer ${t}` };
 }

@@ -18,12 +18,12 @@ import {
   createWorker,
   createClient,
   pipeStreamToResponse,
-} from '@ai-runtime/sdk';
+} from '@durion/sdk';
 import { streamingWorkflow } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const TASK_QUEUE = 'ai-runtime-streaming';
+const TASK_QUEUE = 'durion-streaming';
 const PORT = 4000;
 
 const google = createGoogleGenerativeAI({

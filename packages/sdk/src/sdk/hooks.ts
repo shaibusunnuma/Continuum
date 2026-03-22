@@ -47,7 +47,7 @@ export async function dispatchHooks(event: LifecycleEvent): Promise<void> {
       await hook(event);
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error('[ai-runtime] Lifecycle hook failed:', err);
+      console.error('[durion] Lifecycle hook failed:', err);
     }
   }
 }

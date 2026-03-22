@@ -1,8 +1,8 @@
 /**
  * Research assistant example — content brief workflow + research agent (Gemini).
- * Workflow-safe: only import from @temporalio/workflow and @ai-runtime/sdk/workflow.
+ * Workflow-safe: only import from @temporalio/workflow and @durion/sdk/workflow.
  */
-import { workflow, agent, type WorkflowContext } from '@ai-runtime/sdk/workflow';
+import { workflow, agent, type WorkflowContext } from '@durion/sdk/workflow';
 
 type ContentBriefInput = { topic: string; audience?: string };
 

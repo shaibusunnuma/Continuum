@@ -2,7 +2,7 @@
  * HITL example workflow.
  * Generates an email draft, then pauses and WAITS for the user to approve or reject.
  */
-import { workflow, type WorkflowContext } from '@ai-runtime/sdk/workflow';
+import { workflow, type WorkflowContext } from '@durion/sdk/workflow';
 
 type DraftInput = { topic: string };
 

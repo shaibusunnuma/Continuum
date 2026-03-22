@@ -40,7 +40,7 @@ export async function recordEvalRun(
   } catch (err) {
     // Evaluation capture must never break the main workflow/agent execution.
     // eslint-disable-next-line no-console
-    console.error('[ai-runtime] Failed to record evaluation run:', err);
+    console.error('[durion] Failed to record evaluation run:', err);
   }
 }
 

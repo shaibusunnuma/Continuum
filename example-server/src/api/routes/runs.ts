@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { pipeStreamToResponse } from '@ai-runtime/sdk';
+import { pipeStreamToResponse } from '@durion/sdk';
 import { getTemporalClient } from '../temporal';
 import { getStreamBus } from '../../stream-bus';
 

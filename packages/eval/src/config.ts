@@ -32,7 +32,7 @@ export function initEvaluation(opts: {
     // If enabled is requested but DB URL is missing, keep evaluation disabled but log once.
     // eslint-disable-next-line no-console
     console.warn(
-      '[ai-runtime] Evaluation requested but AI_RUNTIME_EVAL_DB_URL is not set; disabling evaluation.',
+      '[durion] Evaluation enabled but dbUrl was not provided; disabling evaluation.',
     );
     config = { enabled: false };
     return;
@@ -46,7 +46,7 @@ export function initEvaluation(opts: {
   };
   registerEvalHook();
   // eslint-disable-next-line no-console
-  console.log('[ai-runtime] Evaluation capture enabled (default variant: ' + config.defaultVariantName + ')');
+  console.log('[durion] Evaluation capture enabled (default variant: ' + config.defaultVariantName + ')');
 }
 
 export function isEvaluationEnabled(): boolean {

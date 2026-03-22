@@ -14,7 +14,7 @@ function getPool(): Pool {
   const dbUrl = getEvaluationDbUrl();
   if (!dbUrl) {
     throw new Error(
-      'Evaluation DB URL is not configured (AI_RUNTIME_EVAL_DB_URL).',
+      'Evaluation DB URL is not configured (DURION_EVAL_DB_URL).',
     );
   }
   const poolConfig = getPoolConfig();

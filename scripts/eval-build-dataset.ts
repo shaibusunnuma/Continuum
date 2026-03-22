@@ -58,10 +58,10 @@ function parseArgs(argv: string[]): Args {
 }
 
 async function main(): Promise<void> {
-  const dbUrl = process.env.AI_RUNTIME_EVAL_DB_URL;
+  const dbUrl = process.env.DURION_EVAL_DB_URL;
   if (!dbUrl) {
     // eslint-disable-next-line no-console
-    console.error('AI_RUNTIME_EVAL_DB_URL is not set');
+    console.error('DURION_EVAL_DB_URL is not set');
     process.exit(1);
   }
 

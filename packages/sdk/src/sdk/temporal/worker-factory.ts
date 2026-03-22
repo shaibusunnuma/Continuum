@@ -57,7 +57,7 @@ export async function createWorker(cfg: CreateWorkerConfig): Promise<WorkerHandl
     activities: sdkActivities,
   });
 
-  console.log(`[ai-runtime] Worker started — task queue: ${taskQueue}`);
+  console.log(`[durion] Worker started — task queue: ${taskQueue}`);
 
   const handle: WorkerHandle = {
     async run(): Promise<void> {

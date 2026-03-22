@@ -1,7 +1,23 @@
 {
-  "name": "@ai-runtime/sdk",
+  "name": "@durion/sdk",
   "version": "0.1.0",
-  "description": "AI Runtime SDK — durable workflows and agents on Temporal",
+  "description": "Durion SDK — durable workflows and agents on Temporal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaibusunnuma/durion.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/shaibusunnuma/durion#readme",
+  "bugs": {
+    "url": "https://github.com/shaibusunnuma/durion/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist"
+  ],
   "main": "dist/sdk/index.js",
   "types": "dist/sdk/index.d.ts",
   "exports": {
@@ -16,12 +32,14 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@temporalio/activity": "^1.15.0",
+    "@temporalio/client": "^1.15.0",
     "@temporalio/worker": "^1.15.0",
     "@temporalio/workflow": "^1.15.0",
     "ai": "^6.0.116",

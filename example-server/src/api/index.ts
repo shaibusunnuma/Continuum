@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { config } from '../config';
-import { initObservability } from '@ai-runtime/sdk';
+import { initObservability } from '@durion/sdk';
 import { startTelemetry, shutdownTelemetry } from '../otel';
 import { gatewayV0AuthPreHandler } from './gateway-v0-auth';
 import { workflowsRoutes } from './routes/workflows';
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   await fastify.register(agentsRoutes, { prefix: '/agents' });
   await fastify.register(runsRoutes, { prefix: '/runs' });
 
-  /** Gateway API v0 — same handlers + optional `AI_RUNTIME_GATEWAY_TOKEN`. See docs/gateway-api-v0.md */
+  /** Gateway API v0 — same handlers + optional `DURION_GATEWAY_TOKEN`. See docs/gateway-api-v0.md */
   await fastify.register(
     async (f) => {
       f.addHook('preHandler', gatewayV0AuthPreHandler);

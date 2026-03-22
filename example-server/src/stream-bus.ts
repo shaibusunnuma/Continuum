@@ -1,4 +1,4 @@
-import { RedisStreamBus } from '@ai-runtime/sdk';
+import { RedisStreamBus } from '@durion/sdk';
 import { config } from './config';
 
 let bus: RedisStreamBus | null = null;

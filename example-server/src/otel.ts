@@ -10,7 +10,7 @@ const traceExporter = new OTLPTraceExporter({
 });
 
 function parsePrometheusPort(): number {
-  const raw = process.env.AI_RUNTIME_PROMETHEUS_PORT ?? '9464';
+  const raw = process.env.DURION_PROMETHEUS_PORT ?? '9464';
   const n = Number(raw);
   if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 65535) {
     return 9464;
@@ -28,7 +28,7 @@ const sdk = new NodeSDK({
   traceExporter,
   metricReader: prometheusReader,
   resource: resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'ai-runtime-example',
+    [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? 'durion-example',
   }),
 });
 

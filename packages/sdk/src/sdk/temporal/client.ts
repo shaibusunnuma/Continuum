@@ -4,7 +4,7 @@
  *
  * Usage (type-safe — preferred):
  *   import { myWorkflow } from './workflows';
- *   const client = await createClient({ taskQueue: 'ai-runtime' });
+ *   const client = await createClient({ taskQueue: 'my-queue' });
  *   const handle = await client.start(myWorkflow, { input: { message: 'Hi' } });
  *   const result = await handle.result();
  *
@@ -31,7 +31,7 @@ export interface CreateClientConfig {
   /**
    * Default task queue for all workflow starts from this client.
    * Can be overridden per call via `options.taskQueue`.
-   * Falls back to TASK_QUEUE env / 'ai-runtime' if omitted.
+   * Falls back to TASK_QUEUE env / 'durion' if omitted.
    */
   taskQueue?: string;
 }
@@ -42,7 +42,7 @@ export interface StartWorkflowOptions<TInput = unknown> {
   input: TInput;
   /**
    * Task queue override for this specific start.
-   * Precedence: options.taskQueue > createClient({ taskQueue }) > TASK_QUEUE env > 'ai-runtime'.
+   * Precedence: options.taskQueue > createClient({ taskQueue }) > TASK_QUEUE env > 'durion'.
    */
   taskQueue?: string;
   /** Optional workflow ID for idempotency. Auto-generated if omitted. */
@@ -57,7 +57,7 @@ export interface WorkflowRun<TResult = unknown> {
   result(): Promise<TResult>;
   /** Query the workflow's current stream state (for progressive UX). */
   queryStreamState(): Promise<StreamState>;
-  /** Send a signal to the workflow (e.g. 'ai-runtime:user-input' for HITL). */
+  /** Send a signal to the workflow (e.g. 'durion:user-input' for HITL). */
   signal(name: string, data: unknown): Promise<void>;
   /** Request cancellation of the workflow. */
   cancel(): Promise<void>;
@@ -139,7 +139,7 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
         return handle.result() as Promise<TResult>;
       },
       async queryStreamState(): Promise<StreamState> {
-        return handle.query<StreamState>('ai-runtime:streamState');
+        return handle.query<StreamState>('durion:streamState');
       },
       async signal(name: string, data: unknown): Promise<void> {
         await handle.signal(name, data);

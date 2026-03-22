@@ -3,7 +3,7 @@ version: '3.9'
 services:
   prometheus:
     image: prom/prometheus:v2.55.1
-    container_name: ai-runtime-prometheus
+    container_name: durion-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -11,7 +11,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.0.0
-    container_name: ai-runtime-grafana
+    container_name: durion-grafana
     ports:
       - "3001:3000"
     environment:

@@ -17,7 +17,7 @@ export async function gatewayV0AuthPreHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const expected = config.AI_RUNTIME_GATEWAY_TOKEN;
+  const expected = config.DURION_GATEWAY_TOKEN;
   if (expected == null || expected === '') {
     return;
   }

@@ -22,7 +22,7 @@ import { createClient, type SdkClient, type StartWorkflowOptions, type WorkflowR
 export interface CreateAppConfig extends CreateRuntimeConfig {
   /** Path to the workflow bundle entry (e.g. require.resolve('./workflows')). */
   workflowsPath: string;
-  /** Default task queue for worker and client. Falls back to TASK_QUEUE env / `ai-runtime`. */
+  /** Default task queue for worker and client. Falls back to TASK_QUEUE env / `durion`. */
   taskQueue?: string;
   temporalAddress?: string;
   temporalNamespace?: string;

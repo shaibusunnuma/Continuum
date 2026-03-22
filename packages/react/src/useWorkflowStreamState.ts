@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { StreamState } from '@ai-runtime/sdk';
+import type { StreamState } from '@durion/sdk';
 
 export interface UseWorkflowStreamStateOptions {
   /** Workflow execution id (Temporal workflow id). */

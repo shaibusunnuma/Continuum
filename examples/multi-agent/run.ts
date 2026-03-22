@@ -14,8 +14,8 @@ import {
   createWorker,
   initObservability,
   type AgentResult,
-} from '@ai-runtime/sdk';
-import { initEvaluation } from '@ai-runtime/eval';
+} from '@durion/sdk';
+import { initEvaluation } from '@durion/eval';
 import { researchAgent, coderAgent, analystAgent } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
@@ -30,8 +30,8 @@ async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
   initEvaluation({
     enabled: false,
-    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
-    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+    dbUrl: process.env.DURION_EVAL_DB_URL,
+    defaultVariantName: process.env.DURION_EVAL_VARIANT,
   });
 
   const runtime = createRuntime({

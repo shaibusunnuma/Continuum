@@ -369,7 +369,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
 export async function runLifecycleHooks(event: LifecycleEvent): Promise<void> {
   const runtime = getActiveRuntime();
   await runtime.dispatchHooks(event);
-  // Plugins (e.g. @ai-runtime/eval) use the package-level registerHook from hooks.ts.
+  // Plugins (e.g. @durion/eval) use the package-level registerHook from hooks.ts.
   await dispatchRegisteredHooks(event);
 }
 

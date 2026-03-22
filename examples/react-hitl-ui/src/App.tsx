@@ -1,8 +1,8 @@
 /* Default import: some TS tooling still typechecks JSX as classic runtime (needs React in scope). */
 import React, { useEffect, useState, type ChangeEvent } from 'react';
-import { useRunStream, useSendSignal } from '@ai-runtime/react';
+import { useRunStream, useSendSignal } from '@durion/react';
 import {
-  AI_RUNTIME_USER_INPUT_SIGNAL,
+  DURION_USER_INPUT_SIGNAL,
   fetchWorkflowResult,
   startWorkflow,
 } from './exampleServerClient';
@@ -11,13 +11,13 @@ import {
 type InputChangeEvent = ChangeEvent<HTMLInputElement>;
 type TextAreaChangeEvent = ChangeEvent<HTMLTextAreaElement>;
 
-const TASK_QUEUE = 'ai-runtime-hitl';
+const TASK_QUEUE = 'durion-hitl';
 const API_BASE = '';
 
 const GATEWAY_ACCESS_TOKEN =
-  import.meta.env.VITE_AI_RUNTIME_GATEWAY_TOKEN &&
-  import.meta.env.VITE_AI_RUNTIME_GATEWAY_TOKEN.length > 0
-    ? import.meta.env.VITE_AI_RUNTIME_GATEWAY_TOKEN
+  import.meta.env.VITE_DURION_GATEWAY_TOKEN &&
+  import.meta.env.VITE_DURION_GATEWAY_TOKEN.length > 0
+    ? import.meta.env.VITE_DURION_GATEWAY_TOKEN
     : undefined;
 
 export default function App() {
@@ -63,7 +63,7 @@ export default function App() {
 
   const handleApprove = async () => {
     if (!workflowId) return;
-    await send(workflowId, { action: 'approve' }, AI_RUNTIME_USER_INPUT_SIGNAL);
+    await send(workflowId, { action: 'approve' }, DURION_USER_INPUT_SIGNAL);
   };
 
   const handleReject = async () => {
@@ -71,7 +71,7 @@ export default function App() {
     await send(workflowId, {
       action: 'reject',
       feedback: rejectFeedback.trim() || undefined,
-    }, AI_RUNTIME_USER_INPUT_SIGNAL);
+    }, DURION_USER_INPUT_SIGNAL);
   };
 
   useEffect(() => {

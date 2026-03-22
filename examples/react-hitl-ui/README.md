@@ -1,6 +1,6 @@
 # React HITL + LLM token streaming
 
-Full-stack demo: **Vite + React** uses **`useGatewayV0TokenStream`** + **`useGatewayV0StreamState`** from `@ai-runtime/react` against **[Gateway API v0](../../docs/gateway-api-v0.md)**. **`src/exampleServerClient.ts`** holds demo `fetch` helpers for start/signal/result. **Server-Sent Events** for token deltas; **Temporal signals** for human-in-the-loop (approve / reject).
+Full-stack demo: **Vite + React** uses **`useGatewayV0TokenStream`** + **`useGatewayV0StreamState`** from `@durion/react` against **[Gateway API v0](../../docs/gateway-api-v0.md)**. **`src/exampleServerClient.ts`** holds demo `fetch` helpers for start/signal/result. **Server-Sent Events** for token deltas; **Temporal signals** for human-in-the-loop (approve / reject).
 
 ## Prerequisites
 
@@ -23,14 +23,14 @@ Open **http://localhost:5173**. The UI proxies **`/v0`**, `/workflows`, and `/ru
 
 ### Optional gateway auth
 
-If `example-server` has **`AI_RUNTIME_GATEWAY_TOKEN`** set, set **`VITE_AI_RUNTIME_GATEWAY_TOKEN`** to the same value in the Vite app env so SSE (`access_token` query) and `fetch` calls include the token.
+If `example-server` has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEWAY_TOKEN`** to the same value in the Vite app env so SSE (`access_token` query) and `fetch` calls include the token.
 
 ## Flow
 
 1. Client opens **SSE** `GET /v0/runs/:workflowId/token-stream` (subscribe to Redis **before** the model runs).
-2. Client **POST /v0/workflows/start** with `workflowId`, `taskQueue: ai-runtime-hitl`, `workflowType: draftEmail`, `input: { topic }`.
+2. Client **POST /v0/workflows/start** with `workflowId`, `taskQueue: durion-hitl`, `workflowType: draftEmail`, `input: { topic }`.
 3. Token deltas render from SSE; **`useGatewayV0StreamState`** polls `GET /v0/runs/:id/stream-state`.
-4. On **Reject**, open a **new** SSE connection, then **POST /v0/runs/:id/signal** with `ai-runtime:user-input`.
+4. On **Reject**, open a **new** SSE connection, then **POST /v0/runs/:id/signal** with `durion:user-input`.
 5. **Approve** sends the signal without a new SSE round.
 
 ## Scripts in this package

@@ -1,8 +1,8 @@
 /**
  * Composability example: ctx.run() (child workflows/agents) and agent delegates.
- * Loaded by Temporal via workflowsPath — only @ai-runtime/sdk/workflow imports.
+ * Loaded by Temporal via workflowsPath — only @durion/sdk/workflow imports.
  */
-import { workflow, agent, type WorkflowContext } from '@ai-runtime/sdk/workflow';
+import { workflow, agent, type WorkflowContext } from '@durion/sdk/workflow';
 
 // ---------------------------------------------------------------------------
 // 1) ctx.run — parent workflow calls a child workflow as a Temporal child

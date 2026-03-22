@@ -2,13 +2,13 @@
   "name": "example-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Example REST API server for AI Runtime (start workflows/agents, get run status/result)",
+  "description": "Example REST API server for Durion (start workflows/agents, get run status/result)",
   "scripts": {
     "build": "tsc",
     "start": "node dist/api/index.js"
   },
   "dependencies": {
-    "@ai-runtime/sdk": "*",
+    "@durion/sdk": "*",
     "@opentelemetry/exporter-prometheus": "0.213.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.213.0",
     "@opentelemetry/resources": "2.6.0",

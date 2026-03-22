@@ -11,13 +11,13 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createClient, createRuntime, createWorker, initObservability } from '@ai-runtime/sdk';
-import { initEvaluation } from '@ai-runtime/eval';
+import { createClient, createRuntime, createWorker, initObservability } from '@durion/sdk';
+import { initEvaluation } from '@durion/eval';
 import { streamingAgent } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const TASK_QUEUE = 'ai-runtime-streaming';
+const TASK_QUEUE = 'durion-streaming';
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -27,8 +27,8 @@ async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
   initEvaluation({
     enabled: false,
-    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
-    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+    dbUrl: process.env.DURION_EVAL_DB_URL,
+    defaultVariantName: process.env.DURION_EVAL_VARIANT,
   });
 
   const runtime = createRuntime({

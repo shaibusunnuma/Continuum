@@ -5,7 +5,7 @@
  *   const runtime = createRuntime({ models: { ... }, tools: [ ... ] });
  *   const worker = await createWorker({ runtime, workflowsPath: require.resolve('./workflows') });
  *   await worker.run();
- * (createWorker is a standalone import from '@ai-runtime/sdk', not a method on RuntimeContext.)
+ * (createWorker is a standalone import from '@durion/sdk', not a method on RuntimeContext.)
  */
 import type { LanguageModel } from 'ai';
 import type { ToolDefinition, ModelOptions, CostCalculator } from '../types';
@@ -82,7 +82,7 @@ export class RuntimeContext {
         await hook(event);
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.error('[ai-runtime] Lifecycle hook failed:', err);
+        console.error('[durion] Lifecycle hook failed:', err);
       }
     }
   }

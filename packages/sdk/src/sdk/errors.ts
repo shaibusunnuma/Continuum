@@ -1,5 +1,5 @@
 /**
- * Typed error hierarchy for the AI Runtime SDK.
+ * Typed error hierarchy for the Durion SDK.
  * Use instanceof checks for programmatic error handling.
  */
 

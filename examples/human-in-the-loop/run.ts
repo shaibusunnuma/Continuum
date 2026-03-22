@@ -17,13 +17,13 @@ import {
   createWorker,
   initObservability,
   RedisStreamBus,
-} from '@ai-runtime/sdk';
-import { initEvaluation } from '@ai-runtime/eval';
+} from '@durion/sdk';
+import { initEvaluation } from '@durion/eval';
 import { draftEmail } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const TASK_QUEUE = 'ai-runtime-hitl';
+const TASK_QUEUE = 'durion-hitl';
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 const google = createGoogleGenerativeAI({
@@ -34,8 +34,8 @@ async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
   initEvaluation({
     enabled: false,
-    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
-    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+    dbUrl: process.env.DURION_EVAL_DB_URL,
+    defaultVariantName: process.env.DURION_EVAL_VARIANT,
   });
 
   const runtime = createRuntime({
@@ -91,7 +91,7 @@ async function runDemo(): Promise<void> {
   console.log(`Workflow status: ${state1.status}`);
 
   console.log('\nRejecting first draft with feedback...');
-  await handle.signal('ai-runtime:user-input', {
+  await handle.signal('durion:user-input', {
     action: 'reject',
     feedback: 'Make it sound more urgent and use emojis!',
   });
@@ -102,7 +102,7 @@ async function runDemo(): Promise<void> {
   console.log(`Workflow status: ${state2.status}`);
 
   console.log('\nApproving second draft...');
-  await handle.signal('ai-runtime:user-input', { action: 'approve' });
+  await handle.signal('durion:user-input', { action: 'approve' });
 
   console.log('Signal sent. Waiting for final result...');
   const result = await handle.result();

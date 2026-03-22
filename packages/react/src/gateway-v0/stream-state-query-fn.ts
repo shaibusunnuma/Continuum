@@ -1,4 +1,4 @@
-import type { StreamState } from '@ai-runtime/sdk';
+import type { StreamState } from '@durion/sdk';
 import { gatewayV0StreamStateUrl } from './urls';
 
 async function resolveHeaders(

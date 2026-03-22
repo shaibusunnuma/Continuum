@@ -1,13 +1,13 @@
-# @ai-runtime/react
+# @durion/react
 
-Universal React hooks for **AI Runtime workflows** (Temporal + Gateway HTTP API).
+Universal React hooks for **Durion workflows** (Temporal + Gateway HTTP API).
 
 ## Quick Start — `useRunStream` (recommended)
 
 A single hook that merges SSE token streaming + polled stream-state. Pass a `runId` and get back real-time text, run status, and metadata.
 
 ```tsx
-import { useRunStream, useSendSignal } from '@ai-runtime/react';
+import { useRunStream, useSendSignal } from '@durion/react';
 
 function ChatResponse({ runId }: { runId: string }) {
   const { text, status, run, error } = useRunStream(runId, {

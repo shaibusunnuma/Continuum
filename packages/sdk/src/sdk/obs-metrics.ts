@@ -6,7 +6,7 @@ import { metrics } from '@opentelemetry/api';
 import type { MetricAttributes } from '@opentelemetry/api';
 import { isMetricsEnabled } from './obs';
 
-const METER_NAME = 'ai-runtime-sdk';
+const METER_NAME = 'durion-sdk';
 const METER_VERSION = '0.1.0';
 
 let modelCallsCounter: { add: (v: number, a?: MetricAttributes) => void } | null = null;

@@ -13,11 +13,11 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { openai } from '@ai-sdk/openai';
-import { createApp, createClient, initObservability } from '@ai-runtime/sdk';
-import { initEvaluation } from '@ai-runtime/eval';
+import { createApp, createClient, initObservability } from '@durion/sdk';
+import { initEvaluation } from '@durion/eval';
 import { composabilityParent, composabilityOrchestrator } from './workflows';
 
-const COMPOSABILITY_TASK_QUEUE = 'ai-runtime-composability';
+const COMPOSABILITY_TASK_QUEUE = 'durion-composability';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -25,8 +25,8 @@ async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
   initEvaluation({
     enabled: false,
-    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
-    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+    dbUrl: process.env.DURION_EVAL_DB_URL,
+    defaultVariantName: process.env.DURION_EVAL_VARIANT,
   });
 
   const app = await createApp({

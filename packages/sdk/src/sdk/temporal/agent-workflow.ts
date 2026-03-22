@@ -82,9 +82,8 @@ export function agent(
       updatedAt: new Date().toISOString(),
     };
 
-    // Namespaced internal query name to avoid collisions with user-defined queries.
-    // TODO: We will change the 'ai-runtime:' prefix to something shorter like 'ar:' in the future when the SDK name is finalized.
-    const streamStateQuery = wf.defineQuery<StreamState>('ai-runtime:streamState');
+    // Namespaced internal query name (`durion:streamState`) to avoid collisions with user-defined queries.
+    const streamStateQuery = wf.defineQuery<StreamState>('durion:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
 
     // Build delegate lookup map (name → Delegate) for routing tool calls.

@@ -14,13 +14,13 @@ import {
   createWorker,
   initObservability,
   RedisStreamBus,
-} from '@ai-runtime/sdk';
-import { initEvaluation } from '@ai-runtime/eval';
+} from '@durion/sdk';
+import { initEvaluation } from '@durion/eval';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 /** Dedicated queue so this worker does not compete with `worker:streaming` / `server:streaming`. */
-const TASK_QUEUE = 'ai-runtime-streaming-redis';
+const TASK_QUEUE = 'durion-streaming-redis';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
@@ -36,8 +36,8 @@ async function main() {
 
   initEvaluation({
     enabled: false,
-    dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
-    defaultVariantName: process.env.AI_RUNTIME_EVAL_VARIANT,
+    dbUrl: process.env.DURION_EVAL_DB_URL,
+    defaultVariantName: process.env.DURION_EVAL_VARIANT,
   });
 
   const streamBus = new RedisStreamBus({ url: REDIS_URL });

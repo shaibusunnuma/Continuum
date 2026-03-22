@@ -1,4 +1,4 @@
-import { createClient, type SdkClient } from '@ai-runtime/sdk';
+import { createClient, type SdkClient } from '@durion/sdk';
 import { config } from '../config';
 
 let clientInstance: SdkClient | null = null;

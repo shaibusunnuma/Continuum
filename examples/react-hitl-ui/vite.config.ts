@@ -11,7 +11,7 @@ export default defineConfig({
   resolve: {
     /** CJS `dist` build breaks Vite named imports; bundle from source. */
     alias: {
-      '@ai-runtime/react': path.resolve(__dirname, '../../packages/react/src/index.ts'),
+      '@durion/react': path.resolve(__dirname, '../../packages/react/src/index.ts'),
     },
   },
   server: {

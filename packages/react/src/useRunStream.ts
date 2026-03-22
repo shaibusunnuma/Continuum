@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { StreamState } from '@ai-runtime/sdk';
+import type { StreamState } from '@durion/sdk';
 import {
   gatewayV0TokenStreamUrl,
   gatewayV0StreamStateUrl,

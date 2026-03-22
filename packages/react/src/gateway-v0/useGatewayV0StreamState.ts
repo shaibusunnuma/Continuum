@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { StreamState } from '@ai-runtime/sdk';
+import type { StreamState } from '@durion/sdk';
 import { useWorkflowStreamState } from '../useWorkflowStreamState';
 import { createGatewayV0StreamStateQueryFn } from './stream-state-query-fn';
 

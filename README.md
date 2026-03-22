@@ -1,10 +1,10 @@
-# AI Runtime
+# Durion
 
 Durable workflows and agents on Temporal — you define `workflow()` and `agent()`; you never import Temporal.
 
 ## What it is
 
-AI Runtime is an SDK for durable AI execution. You get replay-safe workflows and agents that call LLMs and tools, with cost tracking and optional observability. It is built on [Temporal](https://temporal.io/) and the [Vercel AI SDK](https://ai-sdk.dev/). You write `workflow()` and `agent()` with `ctx.model()` and `ctx.tool()`; the SDK turns them into Temporal workflows and activities so runs survive restarts and scale.
+Durion is an SDK for durable AI execution. You get replay-safe workflows and agents that call LLMs and tools, with cost tracking and optional observability. It is built on [Temporal](https://temporal.io/) and the [Vercel AI SDK](https://ai-sdk.dev/). You write `workflow()` and `agent()` with `ctx.model()` and `ctx.tool()`; the SDK turns them into Temporal workflows and activities so runs survive restarts and scale.
 
 ## Quick start
 
@@ -69,7 +69,7 @@ Define workflows and agents in a file that Temporal will bundle (use the SDK wor
 
 ```ts
 // workflows.ts
-import { workflow, agent } from '@ai-runtime/sdk/workflow';
+import { workflow, agent } from '@durion/sdk/workflow';
 
 export const myWorkflow = workflow('myWorkflow', async (ctx) => {
   const reply = await ctx.model('fast', { prompt: ctx.input.prompt });
@@ -90,7 +90,7 @@ In your worker entry, register models and tools with `createRuntime`, then creat
 // worker.ts
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
-import { createRuntime, createWorker } from '@ai-runtime/sdk';
+import { createRuntime, createWorker } from '@durion/sdk';
 
 createRuntime({
   models: { fast: openai.chat('gpt-4o-mini') },
@@ -137,7 +137,7 @@ Workflows and agents are Temporal workflows; activities run your model and tool 
 `createApp` builds one `RuntimeContext` and wires the same `taskQueue` / Temporal settings to `createWorker()` and a cached `client()`:
 
 ```ts
-import { createApp } from '@ai-runtime/sdk';
+import { createApp } from '@durion/sdk';
 import { openai } from '@ai-sdk/openai';
 
 const app = await createApp({
@@ -162,7 +162,7 @@ Use `createClient` and the type-safe `start()` method with a direct function ref
 
 ```ts
 // client.ts
-import { createClient } from '@ai-runtime/sdk';
+import { createClient } from '@durion/sdk';
 import { myWorkflow, myAgent } from './workflows';
 
 const client = await createClient({ taskQueue: 'my-queue' });
@@ -180,10 +180,10 @@ await client.close();
 
 ## React: progressive workflow UI
 
-Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@ai-runtime/react`** and use **`useGatewayV0StreamState`** + **`useGatewayV0TokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: `example-server`).
+Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@durion/react`** and use **`useGatewayV0StreamState`** + **`useGatewayV0TokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: `example-server`).
 
 ```tsx
-import { useGatewayV0StreamState, useGatewayV0TokenStream } from '@ai-runtime/react';
+import { useGatewayV0StreamState, useGatewayV0TokenStream } from '@durion/react';
 
 function RunProgress({ workflowId, apiBase }: { workflowId: string; apiBase: string }) {
   const { state, error, loading } = useGatewayV0StreamState({
@@ -210,7 +210,7 @@ Workflows and agents can call each other via `ctx.run()`. It executes a child wo
 
 ```ts
 // workflows.ts
-import { workflow, agent } from '@ai-runtime/sdk/workflow';
+import { workflow, agent } from '@durion/sdk/workflow';
 
 export const researcher = agent('researcher', {
   model: 'fast',
@@ -282,7 +282,7 @@ Enable tracing and metrics by passing `true` or `false` when you call `initObser
 
 ```ts
 // worker.ts — enable tracing and metrics in code
-import { initObservability } from '@ai-runtime/sdk';
+import { initObservability } from '@durion/sdk';
 
 initObservability({
   tracing: { enabled: true },
@@ -295,11 +295,11 @@ For evaluation, call `initEvaluation({ enabled: true, dbUrl: '...' })` when you 
 
 ```ts
 // worker.ts — optional evaluation (capture runs for datasets and metrics)
-import { initEvaluation } from '@ai-runtime/eval';
+import { initEvaluation } from '@durion/eval';
 
 initEvaluation({
   enabled: true,
-  dbUrl: process.env.AI_RUNTIME_EVAL_DB_URL,
+  dbUrl: process.env.DURION_EVAL_DB_URL,
   defaultVariantName: 'baseline',
 });
 
