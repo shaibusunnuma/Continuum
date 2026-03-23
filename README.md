@@ -12,6 +12,69 @@ End-user guides (getting started, concepts, env vars, streaming, troubleshooting
 
 - **Positioning:** [Why Durion?](docs/why-durion.md) — how this compares to using the Vercel AI SDK alone, rolling your own Temporal + AI SDK, and Temporal’s `@temporalio/ai-sdk` bridge.
 
+## Architecture
+
+Durion splits **authoring** (`workflow` / `agent`), **execution** (worker + Temporal), and **optional HTTP + UI** (reference gateway + React). The SDK does not run inside the browser; only **`@durion/react`** does, talking to *your* or the reference gateway.
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    ReactApp["React @durion/react\nuseRunStream · useSendSignal"]
+    NodeClient["Node or CLI\ncreateClient Temporal gRPC"]
+  end
+
+  subgraph gatewayLayer [Optional HTTP]
+    ExampleSrv["example-server\nGateway API v0"]
+  end
+
+  subgraph durionRuntime [Durion runtime in your process]
+    WorkerProc["Worker createWorker or createApp"]
+    WfBundle["Workflow bundle workflow agent"]
+  end
+
+  subgraph external [Infrastructure]
+    TemporalSrv["Temporal server"]
+    RedisBus["Redis StreamBus\n(pub/sub)"]
+    LLMProviders["LLMs and tools"]
+  end
+
+  ReactApp -->|"REST: start, signal, stream-state"| ExampleSrv
+  ReactApp -->|"SSE: token-stream"| ExampleSrv
+  NodeClient -->|"Temporal gRPC"| TemporalSrv
+  NodeClient -.->|"optional: same REST API"| ExampleSrv
+  ExampleSrv -->|"start, query, signal"| TemporalSrv
+  ExampleSrv -->|"subscribe, relay to client"| RedisBus
+
+  WfBundle -.->|"bundled by"| WorkerProc
+  WorkerProc -->|"poll task queue"| TemporalSrv
+  WorkerProc -->|"LLM tool activities"| LLMProviders
+  WorkerProc -->|"publish token chunks"| RedisBus
+```
+
+**`useRunStream`** already opens the token **SSE** and polls **`stream-state`** (same Gateway v0 paths). Use **`useGatewayStreamState`** + **`useGatewayTokenStream`** only when you need separate control; **`useWorkflowStreamState`** / **`useWorkflowTokenStream`** are fully custom URL escape hatches.
+
+- **`@durion/sdk`**: workflow/agent definitions, worker (`createWorker` / `createApp`), `createClient`, streaming helpers (`pipeStreamToResponse`, `RedisStreamBus`). Runs in **Node** next to Temporal workers.
+- **`example-server`**: reference **gateway** only — maps HTTP/SSE to Temporal and subscribes to Redis for token relay. Swap or omit it if you expose your own API.
+- **`@durion/react`**: **`useRunStream`**, **`useSendSignal`**, Gateway v0 helpers (`useGatewayStreamState`, `useGatewayTokenStream`, URL builders), and low-level hooks above.
+
+## Installation
+
+Install the core SDK in your **worker or server** process:
+
+```bash
+npm install @durion/sdk
+```
+
+For **React** frontends, also install the React package (requires React 18+ and `@durion/sdk` as peer dependencies):
+
+```bash
+npm install @durion/react
+```
+
+> **Note**: `@durion/sdk` has a peer dependency on a running [Temporal](https://temporal.io/) server. For local development, use the [Temporal CLI](https://docs.temporal.io/cli): `temporal server start-dev`.
+
+---
+
 ## Quick start
 
 **1. Start Temporal**
