@@ -1,47 +1,114 @@
 # @durion/sdk
 
-Durable AI workflows and autonomous agents on Temporal.
-
-This SDK provides the execution runtime around the Vercel AI SDK — adding durability, cost control, observability, and a higher-level developer surface.
+Durable AI workflows and autonomous agents on [Temporal](https://temporal.io/), with model calls via the [Vercel AI SDK](https://ai-sdk.dev/).
 
 ## Features
 
-- **Durable execution**: If a process crashes, the run replays from the last completed step instead of losing the LLM interaction.
-- **Provider-agnostic**: Uses the Vercel AI SDK under the hood (`generateText`, `streamText`).
-- **Declarative Agents & Workflows**: Use `agent()` for autonomous loops or `workflow()` for deterministic pipelines.
-- **Budget enforcement**: Set `maxCostUsd` on an agent loop.
-- **Human-in-the-loop**: Built-in `ctx.waitForInput()` to pause and resume durably.
+- **Durable execution** — restarts replay from the last completed step; model and tool calls run as activities.
+- **Provider-agnostic** — register `LanguageModel` instances from `@ai-sdk/openai`, `@ai-sdk/google`, etc.
+- **`workflow()`** — explicit steps: `ctx.model()`, `ctx.tool()`, `ctx.waitForInput()`, `ctx.run()`.
+- **`agent()`** — declarative loop with tool names, `maxSteps`, optional `budgetLimit` / `delegates`.
+- **Streaming** — `LocalStreamBus` or `RedisStreamBus` for token deltas outside workflow history.
 
 ## Installation
 
 ```bash
-npm install @durion/sdk
+npm install @durion/sdk zod
+npm install @ai-sdk/openai   # or another @ai-sdk/* provider you use
 ```
 
-## Setup & Environment
+Temporal I/O is bundled; you normally do **not** add `@temporalio/*` unless you have an advanced use case.
 
-The SDK loads configuration at runtime but relies on standard Temporal environment variables.
-Ensure you have the following if using standard paths or a hosted Temporal instance:
+## Environment
 
-- `TEMPORAL_ADDRESS`
-- `TEMPORAL_NAMESPACE`
+The SDK reads **`process.env`** for Temporal defaults. Typical variables:
 
-> Note: If integrating in an app, load your `.env` at the *entrypoint* or in the application scope. The SDK does not automatically resolve an app-level `.env` when installed inside `node_modules`.
+| Variable | Role |
+|----------|------|
+| `TEMPORAL_ADDRESS` | gRPC frontend (default `localhost:7233`) |
+| `TEMPORAL_NAMESPACE` | Namespace (default `default`) |
+| `TASK_QUEUE` | Queue shared by worker and `createClient` (default `durion`) |
+
+Load `.env` in **your** app entrypoint. The SDK does not load a `.env` from inside `node_modules`.
+
+Provider API keys (e.g. `OPENAI_API_KEY`) are read by the AI SDK provider packages, not by Durion.
 
 ## Usage
 
+**1. Workflow-safe file** — only **`@durion/sdk/workflow`** (plus `import type` as needed) so Temporal’s bundler stays valid:
+
 ```typescript
-import { agent } from '@durion/sdk';
+// workflows.ts
+import { workflow, agent, type WorkflowContext } from '@durion/sdk/workflow';
+
+export const hello = workflow(
+  'hello',
+  async (ctx: WorkflowContext<{ topic: string }>) => {
+    const reply = await ctx.model('fast', {
+      prompt: `Say hello. Topic: ${ctx.input.topic}`,
+    });
+    return { text: reply.result, costUsd: ctx.metadata.accumulatedCost };
+  },
+);
 
 export const supportAgent = agent('support-agent', {
-  model: 'gpt-4o',
+  model: 'fast', // must match a key in createRuntime({ models: { ... } })
   instructions: 'You are a helpful customer support assistant.',
-  tools: ['search-knowledge-base', 'get-order-status'],
+  tools: ['get_order_status'], // must match registered tool `name`s
   maxSteps: 10,
-  budgetLimit: {
-    maxCostUsd: 0.50
-  }
+  budgetLimit: { maxCostUsd: 0.5 },
 });
 ```
 
-For more details on the Runtime Gateway and hooks, check out `@durion/react`.
+**2. Worker process** — full **`@durion/sdk`**: register models and tools, then run the worker:
+
+```typescript
+// worker.ts
+import 'dotenv/config';
+import { z } from 'zod';
+import { openai } from '@ai-sdk/openai';
+import { createRuntime, createWorker } from '@durion/sdk';
+
+const runtime = createRuntime({
+  models: {
+    fast: openai.chat('gpt-4o-mini'),
+  },
+  tools: [
+    {
+      name: 'get_order_status',
+      description: 'Look up order status by id',
+      input: z.object({ orderId: z.string() }),
+      output: z.object({ status: z.string() }),
+      execute: async ({ orderId }) => ({ status: `ok:${orderId}` }),
+    },
+  ],
+});
+
+const handle = await createWorker({
+  runtime,
+  workflowsPath: require.resolve('./workflows'),
+  taskQueue: process.env.TASK_QUEUE ?? 'durion',
+});
+
+await handle.run();
+```
+
+**3. Starting runs** (another script or service): `createClient` + the same `taskQueue`; import workflow functions for typed `client.start(...)`.
+
+```typescript
+import 'dotenv/config';
+import { createClient } from '@durion/sdk';
+import { hello } from './workflows';
+
+const client = await createClient({
+  taskQueue: process.env.TASK_QUEUE ?? 'durion',
+});
+const run = await client.start(hello, { input: { topic: 'shipping' } });
+console.log(await run.result());
+await client.close();
+```
+
+## More documentation
+
+- **[Getting started & concepts](https://github.com/shaibusunnuma/durion/tree/master/docs)** — guides, env vars, streaming, troubleshooting.
+- **`@durion/react`** — hooks for Gateway HTTP + SSE + stream state (browser-facing apps).
