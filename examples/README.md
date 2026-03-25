@@ -20,11 +20,11 @@ For a minimal remote client pattern, see [REMOTE_CLIENT.md](REMOTE_CLIENT.md).
 
 | Folder | Scripts | API keys | Notes |
 |--------|---------|----------|--------|
-| **customer-support** | `worker:customer-support` | `OPENAI_API_KEY` | Workflow + travel agent; pair with repo root `npm run api` / `api:dev` and `curl` (see root README). |
-| **research-assistant** | `worker:research-assistant` | Gemini key + optional `TAVILY_API_KEY` (web search) | Content brief + research agent. |
-| **multi-agent** | `worker:multi-agent`, `orchestrate:multi-agent` | Gemini (same as above) | `orchestrate:multi-agent -- "Your question"` runs the demo client (worker must be running). |
+| **customer-support** | `worker:customer-support`, `client:customer-support` | `OPENAI_API_KEY` | `client:customer-support -- demo customerSupport "…" [orderId]` or `demo travelAgent "…"`. Task queue `durion-customer-support` (set `TASK_QUEUE` the same if you use `example-server`). |
+| **research-assistant** | `worker:research-assistant`, `client:research-assistant` | Gemini key + optional `TAVILY_API_KEY` (web search) | `client:research-assistant -- demo contentBrief "topic" [audience]` or `demo researchAssistant "…"`. Queue `durion-research-assistant`. |
+| **multi-agent** | `worker:multi-agent`, `client:multi-agent`, `orchestrate:multi-agent` | Gemini (same as above) | `client:multi-agent -- "Your question"` — Pattern A (one workflow). `orchestrate:multi-agent -- "…"` — Pattern B chain. |
 | **streaming** | `server:streaming`, `worker:streaming`, `client:streaming`, plus Redis variants | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; Redis for distributed variant | See [streaming/README.md](streaming/README.md). Co-located HTTP on port 4000; Redis variant uses 4001. |
-| **human-in-the-loop** | `worker:hitl`, `client:hitl` | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; **`REDIS_URL`** for token SSE with `example-server` | Pair with repo root `api:dev` + [react-hitl-ui](react-hitl-ui/README.md) (`npm run ui:hitl` from root, or `npm run dev:react-hitl-ui` from `examples/`). |
+| **human-in-the-loop** | `worker:hitl`, `client:hitl` | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; **`REDIS_URL`** for token SSE with `example-server` | CLI `client:hitl` runs the scripted approve/reject flow. Optional: repo root `api:dev` + [react-hitl-ui](react-hitl-ui/README.md) for a browser UI. |
 | **composability** | `worker:composability`, `client:composability` | `OPENAI_API_KEY` | `ctx.run()` and agent `delegates`. See [composability/README.md](composability/README.md). |
 
 **UI demo:** [react-hitl-ui](react-hitl-ui/) — Vite app; `npm run ui:hitl` from the repo root or `npm run dev:react-hitl-ui` from `examples/` (see its README).
@@ -35,8 +35,11 @@ For a minimal remote client pattern, see [REMOTE_CLIENT.md](REMOTE_CLIENT.md).
 cd examples
 
 npm run worker:customer-support
+npm run client:customer-support -- demo customerSupport "I want a refund" ORD-123
 npm run worker:research-assistant
+npm run client:research-assistant -- demo researchAssistant "Your question"
 npm run worker:multi-agent
+npm run client:multi-agent -- "Your question"
 npm run worker:streaming
 npm run worker:streaming-redis
 npm run server:streaming

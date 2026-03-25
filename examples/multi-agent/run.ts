@@ -1,8 +1,9 @@
 /**
  * Multi-agent example — one entry file.
  *
- *   worker      — Temporal worker (terminal 1). Registers Pattern A + Pattern B agents.
- *   orchestrate — Pattern B chain via createClient (terminal 2).
+ *   worker       — Temporal worker (terminal 1). Registers Pattern A + Pattern B workflows/agents.
+ *   demo         — Pattern A: single `multiAgentWorkflow` via createClient (terminal 2).
+ *   orchestrate  — Pattern B: research → coder → analyst chain via createClient (terminal 2).
  */
 import path from 'path';
 import crypto from 'crypto';
@@ -16,11 +17,14 @@ import {
   type AgentResult,
 } from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
-import { researchAgent, coderAgent, analystAgent } from './workflows';
+import {
+  multiAgentWorkflow,
+  researchAgent,
+  coderAgent,
+  analystAgent,
+} from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-
-// const TASK_QUEUE = 
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -53,6 +57,24 @@ async function runWorker(): Promise<void> {
   process.on('SIGTERM', shutdown);
 
   await handle.run();
+}
+
+async function runDemo(): Promise<void> {
+  const query =
+    process.argv.slice(3).join(' ') ||
+    'What are the main risks of adopting microservices?';
+
+  const client = await createClient();
+  console.log('Pattern A — multiAgentWorkflow:', query);
+
+  try {
+    const handle = await client.start(multiAgentWorkflow, {
+      input: { query },
+    });
+    console.log(JSON.stringify(await handle.result(), null, 2));
+  } finally {
+    await client.close();
+  }
 }
 
 async function runOrchestrate(): Promise<void> {
@@ -96,9 +118,12 @@ async function runOrchestrate(): Promise<void> {
 async function main(): Promise<void> {
   const mode = process.argv[2] ?? 'worker';
   if (mode === 'worker') await runWorker();
+  else if (mode === 'demo') await runDemo();
   else if (mode === 'orchestrate') await runOrchestrate();
   else {
-    console.error('Usage: run.ts [worker|orchestrate] [query...]');
+    console.error(
+      'Usage: run.ts [worker|demo|orchestrate] [query...]  (query used by demo and orchestrate)',
+    );
     process.exit(1);
   }
 }

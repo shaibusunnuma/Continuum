@@ -133,4 +133,4 @@ You only need to import the **workflow function** for type-safe `client.start(he
 
 ## Verify against the repo
 
-The [examples/customer-support](../examples/customer-support/) worker in this monorepo follows the same pattern (`createRuntime`, `createWorker`, Zod tools, `openai.chat`).
+The [examples/customer-support](../examples/customer-support/) example (`run.ts` in **worker** mode) follows the same pattern (`createRuntime`, `createWorker`, Zod tools, `openai.chat`).

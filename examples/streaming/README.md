@@ -1,27 +1,32 @@
 # Streaming examples
 
-## Co-located (no Redis)
+## Agent + `streamState` polling (simplest)
 
-Single process: worker + `LocalStreamBus` + HTTP.
+One workflow (`streamingAgent`): progress via Temporal query — no HTTP server.
 
 ```bash
 # Terminal 1 — Temporal dev server
 temporal server start-dev
 
 # Terminal 2 — from examples/
-npm run server:streaming
-
-# Terminal 3
-curl -sN -X POST http://localhost:4000/stream \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Write a short poem about Temporal."}'
+npm run worker:streaming
+npm run client:streaming -- "Your prompt here"
 ```
 
-## Distributed (`RedisStreamBus`)
+(`worker` and `client:streaming` both invoke `streaming/run.ts` with different subcommands.)
 
-Worker publishes chunks to Redis; API process subscribes and serves SSE.
+## Optional: HTTP + SSE (co-located, no Redis)
 
-Use the **same** `REDIS_URL` (default `redis://127.0.0.1:6379`) for both processes.
+If you want to exercise token streaming over HTTP in a **single** process (worker + `LocalStreamBus` + small Fastify server on port 4000):
+
+```bash
+npm run server:streaming
+# elsewhere: curl -sN -X POST http://localhost:4000/stream -H "Content-Type: application/json" -d '{"message":"…"}'
+```
+
+## Optional: HTTP + SSE with `RedisStreamBus`
+
+Worker publishes chunks to Redis; a separate API process subscribes and serves SSE. Use the **same** `REDIS_URL` (default `redis://127.0.0.1:6379`) for both.
 
 ```bash
 # Terminal 1 — Temporal
@@ -30,27 +35,11 @@ temporal server start-dev
 # Terminal 2 — Redis (e.g. Homebrew)
 brew services start redis
 
-# Terminal 3 — worker only
+# Terminal 3 — worker
 npm run worker:streaming-redis
 
-# Terminal 4 — API only
+# Terminal 4 — API (port 4001)
 npm run server:streaming-redis
-
-# Terminal 5
-curl -sN -X POST http://localhost:4001/stream \
-  -H "Content-Type: application/json" \
-  -d '{"message":"Say hi in one sentence."}'
 ```
 
 Optional: set `REDIS_URL` in the repo root `.env`.
-
-## Agent + `streamState` polling
-
-Different workflow (`streamingAgent`): progress via Temporal query, not SSE.
-
-```bash
-npm run worker:streaming
-npm run client:streaming -- "Your prompt here"
-```
-
-(`worker` and `client` both invoke `streaming/run.ts` with different subcommands.)

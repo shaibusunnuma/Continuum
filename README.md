@@ -103,29 +103,13 @@ npm run build
 cd examples && npm run worker:customer-support
 ```
 
-**Terminal 2** — start the example API:
+**Terminal 2** — run the in-process client (no HTTP server required):
 
 ```bash
-npm run api
+cd examples && npm run client:customer-support -- demo customerSupport "I want a refund" ORD-123
 ```
 
-**4. Test it**
-
-Start a workflow:
-
-```bash
-curl -s -X POST http://localhost:3000/workflows/start \
-  -H "Content-Type: application/json" \
-  -d '{"workflowType":"customerSupport","input":{"message":"I want a refund","orderId":"ORD-123"}}'
-```
-
-Use the returned `workflowId` to get the result:
-
-```bash
-curl -s http://localhost:3000/runs/<workflowId>/result
-```
-
-More workflows and agents, and which env vars each needs, are in [examples/README.md](examples/README.md).
+Other examples use the same pattern: a **`worker`** script plus a **`client:*` / `demo`** script that calls `createClient` and prints the result. See [examples/README.md](examples/README.md). If you prefer an HTTP gateway, you can run `npm run api` from the repo root and build your own routes; `example-server` is optional reference only.
 
 ## Usage
 
@@ -151,7 +135,7 @@ export const myAgent = agent('myAgent', {
 In your worker entry, register models and tools with `createRuntime`, then create the worker:
 
 ```ts
-// worker.ts
+// run.ts (or worker.ts) — process that calls createWorker and handle.run()
 import { z } from 'zod';
 import { openai } from '@ai-sdk/openai';
 import { createRuntime, createWorker } from '@durion/sdk';
