@@ -85,6 +85,7 @@ function resolveNextNodes(
   edges: Array<{ from: string; to: string | string[] | ((state: unknown) => string | string[]) }>,
   completedSet: Set<string>,
   nodeSet: Set<string>,
+  activatedSet: Set<string>,
 ): string[] {
   const candidates: string[] = [];
   for (const edge of edges) {
@@ -93,7 +94,6 @@ function resolveNextNodes(
     if (typeof edge.to === 'function') {
       const result = edge.to(state);
       targets = Array.isArray(result) ? result : [result];
-      // Runtime validation: route function must return valid node names
       for (const target of targets) {
         if (!nodeSet.has(target)) {
           throw new GraphExecutionError(
@@ -104,7 +104,6 @@ function resolveNextNodes(
         }
       }
     } else if (Array.isArray(edge.to)) {
-      // Phase 1: log warning for parallel fan-out, execute sequentially
       wf.log.warn(
         `[${graphName}] Parallel fan-out detected (${completedNode} → [${edge.to.join(', ')}]). ` +
         `Phase 1 executes these sequentially. Parallel execution comes in Phase 2.`,
@@ -115,14 +114,15 @@ function resolveNextNodes(
     }
     candidates.push(...targets);
   }
-  // Fan-in check: only dispatch a candidate if ALL its predecessors are done
+  // Fan-in check: only gate on predecessors that have actually been activated
+  // (reached during this execution). Predecessors that exist in the graph
+  // but were never reached (e.g. cycle back-edges on first pass) don't block.
   const ready: string[] = [];
   for (const candidate of candidates) {
-    // Find all nodes that have an edge TO this candidate
     const predecessors: string[] = [];
     for (const edge of edges) {
       const tos = typeof edge.to === 'function'
-        ? [] // Can't statically check conditional edges for fan-in
+        ? []
         : Array.isArray(edge.to)
           ? edge.to
           : [edge.to];
@@ -130,9 +130,8 @@ function resolveNextNodes(
         predecessors.push(edge.from);
       }
     }
-    // Also check entries — entry nodes have no predecessors
-    // If candidate has predecessors, ALL must be completed
-    if (predecessors.length === 0 || predecessors.every((p) => completedSet.has(p))) {
+    const activePredecessors = predecessors.filter((p) => activatedSet.has(p));
+    if (activePredecessors.length === 0 || activePredecessors.every((p) => completedSet.has(p))) {
       ready.push(candidate);
     }
   }
@@ -360,12 +359,14 @@ export function graph<
       };
     }
     // ── Main execution loop ─────────────────────────────────────────────
+    // Track which nodes have been activated (placed on readyQueue at any point).
+    // Used by fan-in to ignore predecessors that were never reached.
+    const activatedSet = new Set<string>();
     try {
-      // Resolve entry node(s)
       const entries = Array.isArray(config.entry) ? [...config.entry] : [config.entry];
       let readyQueue: string[] = entries as string[];
+      for (const e of readyQueue) activatedSet.add(e);
       while (readyQueue.length > 0) {
-        // Check maxIterations
         if (iteration >= maxIterations) {
           wf.log.warn(`[${name}] Max iterations (${maxIterations}) reached. Terminating.`);
           return {
@@ -375,12 +376,11 @@ export function graph<
             totalUsage,
           };
         }
-        // Execute ready nodes (Phase 1: sequentially)
         const currentBatch = [...readyQueue];
         readyQueue = [];
         for (const nodeName of currentBatch) {
-          // Skip if already completed (can happen with converging edges)
-          if (completedSet.has(nodeName)) continue;
+          // In cyclic graphs a node can be re-queued; clear its completed flag so it runs again
+          completedSet.delete(nodeName);
           iteration++;
           if (iteration > maxIterations) {
             wf.log.warn(`[${name}] Max iterations (${maxIterations}) reached mid-batch. Terminating.`);
@@ -392,7 +392,6 @@ export function graph<
             };
           }
           await executeNode(nodeName);
-          // Resolve next nodes after this node completes
           const nextNodes = resolveNextNodes(
             name,
             nodeName,
@@ -400,10 +399,12 @@ export function graph<
             config.edges as unknown as Array<{ from: string; to: string | string[] | ((state: unknown) => string | string[]) }>,
             completedSet,
             nodeSet,
+            activatedSet,
           );
           for (const next of nextNodes) {
-            if (!completedSet.has(next) && !readyQueue.includes(next)) {
+            if (!readyQueue.includes(next)) {
               readyQueue.push(next);
+              activatedSet.add(next);
             }
           }
         }
