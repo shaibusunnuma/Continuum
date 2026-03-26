@@ -14,26 +14,21 @@ export {
   clearActiveRuntime,
 } from './runtime';
 export type { CreateRuntimeConfig } from './runtime';
-
 // Workflow primitives (re-exported for developer's workflow files)
 export { workflow } from './temporal/workflow-adapter';
 export { agent } from './temporal/agent-workflow';
-
+export { graph } from './temporal/graph-workflow';
 // Worker factory
 export { createWorker } from './temporal/worker-factory';
 export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory';
-
 // Client (for starting workflows programmatically)
 export { createClient, resolveWorkflowType } from './temporal/client';
 export type { SdkClient, WorkflowRun, CreateClientConfig, StartWorkflowOptions } from './temporal/client';
-
 // App (runtime + worker + client defaults)
 export { createApp } from './app';
 export type { App, CreateAppConfig } from './app';
-
 // Observability (standalone init for non-worker processes like API servers)
 export { initObservability, type ObservabilityConfig } from './obs';
-
 // Errors (for programmatic handling)
 export {
   AiRuntimeError,
@@ -42,13 +37,13 @@ export {
   ToolValidationError,
   BudgetExceededError,
   ConfigurationError,
+  GraphValidationError,
+  GraphExecutionError,
   ERROR_CODES,
 } from './errors';
-
 // Lifecycle hooks (for plugins)
 export { registerHook } from './hooks';
 export type { LifecycleEvent, LifecycleHook } from './hooks';
-
 // Types
 export type {
   WorkflowContext,
@@ -67,7 +62,18 @@ export type {
   BudgetLimit,
   StreamState,
 } from './types';
-
+// Graph types
+export type {
+  GraphContext,
+  GraphConfig,
+  GraphResult,
+  GraphStreamState,
+  GraphTopology,
+  NodeFn,
+  Edge,
+  EdgeTarget,
+  NodeRef,
+} from './graph/types';
 // Streaming (token streaming via StreamBus + SSE helpers)
 export type { StreamBus, StreamChunk } from './streaming/stream-bus';
 export { LocalStreamBus } from './streaming/stream-bus';
