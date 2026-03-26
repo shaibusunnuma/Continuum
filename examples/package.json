@@ -10,6 +10,8 @@
     "client:research-assistant": "ts-node research-assistant/run.ts demo",
     "worker:multi-agent": "ts-node multi-agent/run.ts worker",
     "client:multi-agent": "ts-node multi-agent/run.ts demo",
+    "worker:graph-pipeline": "ts-node graph-pipeline/run.ts worker",
+    "client:graph-pipeline": "ts-node graph-pipeline/run.ts demo",
     "orchestrate:multi-agent": "ts-node multi-agent/run.ts orchestrate",
     "worker:streaming": "ts-node streaming/run.ts worker",
     "worker:streaming-redis": "ts-node streaming/redis-worker.ts",
