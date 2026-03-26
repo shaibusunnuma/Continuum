@@ -304,20 +304,30 @@ export function graph<
         lastError,
       };
     }
-    // ── Execute a single node ───────────────────────────────────────────
-    async function executeNode(nodeName: string, lastError?: GraphNodeError): Promise<void> {
+    // ── Merge state with reducer support ──────────────────────────────────
+    function mergeState(partial: Partial<TState>): void {
+      if (partial == null || typeof partial !== 'object') return;
+      const merged = { ...state } as Record<string, unknown>;
+      for (const [key, value] of Object.entries(partial)) {
+        if (value === undefined) continue;
+        const reducer = (config.reducers as Record<string, ((existing: unknown, incoming: unknown) => unknown)> | undefined)?.[key];
+        if (reducer) {
+          merged[key] = reducer((state as Record<string, unknown>)[key], value);
+        } else {
+          merged[key] = value;
+        }
+      }
+      state = merged as TState;
+    }
+    // ── Execute a single node (returns partial result) ────────────────────
+    async function executeNode(
+      nodeName: string,
+      lastError?: GraphNodeError,
+    ): Promise<{ nodeName: string; result: Partial<TState> }> {
       const nodeFn = config.nodes[nodeName];
       if (!nodeFn) {
         throw new GraphExecutionError(name, `Node "${nodeName}" not found.`);
       }
-      // Update stream state
-      streamState = {
-        ...streamState,
-        status: 'running',
-        activeNodes: [nodeName],
-        iteration,
-        updatedAt: new Date().toISOString(),
-      };
       const ctx = buildContext(lastError);
       let nodeResult: Partial<TState> | void;
       try {
@@ -334,29 +344,16 @@ export function graph<
           wf.log.warn(
             `[${name}] Node "${nodeName}" failed: ${errorInfo.message}. Routing to fallback "${fallbackNode}".`,
           );
-          // The failed node is considered "completed" (via error) for fan-in purposes
           completedSet.add(nodeName);
           executedNodes.push(nodeName);
-          // Execute fallback node with error context
-          await executeNode(fallbackNode, errorInfo);
-          return;
+          return executeNode(fallbackNode, errorInfo);
         }
-        // No fallback — propagate error
         throw err;
       }
-      // Merge partial state (shallow merge, void = no-op)
-      if (nodeResult != null && typeof nodeResult === 'object') {
-        state = { ...state, ...nodeResult } as TState;
-      }
-      // Track completion
+      const result = nodeResult != null && typeof nodeResult === 'object' ? nodeResult : {} as Partial<TState>;
       completedSet.add(nodeName);
       executedNodes.push(nodeName);
-      streamState = {
-        ...streamState,
-        activeNodes: [],
-        completedNodes: [...executedNodes],
-        updatedAt: new Date().toISOString(),
-      };
+      return { nodeName, result };
     }
     // ── Main execution loop ─────────────────────────────────────────────
     // Track which nodes have been activated (placed on readyQueue at any point).
@@ -367,6 +364,7 @@ export function graph<
       let readyQueue: string[] = entries as string[];
       for (const e of readyQueue) activatedSet.add(e);
       while (readyQueue.length > 0) {
+        // Check maxIterations before dispatching the batch
         if (iteration >= maxIterations) {
           wf.log.warn(`[${name}] Max iterations (${maxIterations}) reached. Terminating.`);
           return {
@@ -378,20 +376,87 @@ export function graph<
         }
         const currentBatch = [...readyQueue];
         readyQueue = [];
+        // Clear completed flags for re-queued nodes (cyclic graphs)
         for (const nodeName of currentBatch) {
-          // In cyclic graphs a node can be re-queued; clear its completed flag so it runs again
           completedSet.delete(nodeName);
-          iteration++;
-          if (iteration > maxIterations) {
-            wf.log.warn(`[${name}] Max iterations (${maxIterations}) reached mid-batch. Terminating.`);
-            return {
-              output: state,
-              status: 'max_iterations',
-              executedNodes,
-              totalUsage,
-            };
+        }
+        // Check if batch would exceed maxIterations
+        if (iteration + currentBatch.length > maxIterations) {
+          wf.log.warn(`[${name}] Max iterations (${maxIterations}) would be exceeded by batch. Terminating.`);
+          return {
+            output: state,
+            status: 'max_iterations',
+            executedNodes,
+            totalUsage,
+          };
+        }
+        // Update stream state with active batch
+        streamState = {
+          ...streamState,
+          status: 'running',
+          activeNodes: [...currentBatch],
+          iteration,
+          updatedAt: new Date().toISOString(),
+        };
+        let batchResults: Array<{ nodeName: string; result: Partial<TState> }>;
+        if (currentBatch.length === 1) {
+          // Single node — no parallelism overhead
+          batchResults = [await executeNode(currentBatch[0])];
+        } else {
+          // ── Parallel execution with cancellation ─────────────────────
+          batchResults = await new Promise<Array<{ nodeName: string; result: Partial<TState> }>>(
+            (resolve, reject) => {
+              const scope = new wf.CancellationScope();
+              scope.run(async () => {
+                const promises = currentBatch.map(async (nodeName) => {
+                  try {
+                    return await executeNode(nodeName);
+                  } catch (err) {
+                    // No onError for this node (executeNode already tried onError routing)
+                    // Cancel siblings and propagate
+                    scope.cancel();
+                    throw err;
+                  }
+                });
+                const results = await Promise.all(promises);
+                resolve(results);
+              }).catch(reject);
+            },
+          );
+        }
+        iteration += batchResults.length;
+        // ── Merge results with field-overlap detection ─────────────────
+        if (batchResults.length > 1) {
+          // Detect overlapping fields in parallel batch
+          const fieldWriters = new Map<string, string[]>();
+          for (const { nodeName, result } of batchResults) {
+            for (const key of Object.keys(result)) {
+              if (!fieldWriters.has(key)) fieldWriters.set(key, []);
+              fieldWriters.get(key)!.push(nodeName);
+            }
           }
-          await executeNode(nodeName);
+          for (const [field, writers] of fieldWriters) {
+            if (writers.length > 1 && !(config.reducers as Record<string, unknown> | undefined)?.[field]) {
+              wf.log.warn(
+                `[${name}] Parallel nodes [${writers.join(', ')}] wrote field "${field}" without a reducer. ` +
+                `Last-write-wins in batch order. Define a reducer to safely merge.`,
+              );
+            }
+          }
+        }
+        // Merge in batch order (deterministic for Temporal replay)
+        for (const { result } of batchResults) {
+          mergeState(result);
+        }
+        // Update stream state after batch completion
+        streamState = {
+          ...streamState,
+          activeNodes: [],
+          completedNodes: [...executedNodes],
+          updatedAt: new Date().toISOString(),
+        };
+        // Resolve next nodes for all completed batch nodes
+        for (const { nodeName } of batchResults) {
           const nextNodes = resolveNextNodes(
             name,
             nodeName,
