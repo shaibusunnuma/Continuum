@@ -5,7 +5,7 @@
  *
  * Loaded by Temporal via workflowsPath — only @durion/sdk/workflow imports.
  */
-import { graph } from '@durion/sdk/workflow';
+import { graph, reducers } from '@durion/sdk/workflow';
 import { z } from 'zod';
 // ─── State schema ───────────────────────────────────────────────────────────
 const ResearchState = z.object({
@@ -67,4 +67,57 @@ export const researchPipeline = graph('researchPipeline', {
     ],
     entry: 'research',
     maxIterations: 8,
+});
+
+// ─── Parallel analysis (Phase 2 demo) ──────────────────────────────────────
+
+const ParallelAnalysisState = z.object({
+    topic: z.string(),
+    perspectives: z.array(z.string()).default([]),
+    technicalAnalysis: z.string().optional(),
+    practicalAnalysis: z.string().optional(),
+    synthesis: z.string().optional(),
+});
+
+export const parallelAnalysis = graph('parallelAnalysis', {
+    state: ParallelAnalysisState,
+    nodes: {
+        analyzeTechnical: async (ctx) => {
+            const r = await ctx.model('fast', {
+                prompt:
+                    `Analyze the technical aspects of "${ctx.state.topic}". ` +
+                    `Cover key mechanisms, recent advances, and open challenges in 3-4 sentences.`,
+            });
+            ctx.log('technical-analysis-complete');
+            return { technicalAnalysis: r.result, perspectives: ['technical'] };
+        },
+        analyzePractical: async (ctx) => {
+            const r = await ctx.model('fast', {
+                prompt:
+                    `Analyze the practical applications of "${ctx.state.topic}". ` +
+                    `Cover real-world use cases, industry adoption, and impact in 3-4 sentences.`,
+            });
+            ctx.log('practical-analysis-complete');
+            return { practicalAnalysis: r.result, perspectives: ['practical'] };
+        },
+        synthesize: async (ctx) => {
+            const r = await ctx.model('fast', {
+                prompt:
+                    `Synthesize these two analyses into a cohesive summary:\n\n` +
+                    `Technical: ${ctx.state.technicalAnalysis}\n\n` +
+                    `Practical: ${ctx.state.practicalAnalysis}\n\n` +
+                    `Perspectives covered: ${ctx.state.perspectives.join(', ')}`,
+            });
+            ctx.log('synthesis-complete', { perspectives: ctx.state.perspectives });
+            return { synthesis: r.result };
+        },
+    },
+    edges: [
+        { from: 'analyzeTechnical', to: 'synthesize' },
+        { from: 'analyzePractical', to: 'synthesize' },
+    ],
+    // Parallel entry: both analysis nodes start concurrently
+    entry: ['analyzeTechnical', 'analyzePractical'],
+    // Safe parallel merge: concatenate perspectives from both branches
+    reducers: { perspectives: reducers.append },
 });
