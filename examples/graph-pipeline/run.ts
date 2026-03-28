@@ -8,19 +8,44 @@
  *   npm run worker:graph-pipeline
  *   npm run client:graph-pipeline -- research "artificial intelligence"
  *   npm run client:graph-pipeline -- parallel "quantum computing"
+ *   npm run client:graph-pipeline -- agent "renewable energy"
  */
 import path from 'path';
 import dotenv from 'dotenv';
 import { openai } from '@ai-sdk/openai';
+import { tavily } from '@tavily/core';
+import { z } from 'zod';
 import { createApp, createClient, initObservability } from '@durion/sdk';
-import { researchPipeline, parallelAnalysis, evaluationLoop } from './workflows';
+import { researchPipeline, parallelAnalysis, evaluationLoop, agentResearch } from './workflows';
 const TASK_QUEUE = 'durion-graph-pipeline';
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
+  const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
   const app = await createApp({
     models: { fast: openai.chat('gpt-4o-mini') },
-    tools: [],
+    tools: [
+      {
+        name: 'search_web',
+        description: 'Search the web for information. Use for factual or up-to-date queries.',
+        input: z.object({ query: z.string() }),
+        output: z.array(
+          z.object({
+            title: z.string(),
+            content: z.string(),
+            url: z.string().optional(),
+          }),
+        ),
+        execute: async ({ query }) => {
+          const response = await tvly.search(query);
+          return response.results.map((r) => ({
+            title: r.title,
+            content: r.content,
+            url: r.url,
+          }));
+        },
+      },
+    ],
     workflowsPath: require.resolve('./workflows'),
     taskQueue: TASK_QUEUE,
   });
@@ -114,9 +139,32 @@ async function main(): Promise<void> {
   else if (mode === 'research') await runResearchDemo(topic);
   else if (mode === 'parallel') await runParallelDemo(topic);
   else if (mode === 'evaluate') await runEvaluateDemo(topic);
+  else if (mode === 'agent') await runAgentDemo(topic);
   else {
-    console.error('Usage: run.ts [worker|research|parallel|evaluate] "<topic>"');
+    console.error('Usage: run.ts [worker|research|parallel|evaluate|agent] "<topic>"');
     process.exit(1);
+  }
+}
+async function runAgentDemo(topic: string): Promise<void> {
+  const client = await createClient({ taskQueue: TASK_QUEUE });
+  try {
+    console.log(`Starting agentResearch for: "${topic}"`);
+    console.log('Graph topology:', JSON.stringify(agentResearch.topology, null, 2));
+    const handle = await client.start(agentResearch, {
+      input: { topic },
+    });
+    const result = await handle.result();
+    console.log('\n─── Agent Research Result ───');
+    console.log(`Status: ${result.status}`);
+    console.log(`Executed nodes: ${result.executedNodes.join(' → ')}`);
+    console.log(`Total tokens: ${result.totalUsage.totalTokens}`);
+    console.log(`\nResearch findings:\n${result.output.researchFindings}`);
+    console.log(`\nSynthesis:\n${result.output.synthesis}`);
+    if (result.error) {
+      console.error(`Error in node "${result.error.node}": ${result.error.message}`);
+    }
+  } finally {
+    await client.close();
   }
 }
 main().catch((err) => {

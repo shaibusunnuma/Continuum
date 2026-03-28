@@ -5,7 +5,7 @@
  *
  * Loaded by Temporal via workflowsPath — only @durion/sdk/workflow imports.
  */
-import { graph, reducers } from '@durion/sdk/workflow';
+import { graph, reducers, agent } from '@durion/sdk/workflow';
 import { z } from 'zod';
 // ─── State schema ───────────────────────────────────────────────────────────
 const ResearchState = z.object({
@@ -169,4 +169,50 @@ export const evaluationLoop = graph('evaluationLoop', {
     maxIterations: 20,
     // Budget guard: stop if token usage gets too high
     budgetLimit: { maxTokens: 300 },
+});
+
+// ─── Agent-powered research (composability demo) ───────────────────────────
+
+/** Agent that can search the web. Runs as a child workflow via ctx.run(). */
+export const webResearcher = agent('webResearcher', {
+    model: 'fast',
+    instructions:
+        'You are a web researcher. Use the search_web tool to find relevant, ' +
+        'up-to-date information about the given topic. Summarize your findings clearly ' +
+        'with key facts and cite your sources.',
+    tools: ['search_web'],
+    maxSteps: 4,
+});
+
+const AgentResearchState = z.object({
+    topic: z.string(),
+    researchFindings: z.string().default(''),
+    synthesis: z.string().default(''),
+});
+
+export const agentResearch = graph('agentResearch', {
+    state: AgentResearchState,
+    nodes: {
+        /** Delegates to the webResearcher agent via ctx.run() — runs as a Temporal child workflow. */
+        research: async (ctx) => {
+            const result = await ctx.run(webResearcher, {
+                message: `Research the following topic thoroughly: ${ctx.state.topic}`,
+            });
+            ctx.log('agent-research-complete', { steps: result.steps });
+            return { researchFindings: result.reply };
+        },
+        /** Synthesizes the agent's findings into a structured brief. */
+        synthesize: async (ctx) => {
+            const r = await ctx.model('fast', {
+                prompt:
+                    `Based on these research findings, write a concise structured brief ` +
+                    `with sections for Overview, Key Facts, and Implications:\n\n` +
+                    ctx.state.researchFindings,
+            });
+            ctx.log('synthesis-complete');
+            return { synthesis: r.result };
+        },
+    },
+    edges: [{ from: 'research', to: 'synthesize' }],
+    entry: 'research',
 });
