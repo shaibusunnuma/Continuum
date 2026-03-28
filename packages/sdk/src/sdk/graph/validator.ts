@@ -121,17 +121,27 @@ export function validateGraphConfig(
       }
     }
   }
-  // At least one terminal node must exist (no outgoing edges)
+  // At least one terminal node must exist, unless conditional edges can act as dynamic exits
   const nodesWithOutgoing = new Set<string>();
   for (const edge of config.edges) {
     nodesWithOutgoing.add(edge.from);
   }
   const terminalNodes = nodeNames.filter((n) => !nodesWithOutgoing.has(n));
   if (terminalNodes.length === 0) {
-    throw new GraphValidationError(
-      name,
-      'No terminal node found. At least one node must have no outgoing edges.',
-    );
+    const hasConditionalEdges = config.edges.some((e) => typeof e.to === 'function');
+    if (hasConditionalEdges) {
+      // Conditional edges can return [] at runtime, making the graph exit dynamically.
+      // This is valid for cyclic graphs like evaluation loops.
+      warnings.push(
+        'No static terminal node found. Graph relies on conditional edges to terminate. ' +
+        'Ensure at least one conditional edge can return an empty array or the graph will loop until maxIterations.',
+      );
+    } else {
+      throw new GraphValidationError(
+        name,
+        'No terminal node found. At least one node must have no outgoing edges, or use a conditional edge that can return [].',
+      );
+    }
   }
   // Validate maxIterations
   if (
