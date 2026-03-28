@@ -21,6 +21,7 @@ import type {
   GraphResult,
   GraphStreamState,
   GraphTopology,
+  GraphCheckpoint,
   NodeFn,
   GraphNodeError,
 } from '../graph/types';
@@ -160,29 +161,43 @@ export function graph<
   // ── Compute topology ────────────────────────────────────────────────────
   const topology = buildTopology(name, config as unknown as Parameters<typeof buildTopology>[1]);
   // ── Build workflow function ─────────────────────────────────────────────
-  const graphFn = async function (input: Partial<TState>): Promise<GraphResult<TState>> {
+  const graphFn = async function (input: Partial<TState> | GraphCheckpoint<TState>): Promise<GraphResult<TState>> {
     const info = wf.workflowInfo();
     const maxIterations = config.maxIterations ?? 25;
+    const canThreshold = config.canThreshold ?? 10000;
+    const budgetLimit = config.budgetLimit;
     // Log definition-time warnings
     for (const warning of warnings) {
       wf.log.warn(`[${name}] ${warning}`);
     }
-    // ── Initialize state ────────────────────────────────────────────────
-    // Parse input through Zod schema to apply defaults
-    const parseResult = (config.state as unknown as { safeParse: (v: unknown) => { success: boolean; data?: TState; error?: unknown } })
-      .safeParse(input);
-    if (!parseResult.success) {
-      throw new GraphExecutionError(
-        name,
-        `Invalid input: ${JSON.stringify(parseResult.error)}`,
-      );
+    // ── Initialize state (fresh or from checkpoint) ──────────────────────
+    const isCheckpoint = (input as GraphCheckpoint<TState>).resumeFrom !== undefined;
+    let state: TState;
+    let startIteration = 0;
+    let resumeFrom: string[] | undefined;
+    if (isCheckpoint) {
+      const checkpoint = input as GraphCheckpoint<TState>;
+      state = checkpoint.state;
+      startIteration = checkpoint.iteration;
+      resumeFrom = checkpoint.resumeFrom;
+      wf.log.info(`[${name}] Resuming from Continue-As-New checkpoint at iteration ${startIteration}.`);
+    } else {
+      // Parse input through Zod schema to apply defaults
+      const parseResult = (config.state as unknown as { safeParse: (v: unknown) => { success: boolean; data?: TState; error?: unknown } })
+        .safeParse(input);
+      if (!parseResult.success) {
+        throw new GraphExecutionError(
+          name,
+          `Invalid input: ${JSON.stringify(parseResult.error)}`,
+        );
+      }
+      state = parseResult.data!;
     }
-    let state: TState = parseResult.data!;
     // ── Execution tracking ──────────────────────────────────────────────
     const executedNodes: string[] = [];
     const completedSet = new Set<string>();
     const nodeSet = new Set(Object.keys(config.nodes));
-    let iteration = 0;
+    let iteration = startIteration;
     let accumulatedCost = 0;
     const totalUsage: Usage = {
       promptTokens: 0,
@@ -361,7 +376,7 @@ export function graph<
     const activatedSet = new Set<string>();
     try {
       const entries = Array.isArray(config.entry) ? [...config.entry] : [config.entry];
-      let readyQueue: string[] = entries as string[];
+      let readyQueue: string[] = resumeFrom ?? (entries as string[]);
       for (const e of readyQueue) activatedSet.add(e);
       while (readyQueue.length > 0) {
         // Check maxIterations before dispatching the batch
@@ -389,6 +404,29 @@ export function graph<
             executedNodes,
             totalUsage,
           };
+        }
+        // ── Budget limit check (pre-flight) ─────────────────────────────
+        // Check budget BEFORE dispatching the batch so the graph can still
+        // complete naturally if no more nodes are queued after this batch.
+        if (budgetLimit) {
+          if (budgetLimit.maxCostUsd !== undefined && accumulatedCost >= budgetLimit.maxCostUsd) {
+            wf.log.warn(`[${name}] Budget exceeded before batch: cost $${accumulatedCost.toFixed(4)} >= limit $${budgetLimit.maxCostUsd}. Terminating.`);
+            return {
+              output: state,
+              status: 'budget_exceeded',
+              executedNodes,
+              totalUsage,
+            };
+          }
+          if (budgetLimit.maxTokens !== undefined && totalUsage.totalTokens >= budgetLimit.maxTokens) {
+            wf.log.warn(`[${name}] Budget exceeded before batch: ${totalUsage.totalTokens} tokens >= limit ${budgetLimit.maxTokens}. Terminating.`);
+            return {
+              output: state,
+              status: 'budget_exceeded',
+              executedNodes,
+              totalUsage,
+            };
+          }
         }
         // Update stream state with active batch
         streamState = {
@@ -471,6 +509,23 @@ export function graph<
               readyQueue.push(next);
               activatedSet.add(next);
             }
+          }
+        }
+
+        // ── Continue-As-New check ────────────────────────────────────────
+        if (canThreshold > 0 && readyQueue.length > 0) {
+          const historyLength = wf.workflowInfo().historyLength;
+          if (historyLength > canThreshold) {
+            wf.log.info(
+              `[${name}] History length ${historyLength} exceeds CAN threshold ${canThreshold}. Continuing as new.`,
+            );
+            const checkpoint: GraphCheckpoint<TState> = {
+              state,
+              completedNodes: [...executedNodes],
+              iteration,
+              resumeFrom: [...readyQueue],
+            };
+            await wf.continueAsNew<typeof graphFn>(checkpoint);
           }
         }
       }

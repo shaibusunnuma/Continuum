@@ -13,6 +13,7 @@ import type {
   RunMetadata,
   Usage,
   StreamState,
+  BudgetLimit,
 } from '../types';
 // ─── Graph Context ──────────────────────────────────────────────────────────
 /**
@@ -95,8 +96,12 @@ export interface GraphConfig<
   maxIterations?: number;
   /** Optional error routing: node name → fallback node name. */
   onError?: Partial<Record<NodeRef<TNodes>, NodeRef<TNodes>>>;
-  /** Optional per-field reducers for custom merge under parallelism (Phase 2). */
+  /** Optional per-field reducers for custom merge under parallelism. */
   reducers?: Partial<{ [K in keyof TState]: Reducer<TState[K]> }>;
+  /** Optional budget limits. Graph terminates with status 'budget_exceeded' when exceeded. */
+  budgetLimit?: BudgetLimit;
+  /** Event history threshold for Continue-As-New. Default: 10000. Set 0 to disable. */
+  canThreshold?: number;
 }
 // ─── Graph Result ───────────────────────────────────────────────────────────
 /** Returned by a graph execution. Wraps the final state with execution metadata. */
