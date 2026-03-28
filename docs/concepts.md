@@ -6,8 +6,9 @@
 |-----------|-----------|------------------|
 | **`workflow()`** | An async function with explicit steps: branches, `ctx.model()`, `ctx.tool()`, `ctx.waitForInput()`, `ctx.run()` | Temporal runs your code deterministically (replay). Each model/tool call is a **durable activity**. |
 | **`agent()`** | A declarative config: model id, instructions, tool names, `maxSteps`, optional `budgetLimit`, optional `delegates` | Temporal runs a **generated** workflow that loops: model call → tool activities → repeat until done or limits hit. |
+| **`graph()`** | A topological definition: structured `nodes` (state processors) connected by static or conditional `edges`. State schemas and merge `reducers`. | Compiles a declarative graph execution layer atop Temporal workflows executing batch nodes in parallel per-iteration using `Promise.all` with robust `Continue-As-New` cycle limits. |
 
-Use a **workflow** when you control the sequence. Use an **agent** when you want the model to choose tools over many steps, with guardrails (steps, cost).
+Use a **workflow** when you control the sequence imperatively. Use an **agent** when you want the model to choose tools autonomously. Use a **graph** when routing demands cyclic state-machines, dynamic fan-ins, or robust topology guarantees.
 
 ## What “durable” means here
 
@@ -48,7 +49,7 @@ See [Gateway API v0](gateway-api-v0.md) for HTTP `POST .../signal`.
 
 ## Progressive UI: stream state query
 
-Workflows and agents expose a Temporal **query** **`durion:streamState`** with a JSON snapshot (status, optional `partialReply`, `messages`, etc.). A backend can poll that query and expose it over HTTP; **`@durion/react`** hooks can poll your API.
+Workflows, agents, and graphs expose a Temporal **query** **`durion:streamState`** with a JSON snapshot (status, optional `partialReply`, `messages`, graph `topology`, active batch nodes, etc.). A backend can poll that query and expose it over HTTP; **`@durion/react`** hooks can poll your API.
 
 This is **not** the same as token-level SSE; see [Streaming](streaming.md).
 

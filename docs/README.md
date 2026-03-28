@@ -1,6 +1,6 @@
 # Durion documentation
 
-**Durion** is a TypeScript SDK for **durable AI workflows and agents** on [Temporal](https://temporal.io/), built on the [Vercel AI SDK](https://ai-sdk.dev/) for model calls. You write `workflow()` and `agent()` with `ctx.model()` and `ctx.tool()`; the runtime turns them into replay-safe executions that survive process restarts.
+**Durion** is a TypeScript SDK for **durable AI workflows, agents, and state-machine graphs** on [Temporal](https://temporal.io/), built on the [Vercel AI SDK](https://ai-sdk.dev/) for model calls. You write `workflow()`, `agent()`, and `graph()` topologies with `ctx.model()` and `ctx.tool()`; the runtime turns them into replay-safe executions that survive process restarts.
 
 **Status:** The `0.x` releases are **experimental**. APIs may change; see the [CHANGELOG](../CHANGELOG.md) for release notes.
 

@@ -1,10 +1,10 @@
 # Durion
 
-Durable workflows and agents on Temporal — you define `workflow()` and `agent()`; you never import Temporal.
+Durable workflows, agents, and graphs on Temporal — you define `workflow()`, `agent()`, and `graph()`; you never import Temporal.
 
 ## What it is
 
-Durion is an SDK for durable AI execution. You get replay-safe workflows and agents that call LLMs and tools, with cost tracking and optional observability. It is built on [Temporal](https://temporal.io/) and the [Vercel AI SDK](https://ai-sdk.dev/). You write `workflow()` and `agent()` with `ctx.model()` and `ctx.tool()`; the SDK turns them into Temporal workflows and activities so runs survive restarts and scale.
+Durion is an SDK for durable AI execution. You get replay-safe workflows, agents, and state-machine graphs that call LLMs and tools, with cost tracking and optional observability. It is built on [Temporal](https://temporal.io/) and the [Vercel AI SDK](https://ai-sdk.dev/). You write `workflow()`, `agent()`, and `graph()` topologies with `ctx.model()` and `ctx.tool()`; the SDK turns them into Temporal workflows and activities so runs survive restarts and scale.
 
 ## Documentation
 
@@ -14,7 +14,7 @@ End-user guides (getting started, concepts, env vars, streaming, troubleshooting
 
 ## Architecture
 
-Durion splits **authoring** (`workflow` / `agent`), **execution** (worker + Temporal), and **optional HTTP + UI** (reference gateway + React). The SDK does not run inside the browser; only **`@durion/react`** does, talking to *your* or the reference gateway.
+Durion splits **authoring** (`workflow` / `agent` / `graph`), **execution** (worker + Temporal), and **optional HTTP + UI** (reference gateway + React). The SDK does not run inside the browser; only **`@durion/react`** does, talking to *your* or the reference gateway.
 
 ```mermaid
 flowchart TB
@@ -113,11 +113,12 @@ Other examples use the same pattern: a **`worker`** script plus a **`client:*` /
 
 ## Usage
 
-Define workflows and agents in a file that Temporal will bundle (use the SDK workflow entry point only):
+Define workflows, agents, and graphs in a file that Temporal will bundle (use the SDK workflow entry point only):
 
 ```ts
 // workflows.ts
-import { workflow, agent } from '@durion/sdk/workflow';
+import { z } from 'zod';
+import { workflow, agent, graph } from '@durion/sdk/workflow';
 
 export const myWorkflow = workflow('myWorkflow', async (ctx) => {
   const reply = await ctx.model('fast', { prompt: ctx.input.prompt });
@@ -129,6 +130,22 @@ export const myAgent = agent('myAgent', {
   instructions: 'You are a helpful assistant.',
   tools: ['my_tool'],
   maxSteps: 8,
+});
+
+export const myGraph = graph('myGraph', {
+  state: z.object({ topic: z.string(), score: z.number().default(0) }),
+  nodes: {
+    evaluate: async (ctx) => {
+      const response = await ctx.model('fast', { prompt: `Score this: ${ctx.state.topic}` });
+      return { score: parseInt(response.result) || 0 };
+    },
+    approve: async () => ({ topic: 'Approved!' }),
+    reject: async () => ({ topic: 'Rejected!' }),
+  },
+  edges: [
+    { from: 'evaluate', to: (state) => state.score > 70 ? 'approve' : 'reject' }
+  ],
+  entry: 'evaluate'
 });
 ```
 
@@ -160,7 +177,7 @@ const handle = await createWorker({
 await handle.run();
 ```
 
-Workflows and agents are Temporal workflows; activities run your model and tool calls. Each `ctx.model()` and `ctx.tool()` is durable — if the worker stops, the run resumes from the last step.
+Workflows, agents, and graphs are Temporal workflows; activities run your model and tool calls. Each `ctx.model()` and `ctx.tool()` is durable — if the worker stops, the run resumes from the last step.
 
 ### `createApp()` (one config when worker + starts live together)
 
@@ -236,7 +253,7 @@ For **custom** HTTP shapes, use low-level **`useWorkflowStreamState`** (`queryFn
 
 ## Composability
 
-Workflows and agents can call each other via `ctx.run()`. It executes a child workflow on the same task queue and returns its result directly.
+Workflows, agents, and graphs can call each other via `ctx.run()`. It executes a child workflow on the same task queue and returns its result directly.
 
 ```ts
 // workflows.ts

@@ -4,7 +4,7 @@ Durion publishes scoped npm packages. Install only what you need.
 
 ## `@durion/sdk`
 
-**Core runtime:** `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()`, `createApp()`, observability helpers, streaming helpers (`LocalStreamBus`, `RedisStreamBus`, `pipeStreamToResponse`).
+**Core runtime:** `workflow()`, `agent()`, `graph()`, `createRuntime()`, `createWorker()`, `createClient()`, `createApp()`, observability helpers, streaming helpers (`LocalStreamBus`, `RedisStreamBus`, `pipeStreamToResponse`).
 
 ```bash
 npm install @durion/sdk

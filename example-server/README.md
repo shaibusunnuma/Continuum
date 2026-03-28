@@ -1,6 +1,6 @@
 # Example server
 
-Reference REST API server for Durion. Not part of the SDK — it’s a sample app that shows how to start workflows and agents via HTTP using `@durion/sdk` and `@temporalio/client`.
+Reference REST API server for Durion. Not part of the SDK — it’s a sample app that shows how to start workflows, agents, and graphs via HTTP using `@durion/sdk` and `@temporalio/client`.
 
 **Demo only:** unversioned routes have no authentication. Do not expose `POST /runs/:workflowId/signal` or open CORS to the public internet without hardening.
 
