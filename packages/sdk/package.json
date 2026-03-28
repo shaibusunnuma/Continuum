@@ -1,7 +1,7 @@
 {
   "name": "@durion/sdk",
   "version": "0.1.0",
-  "description": "Durion SDK — durable workflows and agents on Temporal",
+  "description": "Durion SDK — durable workflows, agents, and graphs on Temporal",
   "license": "MIT",
   "repository": {
     "type": "git",

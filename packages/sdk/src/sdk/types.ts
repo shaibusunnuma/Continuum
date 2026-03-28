@@ -205,7 +205,7 @@ export interface AgentResult {
 // Streaming (query-based progressive state)
 // ---------------------------------------------------------------------------
 
-/** Queryable state for progressive UX. Exposed via Temporal `streamState` query on workflows and agents. */
+/** Queryable state for progressive UX. Exposed via Temporal `streamState` query on workflows, agents, and graphs. */
 export interface StreamState {
   /** Current phase of the workflow/agent. */
   status: 'running' | 'waiting_for_input' | 'completed' | 'error';

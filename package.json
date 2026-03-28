@@ -2,7 +2,7 @@
   "name": "durion",
   "version": "0.1.0",
   "private": true,
-  "description": "Durion monorepo — durable AI workflows and agents on Temporal",
+  "description": "Durion monorepo — durable AI workflows, agents, and graphs on Temporal",
   "packageManager": "npm@10.0.0",
   "workspaces": [
     "packages/*",

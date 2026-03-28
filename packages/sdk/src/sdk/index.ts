@@ -1,5 +1,5 @@
 /**
- * Durion SDK — durable workflows and agents on Temporal.
+ * Durion SDK — durable workflows, agents, and graphs on Temporal.
  *
  * Usage:
  *   const runtime = createRuntime({ models: { fast: openai('gpt-4o-mini') }, tools: [myTool] });
