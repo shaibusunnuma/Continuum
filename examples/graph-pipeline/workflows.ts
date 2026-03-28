@@ -121,3 +121,52 @@ export const parallelAnalysis = graph('parallelAnalysis', {
     // Safe parallel merge: concatenate perspectives from both branches
     reducers: { perspectives: reducers.append },
 });
+
+// ─── Evaluation loop (Phase 3 demo) ────────────────────────────────────────
+
+const EvalLoopState = z.object({
+    topic: z.string(),
+    draft: z.string().default(''),
+    score: z.number().default(0),
+    feedback: z.string().default(''),
+    rounds: z.number().default(0),
+});
+
+export const evaluationLoop = graph('evaluationLoop', {
+    state: EvalLoopState,
+    nodes: {
+        generate: async (ctx) => {
+            const r = await ctx.model('fast', {
+                prompt:
+                    ctx.state.rounds === 0
+                        ? `Write a concise 2-3 sentence explanation of "${ctx.state.topic}".`
+                        : `Improve this draft based on feedback:\n\nDraft: ${ctx.state.draft}\nFeedback: ${ctx.state.feedback}`,
+            });
+            ctx.log('generate-complete', { round: ctx.state.rounds });
+            return { draft: r.result };
+        },
+        evaluate: async (ctx) => {
+            const r = await ctx.model('fast', {
+                prompt:
+                    `Rate this draft 0-100 and give one sentence of improvement feedback.\n\n` +
+                    `Draft: ${ctx.state.draft}\n\n` +
+                    `Respond ONLY with JSON: {"score": <number>, "feedback": "<string>"}`,
+                schema: z.toJSONSchema(z.object({ score: z.number(), feedback: z.string() })),
+            });
+            const parsed = JSON.parse(r.result);
+            ctx.log('evaluate-complete', { score: parsed.score, round: ctx.state.rounds });
+            return { score: parsed.score, feedback: parsed.feedback, rounds: ctx.state.rounds + 1 };
+        },
+    },
+    edges: [
+        { from: 'generate', to: 'evaluate' },
+        {
+            from: 'evaluate',
+            to: (state) => (state.score < 80 ? [] : ['generate']),
+        },
+    ],
+    entry: 'generate',
+    maxIterations: 20,
+    // Budget guard: stop if token usage gets too high
+    budgetLimit: { maxTokens: 300 },
+});
