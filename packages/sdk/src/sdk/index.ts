@@ -19,6 +19,7 @@ export { workflow } from './temporal/workflow-adapter';
 export { agent } from './temporal/agent-workflow';
 export { graph } from './temporal/graph-workflow';
 export { reducers } from './graph/reducers';
+export { exportTopology } from './graph/topology';
 // Worker factory
 export { createWorker } from './temporal/worker-factory';
 export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory';
@@ -75,6 +76,7 @@ export type {
   EdgeTarget,
   NodeRef,
   Reducer,
+  GraphCheckpoint,
 } from './graph/types';
 // Streaming (token streaming via StreamBus + SSE helpers)
 export type { StreamBus, StreamChunk } from './streaming/stream-bus';
