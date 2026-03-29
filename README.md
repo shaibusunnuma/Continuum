@@ -11,6 +11,7 @@ Durion is an SDK for durable AI execution. You get replay-safe workflows, agents
 End-user guides (getting started, concepts, env vars, streaming, troubleshooting) and the **[Gateway API v0](docs/gateway-api-v0.md)** spec are in **[`docs/README.md`](docs/README.md)**.
 
 - **Positioning:** [Why Durion?](docs/why-durion.md) — how this compares to using the Vercel AI SDK alone, rolling your own Temporal + AI SDK, and Temporal’s `@temporalio/ai-sdk` bridge.
+- **Graph Philosophy:** [Addressing the "Fallacy of the Graph"](docs/addressing-the-graph-fallacy.md) — how our `graph()` primitive avoids the pitfalls of "just another graph framework" by remaining fundamentally code-first on Temporal.
 
 ## Architecture
 
