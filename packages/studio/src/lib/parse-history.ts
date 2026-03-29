@@ -91,6 +91,17 @@ function getAttrs(e: RawEvent): RawEvent | undefined {
   return undefined;
 }
 
+/** Task queue on WorkflowExecutionStarted — proto JSON uses `{ name, kind }`; some exports use a plain string. */
+function taskQueueFromStartedAttributes(attrs: RawEvent): string | null {
+  const tq = attrs.taskQueue;
+  if (typeof tq === 'string' && tq.trim()) return tq.trim();
+  if (tq && typeof tq === 'object') {
+    const name = (tq as RawEvent).name;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  return null;
+}
+
 /** Decode one Temporal `Payload` (JSON/protobuf JSON with base64 `data`) to a JS value. */
 function decodeTemporalPayloadItem(item: unknown): unknown {
   if (item === null || typeof item !== 'object') return item;
@@ -338,7 +349,7 @@ export function parseFullHistory(history: unknown): ParsedHistory {
 
     if (eventType.includes('WORKFLOW_EXECUTION_STARTED') && attrs) {
       workflowType = str((attrs.workflowType as RawEvent)?.name) || null;
-      taskQueue = str((attrs.taskQueue as RawEvent)?.name) || null;
+      taskQueue = taskQueueFromStartedAttributes(attrs);
       const inp = attrs.input as RawEvent | undefined;
       input = extractDecodedPayloads(inp?.payloads) ?? null;
       memo = { ...memo, ...extractMemoFromAttrs(attrs) };

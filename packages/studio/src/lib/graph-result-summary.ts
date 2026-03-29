@@ -9,16 +9,7 @@ export interface GraphResultSummary {
   graphStatus: string | null;
   totalTokens: number | null;
   executedChain: string[];
-  /** Truncated finalReport text, or null if absent / non-string. */
-  outputPreview: string | null;
-  /** True when `output` object existed and `finalReport` key was checked. */
-  hadOutputObject: boolean;
   errorLine: string | null;
-}
-
-function truncate(s: string, max: number): string {
-  if (s.length <= max) return s;
-  return `${s.slice(0, max - 1)}…`;
 }
 
 export function isGraphResultPayload(result: unknown): boolean {
@@ -37,8 +28,6 @@ export function parseGraphResultSummary(
   let graphStatus: string | null = null;
   let totalTokens: number | null = null;
   let executedChain: string[] = [...(executedNodesFromHistory ?? [])];
-  let outputPreview: string | null = null;
-  let hadOutputObject = false;
   let errorLine: string | null = null;
 
   if (result && typeof result === 'object') {
@@ -59,13 +48,6 @@ export function parseGraphResultSummary(
       executedChain = en as string[];
     }
 
-    const output = r.output;
-    if (output && typeof output === 'object' && output !== null) {
-      hadOutputObject = true;
-      const fr = (output as Record<string, unknown>).finalReport;
-      if (typeof fr === 'string') outputPreview = truncate(fr, 120);
-    }
-
     const err = r.error;
     if (err && typeof err === 'object' && err !== null) {
       const node = (err as Record<string, unknown>).node;
@@ -78,8 +60,6 @@ export function parseGraphResultSummary(
     graphStatus,
     totalTokens,
     executedChain,
-    outputPreview,
-    hadOutputObject,
     errorLine,
   };
 }

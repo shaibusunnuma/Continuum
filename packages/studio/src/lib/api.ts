@@ -93,6 +93,7 @@ export async function describeRun(workflowId: string): Promise<{
   runId: string | null;
   status: string;
   type: unknown;
+  taskQueue: string | null;
   startTime: string | null;
   closeTime: string | null;
   memo: Record<string, unknown>;

@@ -136,6 +136,7 @@ export async function runsRoutes(
           runId: description.runId ?? null,
           status: description.status.name,
           type: description.type,
+          taskQueue: description.taskQueue ?? null,
           startTime: description.startTime?.toISOString() ?? null,
           closeTime: description.closeTime?.toISOString() ?? null,
           memo: description.memo ?? {},

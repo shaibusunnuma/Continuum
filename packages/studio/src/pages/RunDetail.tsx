@@ -28,6 +28,8 @@ interface DescribeData {
   status: string;
   runId: string | null;
   type: unknown;
+  /** From Temporal describe (preferred over parsing history). */
+  taskQueue: string | null;
   startTime: string | null;
   closeTime: string | null;
   memo: Record<string, unknown>;
@@ -109,6 +111,7 @@ export function RunDetail() {
           status: d.status,
           runId: d.runId ?? null,
           type: d.type,
+          taskQueue: d.taskQueue ?? null,
           startTime: d.startTime,
           closeTime: d.closeTime,
           memo: d.memo ?? {},
@@ -167,6 +170,7 @@ export function RunDetail() {
           status: d.status,
           runId: d.runId ?? null,
           type: d.type,
+          taskQueue: d.taskQueue ?? null,
           startTime: d.startTime,
           closeTime: d.closeTime,
           memo: d.memo ?? {},
@@ -260,8 +264,9 @@ export function RunDetail() {
       graphExecutionSteps.length > 0 ||
       graphSummary.graphStatus != null ||
       graphSummary.totalTokens != null ||
-      graphSummary.errorLine != null ||
-      graphSummary.hadOutputObject);
+      graphSummary.errorLine != null);
+
+  const taskQueueLabel = describe?.taskQueue ?? history.taskQueue ?? null;
 
   const runDurationLabel = formatRunDuration(describe?.startTime ?? null, describe?.closeTime ?? null);
 
@@ -361,9 +366,9 @@ export function RunDetail() {
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="truncate" title={history.taskQueue ?? undefined}>
+                <div className="truncate" title={taskQueueLabel ?? undefined}>
                   <span className="text-muted-foreground">Task queue </span>
-                  <span className="text-foreground">{history.taskQueue ?? '—'}</span>
+                  <span className="text-foreground">{taskQueueLabel ?? '—'}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Updated </span>
@@ -378,7 +383,7 @@ export function RunDetail() {
 
             {showGraphSummaryRow && (
               <div className="space-y-1.5 border-t border-border pt-2">
-                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <span className="text-muted-foreground">Graph status </span>
                     {graphSummary.graphStatus ? (
@@ -393,15 +398,6 @@ export function RunDetail() {
                     <span className="text-muted-foreground">Total tokens </span>
                     <span className="text-foreground">
                       {graphSummary.totalTokens != null ? graphSummary.totalTokens : '—'}
-                    </span>
-                  </div>
-                  <div className="min-w-0 lg:col-span-2">
-                    <span className="text-muted-foreground">Final report </span>
-                    <span
-                      className="text-foreground truncate align-bottom"
-                      title={graphSummary.outputPreview ?? undefined}
-                    >
-                      {graphSummary.hadOutputObject ? graphSummary.outputPreview ?? '—' : '—'}
                     </span>
                   </div>
                 </div>

@@ -141,6 +141,24 @@ describe('parseFullHistory', () => {
     expect(parsed.activitySpans).toEqual([]);
   });
 
+  it('reads task queue when workflow start uses a string taskQueue field', () => {
+    const history = {
+      events: [
+        {
+          eventId: '1',
+          eventType: 'EVENT_TYPE_WORKFLOW_EXECUTION_STARTED',
+          workflowExecutionStartedEventAttributes: {
+            workflowType: { name: 'researchPipeline' },
+            taskQueue: 'durion-graph-pipeline',
+            input: { payloads: [] },
+            memo: {},
+          },
+        },
+      ],
+    };
+    expect(parseFullHistory(history).taskQueue).toBe('durion-graph-pipeline');
+  });
+
   it('decodes base64 JSON workflow result payloads (Temporal history JSON)', () => {
     const graphResult = {
       status: 'max_iterations',
