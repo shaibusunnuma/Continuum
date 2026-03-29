@@ -57,6 +57,17 @@ export interface HistoryEvent {
   details?: Record<string, unknown>;
 }
 
+/** One activity execution interval for Gantt-style timelines (from history events). */
+export interface ActivitySpan {
+  /** Stable key (scheduled event id). */
+  key: string;
+  activityName: string;
+  scheduledAt: number;
+  startedAt?: number;
+  endedAt?: number;
+  outcome: 'scheduled' | 'running' | 'completed' | 'failed' | 'timed_out' | 'canceled';
+}
+
 export interface ParsedHistory {
   events: HistoryEvent[];
   /** Workflow input (from WorkflowExecutionStarted). */
@@ -75,4 +86,9 @@ export interface ParsedHistory {
   executedNodes: string[] | null;
   /** Graph topology extracted from memo (durion:topology). */
   topology: { nodes: string[]; edges: GraphStreamStateEdge[] } | null;
+  /** Activity intervals derived from scheduled/started/completed events. */
+  activitySpans: ActivitySpan[];
+  /** Workflow execution window (ms) from first/last history timestamps. */
+  historyStartMs: number | null;
+  historyEndMs: number | null;
 }

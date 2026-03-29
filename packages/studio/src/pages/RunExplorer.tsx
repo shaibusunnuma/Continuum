@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { listRuns } from '@/lib/api';
 import type { StudioRunRow } from '@/lib/types';
@@ -30,6 +30,17 @@ function formatDuration(start: string | null, close: string | null, status: stri
   return `${m}m ${s}s`;
 }
 
+function rowKey(r: StudioRunRow): string {
+  return `${r.workflowId}:${r.runId}`;
+}
+
+/** Keep the latest first page from the API at the top; preserve extra rows from "Load more". */
+function mergePollResult(latest: StudioRunRow[], previous: StudioRunRow[]): StudioRunRow[] {
+  const latestKeys = new Set(latest.map(rowKey));
+  const tail = previous.filter((r) => !latestKeys.has(rowKey(r)));
+  return [...latest, ...tail];
+}
+
 function StatusDot({ status }: { status: string }) {
   const running = status === 'RUNNING';
   const failed = status === 'FAILED' || status === 'TERMINATED';
@@ -46,21 +57,34 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
+const POLL_MS = 5000;
+
 export function RunExplorer() {
   const [rows, setRows] = useState<StudioRunRow[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newSinceOpen, setNewSinceOpen] = useState(0);
+  const loadedMoreRef = useRef(false);
+  const knownKeysRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async (token?: string) => {
-    setLoading(true);
+    if (!token) setLoading(true);
     setError(null);
     try {
       const res = await listRuns({
         limit: 25,
         nextPageToken: token,
       });
-      setRows((prev) => (token ? [...prev, ...res.runs] : res.runs));
+      if (token) {
+        loadedMoreRef.current = true;
+        setRows((prev) => [...prev, ...res.runs]);
+      } else {
+        loadedMoreRef.current = false;
+        setRows(res.runs);
+        knownKeysRef.current = new Set(res.runs.map(rowKey));
+        setNewSinceOpen(0);
+      }
       setNextPageToken(res.nextPageToken);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -69,9 +93,38 @@ export function RunExplorer() {
     }
   }, []);
 
+  const silentPoll = useCallback(async () => {
+    try {
+      const res = await listRuns({ limit: 25 });
+      let added = 0;
+      for (const r of res.runs) {
+        const k = rowKey(r);
+        if (!knownKeysRef.current.has(k)) {
+          knownKeysRef.current.add(k);
+          added += 1;
+        }
+      }
+      if (added > 0) setNewSinceOpen((n) => n + added);
+
+      setRows((prev) => (loadedMoreRef.current ? mergePollResult(res.runs, prev) : res.runs));
+      if (!loadedMoreRef.current) setNextPageToken(res.nextPageToken);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => void silentPoll(), POLL_MS);
+    return () => window.clearInterval(id);
+  }, [silentPoll]);
+
+  const manualRefresh = () => {
+    void load();
+  };
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -84,7 +137,31 @@ export function RunExplorer() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        <h1 className="mb-4 font-mono text-lg text-foreground">Runs</h1>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-mono text-lg text-foreground">Runs</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground font-mono text-[10px]">
+              Auto-refresh {POLL_MS / 1000}s
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="relative font-mono text-xs"
+              disabled={loading}
+              onClick={() => manualRefresh()}
+            >
+              Refresh
+              {newSinceOpen > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="absolute -top-2 -right-2 h-5 min-w-5 rounded-full px-1 font-mono text-[10px]"
+                >
+                  +{newSinceOpen}
+                </Badge>
+              )}
+            </Button>
+          </div>
+        </div>
         {error && (
           <p className="text-destructive mb-4 font-mono text-sm" role="alert">
             {error}

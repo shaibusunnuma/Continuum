@@ -8,6 +8,7 @@ import type { GraphStreamState, ParsedHistory, StreamState } from '@/lib/types';
 import { GraphCanvas } from '@/components/graph/GraphCanvas';
 import { AgentTimeline } from '@/components/agent/AgentTimeline';
 import { ActivityList } from '@/components/workflow/ActivityList';
+import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,9 @@ const EMPTY_HISTORY: ParsedHistory = {
   activitySteps: [],
   executedNodes: null,
   topology: null,
+  activitySpans: [],
+  historyStartMs: null,
+  historyEndMs: null,
 };
 
 export function RunDetail() {
@@ -114,19 +118,33 @@ export function RunDetail() {
     }
   }, [workflowId]);
 
-  // ── Polling for live runs ──────────────────────────────────────────────
-  const pollStream = useCallback(async () => {
+  /** Poll describe + history + stream while Temporal says RUNNING (or Durion stream still active). */
+  const pollActiveRun = useCallback(async () => {
     if (!workflowId) return;
     try {
-      const [d, s] = await Promise.all([describeRun(workflowId), getStreamState(workflowId)]);
-      setDescribe({
-        status: d.status,
-        type: d.type,
-        startTime: d.startTime,
-        closeTime: d.closeTime,
-        memo: d.memo ?? {},
-      });
-      setStreamState(s);
+      const [dRes, hRes, sRes] = await Promise.allSettled([
+        describeRun(workflowId),
+        getHistory(workflowId),
+        getStreamState(workflowId),
+      ]);
+      if (dRes.status === 'fulfilled') {
+        const d = dRes.value;
+        setDescribe({
+          status: d.status,
+          type: d.type,
+          startTime: d.startTime,
+          closeTime: d.closeTime,
+          memo: d.memo ?? {},
+        });
+      }
+      if (hRes.status === 'fulfilled') {
+        setHistory(parseFullHistory(hRes.value));
+      }
+      if (sRes.status === 'fulfilled') {
+        setStreamState(sRes.value);
+        setStreamAvailable(true);
+      }
+      /* On poll failure, keep last stream snapshot — avoids flicker when the worker is busy. */
     } catch {
       /* ignore transient poll errors */
     }
@@ -136,11 +154,16 @@ export function RunDetail() {
     void fullRefresh();
   }, [fullRefresh]);
 
+  const executionActive =
+    describe?.status === 'RUNNING' ||
+    streamState?.status === 'running' ||
+    streamState?.status === 'waiting_for_input';
+
   useEffect(() => {
-    if (!streamState || streamState.status !== 'running') return;
-    const t = window.setInterval(() => void pollStream(), 1500);
+    if (!workflowId || !executionActive) return;
+    const t = window.setInterval(() => void pollActiveRun(), 1500);
     return () => window.clearInterval(t);
-  }, [streamState?.status, pollStream]);
+  }, [workflowId, executionActive, pollActiveRun]);
 
   // ── View mode: prefer stream-state, fall back to history-derived ───────
   const mode: RunViewMode | null = (() => {
@@ -335,7 +358,25 @@ export function RunDetail() {
           )}
 
           {activeTab === 'events' && (
-            <EventTimeline events={history.events} />
+            <div className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
+              {history.activitySpans.length > 0 && (
+                <EventHistoryGantt
+                  spans={history.activitySpans}
+                  historyStartMs={history.historyStartMs}
+                  historyEndMs={history.historyEndMs}
+                  isRunning={describe?.status === 'RUNNING'}
+                />
+              )}
+              <div className="min-h-0 flex-1">
+                <p className="text-muted-foreground mb-2 font-mono text-[10px] uppercase tracking-wide">
+                  Events
+                </p>
+                <EventTimeline
+                  events={history.events}
+                  scrollAreaClassName="h-72 sm:h-80"
+                />
+              </div>
+            </div>
           )}
 
           {activeTab === 'input' && (

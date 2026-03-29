@@ -58,6 +58,18 @@ describe('parseFullHistory', () => {
           },
         },
         {
+          eventId: '6',
+          eventType: 'EVENT_TYPE_ACTIVITY_TASK_STARTED',
+          eventTime: '2026-03-29T13:16:53Z',
+          activityTaskStartedEventAttributes: { scheduledEventId: '5' },
+        },
+        {
+          eventId: '7',
+          eventType: 'EVENT_TYPE_ACTIVITY_TASK_COMPLETED',
+          eventTime: '2026-03-29T13:17:10Z',
+          activityTaskCompletedEventAttributes: { scheduledEventId: '5' },
+        },
+        {
           eventId: '10',
           eventType: 'EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED',
           eventTime: '2026-03-29T13:17:20Z',
@@ -80,12 +92,18 @@ describe('parseFullHistory', () => {
     expect(parsed.taskQueue).toBe('durion-graph-pipeline');
     expect(parsed.input).toEqual({ topic: 'renewable energy' });
     expect(parsed.executedNodes).toEqual(['webResearcher', 'writer']);
-    expect(parsed.events).toHaveLength(3);
+    expect(parsed.events).toHaveLength(5);
     expect(parsed.events[0].label).toBe('WorkflowStarted (agentResearch)');
     expect(parsed.events[1].label).toBe('ActivityScheduled: runModel');
-    expect(parsed.events[2].label).toBe('WorkflowCompleted');
     expect(parsed.activitySteps).toHaveLength(1);
     expect(parsed.activitySteps[0].activityName).toBe('runModel');
+    expect(parsed.activitySpans).toHaveLength(1);
+    expect(parsed.activitySpans[0].activityName).toBe('runModel');
+    expect(parsed.activitySpans[0].outcome).toBe('completed');
+    expect(parsed.activitySpans[0].startedAt).toBe(Date.parse('2026-03-29T13:16:53Z'));
+    expect(parsed.activitySpans[0].endedAt).toBe(Date.parse('2026-03-29T13:17:10Z'));
+    expect(parsed.historyStartMs).toBe(Date.parse('2026-03-29T13:16:51Z'));
+    expect(parsed.events[4].label).toBe('WorkflowCompleted');
   });
 
   it('extracts topology from memo', () => {
@@ -120,5 +138,6 @@ describe('parseFullHistory', () => {
     expect(parsed.events).toEqual([]);
     expect(parsed.input).toBeNull();
     expect(parsed.result).toBeNull();
+    expect(parsed.activitySpans).toEqual([]);
   });
 });

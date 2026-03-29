@@ -1,4 +1,10 @@
-import type { ActivityStep, GraphStreamStateEdge, HistoryEvent, ParsedHistory } from './types';
+import type {
+  ActivitySpan,
+  ActivityStep,
+  GraphStreamStateEdge,
+  HistoryEvent,
+  ParsedHistory,
+} from './types';
 
 type RawEvent = Record<string, unknown>;
 
@@ -131,6 +137,115 @@ function parseMemoTopology(
   return raw as { nodes: string[]; edges: GraphStreamStateEdge[] };
 }
 
+function parseEventTimeMs(raw: unknown): number | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : null;
+}
+
+function numAttr(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string' && v) {
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/**
+ * Build activity Gantt spans from raw history events (same source as Temporal Web UI timeline).
+ */
+function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
+  spans: ActivitySpan[];
+  historyStartMs: number | null;
+  historyEndMs: number | null;
+} {
+  type Slot = {
+    scheduledEventId: number;
+    activityName: string;
+    scheduledAt: number;
+    startedAt?: number;
+    endedAt?: number;
+    outcome: ActivitySpan['outcome'];
+  };
+
+  const slots = new Map<number, Slot>();
+  let historyStartMs: number | null = null;
+  let historyEndMs: number | null = null;
+
+  const bump = (ms: number | null) => {
+    if (ms == null) return;
+    historyStartMs = historyStartMs == null ? ms : Math.min(historyStartMs, ms);
+    historyEndMs = historyEndMs == null ? ms : Math.max(historyEndMs, ms);
+  };
+
+  for (const ev of rawEvents) {
+    if (typeof ev !== 'object' || ev === null) continue;
+    const e = ev as RawEvent;
+    const eventType = str(e.eventType);
+    const attrs = getAttrs(e);
+    const t = parseEventTimeMs(e.eventTime);
+    bump(t);
+
+    if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_SCHEDULED' && attrs) {
+      const id = numAttr(e.eventId);
+      const at = (attrs.activityType as RawEvent)?.name;
+      if (id != null) {
+        slots.set(id, {
+          scheduledEventId: id,
+          activityName: str(at) || 'activity',
+          scheduledAt: t ?? historyEndMs ?? 0,
+          outcome: 'scheduled',
+        });
+      }
+    }
+
+    if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_STARTED' && attrs) {
+      const sid = numAttr(attrs.scheduledEventId);
+      if (sid != null) {
+        const slot = slots.get(sid);
+        if (slot && t != null) {
+          slot.startedAt = t;
+          slot.outcome = 'running';
+        }
+      }
+    }
+
+    if (
+      (eventType === 'EVENT_TYPE_ACTIVITY_TASK_COMPLETED' ||
+        eventType === 'EVENT_TYPE_ACTIVITY_TASK_FAILED' ||
+        eventType === 'EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT' ||
+        eventType === 'EVENT_TYPE_ACTIVITY_TASK_CANCELED') &&
+      attrs
+    ) {
+      const sid = numAttr(attrs.scheduledEventId);
+      if (sid != null) {
+        const slot = slots.get(sid);
+        if (slot && t != null) {
+          slot.endedAt = t;
+          if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_COMPLETED') slot.outcome = 'completed';
+          else if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_FAILED') slot.outcome = 'failed';
+          else if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT') slot.outcome = 'timed_out';
+          else slot.outcome = 'canceled';
+        }
+      }
+    }
+  }
+
+  const spans: ActivitySpan[] = [...slots.values()]
+    .sort((a, b) => a.scheduledEventId - b.scheduledEventId)
+    .map((s) => ({
+      key: String(s.scheduledEventId),
+      activityName: s.activityName,
+      scheduledAt: s.scheduledAt,
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      outcome: s.outcome,
+    }));
+
+  return { spans, historyStartMs, historyEndMs };
+}
+
 /**
  * Extract ActivityTaskScheduled steps from Temporal history JSON (from `historyToJSON`).
  */
@@ -172,6 +287,9 @@ export function parseFullHistory(history: unknown): ParsedHistory {
     activitySteps: [],
     executedNodes: null,
     topology: null,
+    activitySpans: [],
+    historyStartMs: null,
+    historyEndMs: null,
   };
 
   if (typeof history !== 'object' || history === null) return empty;
@@ -233,6 +351,7 @@ export function parseFullHistory(history: unknown): ParsedHistory {
   }
 
   const topology = parseMemoTopology(memo);
+  const { spans, historyStartMs, historyEndMs } = buildActivitySpansFromRawEvents(rawEvents);
 
   return {
     events: parsed,
@@ -244,5 +363,8 @@ export function parseFullHistory(history: unknown): ParsedHistory {
     activitySteps,
     executedNodes,
     topology,
+    activitySpans: spans,
+    historyStartMs,
+    historyEndMs,
   };
 }

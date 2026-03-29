@@ -44,9 +44,11 @@ interface Props {
   events: HistoryEvent[];
   /** When true, hide low-level WorkflowTask events for a cleaner view. */
   compact?: boolean;
+  /** Scroll area height (Tailwind class). Default: tall panel for standalone use. */
+  scrollAreaClassName?: string;
 }
 
-export function EventTimeline({ events, compact = true }: Props) {
+export function EventTimeline({ events, compact = true, scrollAreaClassName }: Props) {
   const [showAll, setShowAll] = useState(!compact);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -92,7 +94,12 @@ export function EventTimeline({ events, compact = true }: Props) {
         )}
       </div>
 
-      <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border">
+      <ScrollArea
+        className={cn(
+          'rounded-md border border-border',
+          scrollAreaClassName ?? 'h-[min(70vh,560px)]',
+        )}
+      >
         <ol className="space-y-0 divide-y divide-border font-mono text-xs">
           {visible.map((ev) => {
             const isExpanded = expanded.has(ev.eventId);
