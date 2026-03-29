@@ -106,8 +106,8 @@ function layoutElements(nodes: Node[], edges: Edge[]): Node[] {
 
 /**
  * Resolve conditional edges that have no static targets.
- * We infer targets from executedNodes: if a conditional edge's source was
- * executed, the node executed immediately after it is a likely target.
+ * Scans ALL occurrences in executedNodes to collect every unique target
+ * (handles loops where a conditional source runs multiple iterations).
  */
 function inferConditionalTargets(
   topoEdges: GraphStreamStateEdge[],
@@ -119,10 +119,11 @@ function inferConditionalTargets(
     if (e.type !== 'conditional') continue;
     const targets = Array.isArray(e.to) ? e.to : [e.to];
     if (targets.length > 0 && targets[0]) continue;
-    const srcIdx = executedNodes.indexOf(e.from);
-    if (srcIdx === -1 || srcIdx >= executedNodes.length - 1) continue;
-    const next = executedNodes[srcIdx + 1];
-    inferred.set(e.from, [next]);
+    const unique = new Set<string>();
+    for (let i = 0; i < executedNodes.length - 1; i++) {
+      if (executedNodes[i] === e.from) unique.add(executedNodes[i + 1]);
+    }
+    if (unique.size > 0) inferred.set(e.from, [...unique]);
   }
   return inferred;
 }
@@ -134,7 +135,8 @@ type EdgeStory =
   | 'into_active'
   | 'from_active'
   | 'possible_next'
-  | 'conditional_taken';
+  | 'conditional_taken'
+  | 'conditional_possible';
 
 function wasTraversedInOrder(from: string, to: string, order: string[]): boolean {
   for (let i = 0; i < order.length - 1; i++) {
@@ -213,6 +215,11 @@ function edgeVisuals(
         style: { stroke: '#38bdf8', strokeWidth: 1.75, strokeDasharray: '4 4' },
         markerColor: '#38bdf8',
       };
+    case 'conditional_possible':
+      return {
+        style: { stroke: '#71717a', strokeWidth: 1.25, strokeDasharray: '5 4' },
+        markerColor: '#71717a',
+      };
     default:
       return {
         style: { stroke: '#52525b', strokeWidth: 1.15, ...dash },
@@ -262,26 +269,52 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
 
     const inferredTargets = inferConditionalTargets(topology.edges, completedNodes);
 
+    // Nodes that are targets of at least one static edge
+    const staticTargetNodes = new Set<string>();
+    for (const e of topology.edges) {
+      if (e.type === 'static') {
+        const ts = Array.isArray(e.to) ? e.to : e.to ? [e.to] : [];
+        for (const t of ts) staticTargetNodes.add(t);
+      }
+    }
+    const entryNodeName = completedNodes[0] ?? activeNodes[0] ?? topology.nodes[0];
+    // Nodes reachable ONLY via conditional routing (no static incoming, not entry)
+    const conditionalOnlyTargets = new Set(
+      topology.nodes.filter((n) => !staticTargetNodes.has(n) && n !== entryNodeName),
+    );
+
     const edges: Edge[] = [];
     for (const e of topology.edges) {
       const conditional = e.type === 'conditional';
       let targets = Array.isArray(e.to) ? e.to.filter(Boolean) : e.to ? [e.to] : [];
 
       if (conditional && targets.length === 0) {
-        const inf = inferredTargets.get(e.from);
-        if (inf) {
-          for (const t of inf) {
-            const v = edgeVisuals('conditional_taken', true);
-            edges.push({
-              id: `${e.from}->${t}:inferred`,
-              source: e.from,
-              target: t,
-              animated: v.animated,
-              style: v.style,
-              markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
-              label: e.label ?? '',
-            });
-          }
+        const inf = new Set(inferredTargets.get(e.from) ?? []);
+
+        // Taken branches (inferred from execution order)
+        for (const t of inf) {
+          const v = edgeVisuals('conditional_taken', true);
+          edges.push({
+            id: `${e.from}->${t}:inferred`,
+            source: e.from,
+            target: t,
+            style: v.style,
+            markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
+            label: e.label ?? '',
+          });
+        }
+
+        // Possible but untaken branches — orphan nodes that must come from this conditional
+        for (const t of conditionalOnlyTargets) {
+          if (inf.has(t)) continue;
+          const v = edgeVisuals('conditional_possible', true);
+          edges.push({
+            id: `${e.from}->${t}:possible`,
+            source: e.from,
+            target: t,
+            style: v.style,
+            markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
+          });
         }
         continue;
       }
@@ -355,6 +388,8 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           <span className="text-sky-500/80">┅</span> likely next
           <span className="mx-1.5 text-zinc-500">·</span>
           <span className="text-violet-400">┅</span> branch taken
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="text-zinc-500">┅</span> branch not taken
         </span>
       </div>
       <div className="h-[520px] w-full">
