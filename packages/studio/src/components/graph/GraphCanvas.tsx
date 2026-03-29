@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, type CSSProperties } from 'react';
+import { useMemo, useCallback, useEffect, type CSSProperties, type ReactNode } from 'react';
 import Dagre from '@dagrejs/dagre';
 import {
   ReactFlow,
@@ -109,6 +109,43 @@ function layoutElements(nodes: Node[], edges: Edge[]): Node[] {
  * Scans ALL occurrences in executedNodes to collect every unique target
  * (handles loops where a conditional source runs multiple iterations).
  */
+/** Count consecutive (from → to) pairs in execution order (loops → N > 1). */
+function directedTransitionCounts(order: string[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (let i = 0; i < order.length - 1; i++) {
+    const from = order[i];
+    const to = order[i + 1];
+    const k = `${from}\0${to}`;
+    m.set(k, (m.get(k) ?? 0) + 1);
+  }
+  return m;
+}
+
+function edgeLabelWithTraversal(baseText: string | undefined, traversalCount: number): ReactNode | undefined {
+  const base = baseText?.trim() || undefined;
+  if (traversalCount <= 1 && !base) return undefined;
+  const tip =
+    traversalCount > 1
+      ? `Followed ${traversalCount} times in this run (from execution order).`
+      : undefined;
+  if (traversalCount <= 1) return base;
+  const mark = `×${traversalCount}`;
+  if (!base) {
+    return (
+      <span title={tip} className="font-mono text-[10px] font-semibold">
+        {mark}
+      </span>
+    );
+  }
+  return (
+    <span title={tip} className="font-mono text-[10px]">
+      <span>{base}</span>
+      <span className="text-muted-foreground mx-0.5">·</span>
+      <span className="font-semibold">{mark}</span>
+    </span>
+  );
+}
+
 function inferConditionalTargets(
   topoEdges: GraphStreamStateEdge[],
   executedNodes: string[],
@@ -300,7 +337,7 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
             target: t,
             style: v.style,
             markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
-            label: e.label ?? '',
+            label: e.label?.trim() ? e.label : undefined,
           });
         }
 
@@ -331,6 +368,19 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
           label: conditional && e.label ? e.label : undefined,
         });
+      }
+    }
+
+    const transitionCounts = directedTransitionCounts(executionOrder);
+    for (const edge of edges) {
+      const n = transitionCounts.get(`${edge.source}\0${edge.target}`) ?? 0;
+      const existing = typeof edge.label === 'string' ? edge.label : undefined;
+      const merged = edgeLabelWithTraversal(existing, n);
+      if (merged != null) {
+        edge.label = merged;
+        edge.labelShowBg = true;
+        edge.labelBgStyle = { fill: 'rgba(24, 24, 27, 0.92)', stroke: '#3f3f46' };
+        edge.labelStyle = { fill: '#fafafa' };
       }
     }
 
@@ -390,6 +440,9 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           <span className="text-violet-400">┅</span> branch taken
           <span className="mx-1.5 text-zinc-500">·</span>
           <span className="text-zinc-500">┅</span> branch not taken
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="rounded border border-zinc-600 bg-zinc-900 px-1 py-px text-[9px] text-zinc-200">×N</span>{' '}
+          repeated transition (this run)
         </span>
       </div>
       <div className="h-[520px] w-full">

@@ -140,4 +140,45 @@ describe('parseFullHistory', () => {
     expect(parsed.result).toBeNull();
     expect(parsed.activitySpans).toEqual([]);
   });
+
+  it('decodes base64 JSON workflow result payloads (Temporal history JSON)', () => {
+    const graphResult = {
+      status: 'max_iterations',
+      executedNodes: ['research', 'evaluate'],
+      totalUsage: { totalTokens: 2755 },
+      output: {},
+    };
+    const history = {
+      events: [
+        {
+          eventId: '1',
+          eventType: 'EVENT_TYPE_WORKFLOW_EXECUTION_STARTED',
+          workflowExecutionStartedEventAttributes: {
+            workflowType: { name: 'researchPipeline' },
+            taskQueue: { name: 'durion-graph-pipeline' },
+            input: { payloads: [] },
+            memo: {},
+          },
+        },
+        {
+          eventId: '2',
+          eventType: 'EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED',
+          workflowExecutionCompletedEventAttributes: {
+            result: {
+              payloads: [
+                {
+                  metadata: { encoding: 'json/plain' },
+                  data: btoa(JSON.stringify(graphResult)),
+                },
+              ],
+            },
+          },
+        },
+      ],
+    };
+
+    const parsed = parseFullHistory(history);
+    expect(parsed.result).toEqual(graphResult);
+    expect(parsed.executedNodes).toEqual(['research', 'evaluate']);
+  });
 });

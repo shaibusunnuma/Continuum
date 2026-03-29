@@ -133,6 +133,7 @@ export async function runsRoutes(
 
         return reply.send({
           workflowId: request.params.workflowId,
+          runId: description.runId ?? null,
           status: description.status.name,
           type: description.type,
           startTime: description.startTime?.toISOString() ?? null,

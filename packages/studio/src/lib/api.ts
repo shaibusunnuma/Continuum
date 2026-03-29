@@ -90,6 +90,7 @@ export async function getHistory(workflowId: string): Promise<unknown> {
 
 export async function describeRun(workflowId: string): Promise<{
   workflowId: string;
+  runId: string | null;
   status: string;
   type: unknown;
   startTime: string | null;

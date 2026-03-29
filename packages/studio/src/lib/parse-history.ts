@@ -91,11 +91,29 @@ function getAttrs(e: RawEvent): RawEvent | undefined {
   return undefined;
 }
 
-function extractPayloads(payloads: unknown): unknown {
-  if (!Array.isArray(payloads)) return undefined;
-  if (payloads.length === 0) return undefined;
-  if (payloads.length === 1) return payloads[0];
-  return payloads;
+/** Decode one Temporal `Payload` (JSON/protobuf JSON with base64 `data`) to a JS value. */
+function decodeTemporalPayloadItem(item: unknown): unknown {
+  if (item === null || typeof item !== 'object') return item;
+  const o = item as RawEvent;
+  if (typeof o.data !== 'string') return item;
+  try {
+    const json = atob(o.data);
+    return JSON.parse(json) as unknown;
+  } catch {
+    try {
+      return JSON.parse(o.data) as unknown;
+    } catch {
+      return item;
+    }
+  }
+}
+
+/** Workflow input / result `payloads` arrays — decode base64 like the Web UI / memo fields. */
+function extractDecodedPayloads(payloads: unknown): unknown {
+  if (!Array.isArray(payloads) || payloads.length === 0) return undefined;
+  const decoded = payloads.map(decodeTemporalPayloadItem);
+  if (decoded.length === 1) return decoded[0];
+  return decoded;
 }
 
 function extractMemoFromAttrs(attrs: RawEvent | undefined): Record<string, unknown> {
@@ -322,7 +340,7 @@ export function parseFullHistory(history: unknown): ParsedHistory {
       workflowType = str((attrs.workflowType as RawEvent)?.name) || null;
       taskQueue = str((attrs.taskQueue as RawEvent)?.name) || null;
       const inp = attrs.input as RawEvent | undefined;
-      input = extractPayloads(inp?.payloads) ?? null;
+      input = extractDecodedPayloads(inp?.payloads) ?? null;
       memo = { ...memo, ...extractMemoFromAttrs(attrs) };
     }
 
@@ -340,7 +358,7 @@ export function parseFullHistory(history: unknown): ParsedHistory {
 
     if (eventType.includes('WORKFLOW_EXECUTION_COMPLETED') && attrs) {
       const res = attrs.result as RawEvent | undefined;
-      result = extractPayloads(res?.payloads) ?? null;
+      result = extractDecodedPayloads(res?.payloads) ?? null;
     }
   }
 
