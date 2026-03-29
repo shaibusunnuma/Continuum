@@ -118,12 +118,24 @@ export interface GraphResult<TState> {
   error?: { node: string; message: string };
 }
 // ─── Graph Stream State ─────────────────────────────────────────────────────
+/** One edge in the stream-state topology (Studio / live visualization). */
+export interface GraphStreamStateEdge {
+  from: string;
+  /**
+   * Static edges: target node name or fan-out targets.
+   * Conditional edges: empty array — concrete targets are chosen at runtime from state.
+   */
+  to: string | string[];
+  type: 'static' | 'conditional';
+  /** Optional human hint for conditional routing (future: from graph config). */
+  label?: string;
+}
 /** Extended StreamState for graph workflows. Adds topology and execution progress. */
 export interface GraphStreamState extends StreamState {
   /** The graph's declared topology (nodes + edges). Set once at start. */
   topology?: {
     nodes: string[];
-    edges: Array<{ from: string; to: string | string[] }>;
+    edges: GraphStreamStateEdge[];
   };
   /** Currently executing node name(s). */
   activeNodes?: string[];

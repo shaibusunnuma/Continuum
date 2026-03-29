@@ -6,6 +6,7 @@ import { gatewayV0AuthPreHandler } from './gateway-v0-auth';
 import { workflowsRoutes } from './routes/workflows';
 import { agentsRoutes } from './routes/agents';
 import { runsRoutes } from './routes/runs';
+import { studioRoutes } from './routes/studio';
 
 async function main(): Promise<void> {
   await startTelemetry();
@@ -28,6 +29,7 @@ async function main(): Promise<void> {
       await f.register(workflowsRoutes, { prefix: '/workflows' });
       await f.register(agentsRoutes, { prefix: '/agents' });
       await f.register(runsRoutes, { prefix: '/runs' });
+      await f.register(studioRoutes, { prefix: '/studio' });
     },
     { prefix: '/v0' },
   );

@@ -215,7 +215,14 @@ export function graph<
       status: 'running',
       topology: {
         nodes: topology.nodes,
-        edges: topology.edges.map((e) => ({ from: e.from, to: e.to })),
+        edges: topology.edges.map((e) => {
+          const conditional = e.to === 'conditional';
+          return {
+            from: e.from,
+            to: conditional ? ([] as string[]) : e.to,
+            type: conditional ? ('conditional' as const) : ('static' as const),
+          };
+        }),
       },
       activeNodes: [],
       completedNodes: [],

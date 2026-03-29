@@ -26,6 +26,11 @@ export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory
 // Client (for starting workflows programmatically)
 export { createClient, resolveWorkflowType } from './temporal/client';
 export type { SdkClient, WorkflowRun, CreateClientConfig, StartWorkflowOptions } from './temporal/client';
+export type {
+  StudioWorkflowExecutionSummary,
+  ListWorkflowExecutionsParams,
+  ListWorkflowExecutionsResult,
+} from './temporal/studio-types';
 // App (runtime + worker + client defaults)
 export { createApp } from './app';
 export type { App, CreateAppConfig } from './app';
@@ -70,6 +75,7 @@ export type {
   GraphConfig,
   GraphResult,
   GraphStreamState,
+  GraphStreamStateEdge,
   GraphTopology,
   NodeFn,
   Edge,

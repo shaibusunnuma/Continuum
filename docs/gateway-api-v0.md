@@ -11,6 +11,7 @@ All v0 routes are under the **`/v0`** prefix:
 - Runs: `/v0/runs/...`
 - Workflows: `/v0/workflows/...`
 - Agents: `/v0/agents/...`
+- Studio (Durion Studio / observability): `/v0/studio/...`
 
 ## Authentication (optional)
 
@@ -95,6 +96,53 @@ Body (JSON):
 Body: `{ "agentName": "<string>", "input": { "message": "<string>" } }`
 
 **Success:** `201` + `{ "workflowId": "<id>", "runId"?: "<id>" }`.
+
+## Studio (Durion Studio)
+
+These routes power the **Durion Studio** SPA (run list + event history). They use the same optional **`DURION_GATEWAY_TOKEN`** auth as other v0 JSON endpoints.
+
+### `GET /v0/studio/runs`
+
+Lists workflow executions via Temporal visibility (paginated).
+
+**Query parameters:**
+
+| Name | Description |
+|------|-------------|
+| `limit` | Page size (default `20`, max `100`). |
+| `nextPageToken` | Opaque token from the previous response (`nextPageToken` field) for the next page. |
+| `query` | Optional Temporal visibility query string (see [Temporal visibility](https://docs.temporal.io/visibility)). |
+
+**Success:** `200` with JSON:
+
+```json
+{
+  "runs": [
+    {
+      "workflowId": "...",
+      "runId": "...",
+      "workflowType": "...",
+      "status": "RUNNING",
+      "taskQueue": "...",
+      "startTime": "2026-01-01T00:00:00.000Z",
+      "closeTime": null
+    }
+  ],
+  "nextPageToken": "..."
+}
+```
+
+`nextPageToken` is omitted when there is no further page.
+
+**Errors:** `500` with `{ "error": "Internal server error", "message": "..." }`.
+
+### `GET /v0/studio/runs/{workflowId}/history`
+
+Returns the workflow **event history** as JSON (same norm as other Temporal JSON history tools), for workflow-scoped debugging and activity-step views.
+
+**Success:** `200` + history JSON (object with `events`, etc.).
+
+**Errors:** `404` if the run is not found; `500` on server error (same error JSON shape as stream-state where applicable).
 
 ## Client helpers
 

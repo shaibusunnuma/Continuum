@@ -12,9 +12,17 @@
  *   const handle = await client.startWorkflow('myWorkflow', { input: { message: 'Hi' } });
  */
 import { Client, Connection, WorkflowExecutionDescription } from '@temporalio/client';
+import { executionInfoFromRaw } from '@temporalio/client/lib/helpers';
+import { historyToJSON } from '@temporalio/common/lib/proto-utils';
+import type { LoadedDataConverter } from '@temporalio/common';
 import { config } from '../../shared/config';
 import { ConfigurationError } from '../errors';
 import type { StreamState } from '../types';
+import type {
+  ListWorkflowExecutionsParams,
+  ListWorkflowExecutionsResult,
+  StudioWorkflowExecutionSummary,
+} from './studio-types';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -87,6 +95,18 @@ export interface SdkClient {
 
   /** Get a handle to an existing workflow by ID. */
   getWorkflowHandle<TResult = unknown>(workflowId: string): WorkflowRun<TResult>;
+
+  /**
+   * List workflow executions in this namespace (visibility API).
+   * Used by Durion Studio Run Explorer.
+   */
+  listWorkflowExecutions(params?: ListWorkflowExecutionsParams): Promise<ListWorkflowExecutionsResult>;
+
+  /**
+   * Fetch full workflow event history as JSON-safe data (for Studio / debugging).
+   */
+  fetchWorkflowHistory(workflowId: string, runId?: string): Promise<unknown>;
+
   /** Close the underlying Temporal connection. */
   close(): Promise<void>;
 }
@@ -153,6 +173,26 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     };
   }
 
+  function mapExecutionToSummary(info: {
+    workflowId: string;
+    runId: string;
+    type: string;
+    status: { name: string };
+    taskQueue: string;
+    startTime: Date;
+    closeTime?: Date;
+  }): StudioWorkflowExecutionSummary {
+    return {
+      workflowId: info.workflowId,
+      runId: info.runId,
+      workflowType: info.type,
+      status: info.status.name,
+      taskQueue: info.taskQueue,
+      startTime: info.startTime?.toISOString() ?? null,
+      closeTime: info.closeTime?.toISOString() ?? null,
+    };
+  }
+
   return {
     async start<TInput, TResult>(
       workflow: (input: TInput) => Promise<TResult>,
@@ -186,6 +226,46 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     getWorkflowHandle<TResult>(workflowId: string): WorkflowRun<TResult> {
       const handle = temporalClient.workflow.getHandle(workflowId);
       return wrapHandle<TResult>(handle);
+    },
+
+    async listWorkflowExecutions(
+      params?: ListWorkflowExecutionsParams,
+    ): Promise<ListWorkflowExecutionsResult> {
+      const pageSize = Math.min(Math.max(params?.pageSize ?? 20, 1), 100);
+      const tokenBuffer = params?.nextPageToken
+        ? Buffer.from(params.nextPageToken, 'base64url')
+        : Buffer.alloc(0);
+
+      const wfClient = temporalClient.workflow;
+      const dataConverter = (wfClient as unknown as { dataConverter: LoadedDataConverter }).dataConverter;
+
+      const response = await wfClient.workflowService.listWorkflowExecutions({
+        namespace,
+        query: params?.query?.trim() ? params.query : undefined,
+        pageSize,
+        nextPageToken: tokenBuffer,
+      });
+
+      const rawExecutions = response.executions ?? [];
+      const executions: StudioWorkflowExecutionSummary[] = [];
+
+      for (const raw of rawExecutions) {
+        const info = await executionInfoFromRaw(raw, dataConverter, raw);
+        executions.push(mapExecutionToSummary(info));
+      }
+
+      const next = response.nextPageToken;
+      const nextPageToken =
+        next != null && next.length > 0 ? Buffer.from(next).toString('base64url') : undefined;
+
+      return { executions, nextPageToken };
+    },
+
+    async fetchWorkflowHistory(workflowId: string, runId?: string): Promise<unknown> {
+      const handle = temporalClient.workflow.getHandle(workflowId, runId);
+      const history = await handle.fetchHistory();
+      const json = historyToJSON(history);
+      return JSON.parse(json) as unknown;
     },
 
     async close(): Promise<void> {
