@@ -32,9 +32,11 @@
     "prepublishOnly": "npm run build",
     "test": "vitest run"
   },
-  "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0",
+  "dependencies": {
     "@durion/sdk": "^0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@durion/sdk": "^0.1.0",
