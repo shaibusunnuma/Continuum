@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, type CSSProperties } from 'react';
 import Dagre from '@dagrejs/dagre';
 import {
   ReactFlow,
@@ -6,6 +6,7 @@ import {
   Controls,
   type Edge,
   type Node,
+  MarkerType,
   Position,
   useEdgesState,
   useNodesState,
@@ -23,35 +24,51 @@ const nodeHeight = 40;
 function GraphNode({ data }: NodeProps) {
   const status = data.status as 'idle' | 'active' | 'done' | 'error';
   const conditional = data.conditional as boolean | undefined;
+  const handleClass =
+    status === 'active'
+      ? '!size-2.5 !border-2 !border-amber-400 !bg-amber-500'
+      : status === 'done'
+        ? '!size-2 !border border-emerald-600/80 !bg-emerald-500'
+        : status === 'error'
+          ? '!size-2 !bg-destructive'
+          : '!size-2 !bg-muted-foreground/35';
+
   return (
     <div
       className={cn(
-        'rounded border px-3 py-2 font-mono text-xs transition-colors duration-150',
-        'border-border bg-card text-card-foreground min-w-[140px]',
-        status === 'active' && 'border-primary ring-1 ring-primary/40',
-        status === 'done' && 'border-primary/60 text-muted-foreground',
-        status === 'error' && 'border-destructive text-destructive',
+        'rounded-md border-2 px-3 py-2 font-mono text-xs transition-colors duration-200',
+        'min-w-[140px] shadow-sm',
+        /* Not reached yet — quiet */
+        status === 'idle' &&
+          'border-zinc-600/50 bg-zinc-950/60 text-zinc-400 dark:border-zinc-500/40 dark:bg-zinc-950/80',
+        /* Finished successfully — green story */
+        status === 'done' &&
+          'border-emerald-600/90 bg-emerald-950/50 text-emerald-100/90 dark:border-emerald-500/70 dark:bg-emerald-950/40',
+        /* Running now — warm, high contrast */
+        status === 'active' &&
+          'border-amber-400 bg-amber-950/55 text-amber-50 shadow-[0_0_20px_-4px_rgba(251,191,36,0.45)] ring-2 ring-amber-400/35 dark:border-amber-400 dark:bg-amber-950/50',
+        status === 'error' && 'border-destructive bg-destructive/10 text-destructive',
       )}
     >
-      <Handle type="target" position={Position.Top} className="!size-2 !bg-muted-foreground" />
+      <Handle type="target" position={Position.Top} className={handleClass} />
       <div className="flex items-center gap-2">
         <span
           className={cn(
-            'size-2 shrink-0 rounded-sm',
-            status === 'idle' && 'bg-muted-foreground/40',
-            status === 'active' && 'animate-pulse bg-primary',
-            status === 'done' && 'bg-primary',
+            'size-2.5 shrink-0 rounded-full',
+            status === 'idle' && 'bg-zinc-500/40 ring-1 ring-zinc-500/20',
+            status === 'active' && 'animate-pulse bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]',
+            status === 'done' && 'bg-emerald-400 ring-1 ring-emerald-300/30',
             status === 'error' && 'bg-destructive',
           )}
         />
-        <span className="truncate">{String(data.label ?? '')}</span>
+        <span className="truncate font-medium">{String(data.label ?? '')}</span>
         {conditional && (
-          <span className="text-muted-foreground text-[9px]" title="Has conditional routing">
+          <span className="text-violet-300/80 text-[9px]" title="Conditional routing">
             ⑂
           </span>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!size-2 !bg-muted-foreground" />
+      <Handle type="source" position={Position.Bottom} className={handleClass} />
     </div>
   );
 }
@@ -104,6 +121,101 @@ function inferConditionalTargets(
   return inferred;
 }
 
+/** Edge narrative: what happened vs what is live vs what is still ahead. */
+type EdgeStory =
+  | 'inactive'
+  | 'traversed'
+  | 'into_active'
+  | 'from_active'
+  | 'possible_next'
+  | 'conditional_taken';
+
+function wasTraversedInOrder(from: string, to: string, order: string[]): boolean {
+  for (let i = 0; i < order.length - 1; i++) {
+    if (order[i] === from && order[i + 1] === to) return true;
+  }
+  return false;
+}
+
+/** Both ends finished and `to` runs after `from` in history (handles fan-in). */
+function bothDoneAndTargetLater(from: string, to: string, order: string[]): boolean {
+  const iFrom = order.lastIndexOf(from);
+  const iTo = order.lastIndexOf(to);
+  return iFrom >= 0 && iTo >= 0 && iTo > iFrom;
+}
+
+function classifyEdgeStory(
+  from: string,
+  to: string,
+  active: Set<string>,
+  completed: Set<string>,
+  order: string[],
+): EdgeStory {
+  const srcAct = active.has(from);
+  const tgtAct = active.has(to);
+  const srcDone = completed.has(from);
+  const tgtDone = completed.has(to);
+
+  if (tgtAct && (srcDone || srcAct)) return 'into_active';
+  if (srcAct && !tgtAct) return 'from_active';
+  if (wasTraversedInOrder(from, to, order)) return 'traversed';
+  if (srcDone && tgtDone && bothDoneAndTargetLater(from, to, order)) return 'traversed';
+  if (srcDone && !tgtDone && !tgtAct) return 'possible_next';
+  return 'inactive';
+}
+
+/**
+ * Inline SVG stroke — React Flow’s `.react-flow__edge-path` uses CSS variables; without
+ * an inline `stroke`, edges stay gray. Markers use the same hex so arrowheads match.
+ */
+function edgeVisuals(
+  story: EdgeStory,
+  edgeIsConditional: boolean,
+): { style: CSSProperties; animated?: boolean; markerColor: string } {
+  const dash: CSSProperties =
+    edgeIsConditional && story !== 'conditional_taken'
+      ? { strokeDasharray: '6 4' }
+      : story === 'conditional_taken'
+        ? { strokeDasharray: '6 4' }
+        : {};
+
+  switch (story) {
+    case 'conditional_taken':
+      return {
+        style: { stroke: '#c084fc', strokeWidth: 2.2, ...dash },
+        animated: true,
+        markerColor: '#c084fc',
+      };
+    case 'traversed':
+      return {
+        style: { stroke: '#10b981', strokeWidth: 2.25, ...dash },
+        markerColor: '#10b981',
+      };
+    case 'into_active':
+      return {
+        style: { stroke: '#fbbf24', strokeWidth: 2.75, ...dash },
+        animated: true,
+        markerColor: '#fbbf24',
+      };
+    case 'from_active':
+      return {
+        style: { stroke: '#fcd34d', strokeWidth: 2.75, ...dash },
+        animated: true,
+        markerColor: '#fcd34d',
+      };
+    case 'possible_next':
+      return {
+        style: { stroke: '#38bdf8', strokeWidth: 1.75, strokeDasharray: '4 4' },
+        markerColor: '#38bdf8',
+      };
+    default:
+      return {
+        style: { stroke: '#52525b', strokeWidth: 1.15, ...dash },
+        markerColor: '#52525b',
+      };
+  }
+}
+
 export interface GraphCanvasProps {
   /** Full stream state (Tier 2 — live from worker query). */
   state?: GraphStreamState;
@@ -125,6 +237,8 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
 
     const active = new Set(activeNodes);
     const completed = new Set(completedNodes);
+    /** Order of finished nodes — used to mark edges that were actually taken. */
+    const executionOrder = completedNodes;
     const conditionalSources = new Set(
       topology.edges.filter((e) => e.type === 'conditional').map((e) => e.from),
     );
@@ -152,13 +266,14 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
         const inf = inferredTargets.get(e.from);
         if (inf) {
           for (const t of inf) {
+            const v = edgeVisuals('conditional_taken', true);
             edges.push({
               id: `${e.from}->${t}:inferred`,
               source: e.from,
               target: t,
-              animated: true,
-              style: { strokeDasharray: '6 4' },
-              className: 'stroke-primary/60',
+              animated: v.animated,
+              style: v.style,
+              markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
               label: e.label ?? '',
             });
           }
@@ -167,12 +282,15 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
       }
 
       for (const t of targets) {
+        const story = classifyEdgeStory(e.from, t, active, completed, executionOrder);
+        const v = edgeVisuals(story, conditional);
         edges.push({
           id: `${e.from}->${t}`,
           source: e.from,
           target: t,
-          style: conditional ? { strokeDasharray: '6 4' } : undefined,
-          className: 'stroke-border',
+          animated: v.animated,
+          style: v.style,
+          markerEnd: { type: MarkerType.ArrowClosed, color: v.markerColor },
           label: conditional && e.label ? e.label : undefined,
         });
       }
@@ -205,21 +323,45 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
   }
 
   return (
-    <div className="h-[520px] w-full rounded-md border border-border">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        onInit={onInit}
-        proOptions={{ hideAttribution: true }}
-        fitView
-        className="bg-background"
-      >
-        <Background gap={20} size={1} className="opacity-30" />
-        <Controls className="border border-border bg-card text-foreground" />
-      </ReactFlow>
+    <div className="w-full rounded-md border border-border">
+      <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-border bg-card/40 px-3 py-2 font-mono text-[10px] leading-tight">
+        <span>
+          <span className="text-zinc-500">Nodes</span>
+          <span className="mx-1.5 text-zinc-400">·</span>
+          <span className="text-zinc-400">○</span> not reached
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="text-emerald-400">●</span> completed
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="text-amber-400">●</span> running
+        </span>
+        <span>
+          <span className="text-zinc-500">Edges</span>
+          <span className="mx-1.5 text-zinc-400">·</span>
+          <span className="text-emerald-500">━</span> path taken
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="text-amber-400">━</span> into / out of running
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="text-sky-500/80">┅</span> likely next
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="text-violet-400">┅</span> branch taken
+        </span>
+      </div>
+      <div className="h-[520px] w-full">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          onInit={onInit}
+          proOptions={{ hideAttribution: true }}
+          fitView
+          className="bg-background"
+        >
+          <Background gap={20} size={1} className="opacity-30" />
+          <Controls className="border border-border bg-card text-foreground" />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
