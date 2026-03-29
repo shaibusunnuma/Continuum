@@ -1,6 +1,6 @@
 # @durion/eval
 
-## 1.0.0
+## 0.1.0
 
 ### Minor Changes
 
@@ -9,4 +9,4 @@
 ### Patch Changes
 
 - Updated dependencies [5fa71df]
-  - @durion/sdk@1.0.0
+  - @durion/sdk@0.1.0
