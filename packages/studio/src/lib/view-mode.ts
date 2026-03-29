@@ -1,6 +1,11 @@
-import type { GraphStreamState, StreamState } from './types';
+import type { GraphStreamState, GraphStreamStateEdge, StreamState } from './types';
 
 export type RunViewMode = 'graph' | 'agent' | 'workflow';
+
+export interface MemoTopology {
+  nodes: string[];
+  edges: GraphStreamStateEdge[];
+}
 
 export function detectViewMode(state: StreamState): RunViewMode {
   const g = state as GraphStreamState;

@@ -44,3 +44,35 @@ export interface ActivityStep {
   eventId: string;
   activityName: string;
 }
+
+// ─── Rich history types (parsed from Temporal event history JSON) ──────────
+
+export interface HistoryEvent {
+  eventId: string;
+  eventType: string;
+  eventTime?: string;
+  /** Display-friendly label derived from event type + attributes. */
+  label: string;
+  /** Relevant attributes payload (varies by event type). */
+  details?: Record<string, unknown>;
+}
+
+export interface ParsedHistory {
+  events: HistoryEvent[];
+  /** Workflow input (from WorkflowExecutionStarted). */
+  input: unknown | null;
+  /** Workflow result (from WorkflowExecutionCompleted). */
+  result: unknown | null;
+  /** Memo from WorkflowExecutionStarted or WorkflowPropertiesModified. */
+  memo: Record<string, unknown>;
+  /** Workflow type name. */
+  workflowType: string | null;
+  /** Task queue. */
+  taskQueue: string | null;
+  /** Activity steps (scheduled + completed pairs). */
+  activitySteps: ActivityStep[];
+  /** For graph workflows: executed nodes extracted from the result. */
+  executedNodes: string[] | null;
+  /** Graph topology extracted from memo (durion:topology). */
+  topology: { nodes: string[]; edges: GraphStreamStateEdge[] } | null;
+}

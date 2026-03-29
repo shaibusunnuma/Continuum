@@ -137,6 +137,7 @@ export async function runsRoutes(
           type: description.type,
           startTime: description.startTime?.toISOString() ?? null,
           closeTime: description.closeTime?.toISOString() ?? null,
+          memo: description.memo ?? {},
         });
       } catch (err) {
         request.log.error(err);

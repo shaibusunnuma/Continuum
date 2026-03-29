@@ -231,6 +231,9 @@ export function graph<
     };
     const streamStateQuery = wf.defineQuery<GraphStreamState>('durion:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
+    if (wf.patched('durion-topology-memo')) {
+      wf.upsertMemo({ 'durion:topology': streamState.topology });
+    }
     // ── Build GraphContext for a node ───────────────────────────────────
     function buildContext(lastError?: GraphNodeError): GraphContext<TState> {
       return {

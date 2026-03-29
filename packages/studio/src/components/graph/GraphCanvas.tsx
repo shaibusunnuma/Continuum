@@ -13,7 +13,8 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import type { GraphStreamState } from '@/lib/types';
+import type { GraphStreamState, GraphStreamStateEdge } from '@/lib/types';
+import type { MemoTopology } from '@/lib/view-mode';
 import { cn } from '@/lib/utils';
 
 const nodeWidth = 168;
@@ -21,6 +22,7 @@ const nodeHeight = 40;
 
 function GraphNode({ data }: NodeProps) {
   const status = data.status as 'idle' | 'active' | 'done' | 'error';
+  const conditional = data.conditional as boolean | undefined;
   return (
     <div
       className={cn(
@@ -43,6 +45,11 @@ function GraphNode({ data }: NodeProps) {
           )}
         />
         <span className="truncate">{String(data.label ?? '')}</span>
+        {conditional && (
+          <span className="text-muted-foreground text-[9px]" title="Has conditional routing">
+            ⑂
+          </span>
+        )}
       </div>
       <Handle type="source" position={Position.Bottom} className="!size-2 !bg-muted-foreground" />
     </div>
@@ -74,16 +81,53 @@ function layoutElements(nodes: Node[], edges: Edge[]): Node[] {
   });
 }
 
-export function GraphCanvas({ state }: { state: GraphStreamState }) {
-  const topology = state.topology;
+/**
+ * Resolve conditional edges that have no static targets.
+ * We infer targets from executedNodes: if a conditional edge's source was
+ * executed, the node executed immediately after it is a likely target.
+ */
+function inferConditionalTargets(
+  topoEdges: GraphStreamStateEdge[],
+  executedNodes: string[],
+): Map<string, string[]> {
+  const inferred = new Map<string, string[]>();
+  if (executedNodes.length === 0) return inferred;
+  for (const e of topoEdges) {
+    if (e.type !== 'conditional') continue;
+    const targets = Array.isArray(e.to) ? e.to : [e.to];
+    if (targets.length > 0 && targets[0]) continue;
+    const srcIdx = executedNodes.indexOf(e.from);
+    if (srcIdx === -1 || srcIdx >= executedNodes.length - 1) continue;
+    const next = executedNodes[srcIdx + 1];
+    inferred.set(e.from, [next]);
+  }
+  return inferred;
+}
+
+export interface GraphCanvasProps {
+  /** Full stream state (Tier 2 — live from worker query). */
+  state?: GraphStreamState;
+  /** Static topology from memo (Tier 1 — no worker needed). */
+  topology?: MemoTopology;
+  /** Executed node names from workflow result (Tier 1 — completed runs). */
+  executedNodes?: string[];
+}
+
+export function GraphCanvas({ state, topology: memoTopology, executedNodes: resultExecutedNodes }: GraphCanvasProps) {
+  const topology = state?.topology ?? memoTopology ?? null;
+  const activeNodes = state?.activeNodes ?? [];
+  const completedNodes = state?.completedNodes ?? resultExecutedNodes ?? [];
 
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!topology) {
       return { initialNodes: [] as Node[], initialEdges: [] as Edge[] };
     }
 
-    const active = new Set(state.activeNodes ?? []);
-    const completed = new Set(state.completedNodes ?? []);
+    const active = new Set(activeNodes);
+    const completed = new Set(completedNodes);
+    const conditionalSources = new Set(
+      topology.edges.filter((e) => e.type === 'conditional').map((e) => e.from),
+    );
 
     const nodes: Node[] = topology.nodes.map((id) => {
       let status: 'idle' | 'active' | 'done' | 'error' = 'idle';
@@ -93,30 +137,50 @@ export function GraphCanvas({ state }: { state: GraphStreamState }) {
         id,
         type: 'graphNode',
         position: { x: 0, y: 0 },
-        data: { label: id, status },
+        data: { label: id, status, conditional: conditionalSources.has(id) },
       };
     });
+
+    const inferredTargets = inferConditionalTargets(topology.edges, completedNodes);
 
     const edges: Edge[] = [];
     for (const e of topology.edges) {
       const conditional = e.type === 'conditional';
-      const targets = Array.isArray(e.to) ? e.to : [e.to];
-      if (targets.length === 0) continue;
+      let targets = Array.isArray(e.to) ? e.to.filter(Boolean) : e.to ? [e.to] : [];
+
+      if (conditional && targets.length === 0) {
+        const inf = inferredTargets.get(e.from);
+        if (inf) {
+          for (const t of inf) {
+            edges.push({
+              id: `${e.from}->${t}:inferred`,
+              source: e.from,
+              target: t,
+              animated: true,
+              style: { strokeDasharray: '6 4' },
+              className: 'stroke-primary/60',
+              label: e.label ?? '',
+            });
+          }
+        }
+        continue;
+      }
+
       for (const t of targets) {
-        if (!t) continue;
         edges.push({
           id: `${e.from}->${t}`,
           source: e.from,
           target: t,
           style: conditional ? { strokeDasharray: '6 4' } : undefined,
           className: 'stroke-border',
+          label: conditional && e.label ? e.label : undefined,
         });
       }
     }
 
     const laidOut = layoutElements(nodes, edges);
     return { initialNodes: laidOut, initialEdges: edges };
-  }, [topology, state.activeNodes, state.completedNodes]);
+  }, [topology, activeNodes, completedNodes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -135,13 +199,13 @@ export function GraphCanvas({ state }: { state: GraphStreamState }) {
   if (!topology || topology.nodes.length === 0) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center font-mono text-sm">
-        No graph topology in stream state.
+        No graph topology available.
       </div>
     );
   }
 
   return (
-    <div className="h-full min-h-[420px] w-full rounded-md border border-border">
+    <div className="h-[520px] w-full rounded-md border border-border">
       <ReactFlow
         nodes={nodes}
         edges={edges}

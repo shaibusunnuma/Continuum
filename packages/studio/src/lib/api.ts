@@ -94,8 +94,21 @@ export async function describeRun(workflowId: string): Promise<{
   type: unknown;
   startTime: string | null;
   closeTime: string | null;
+  memo: Record<string, unknown>;
 }> {
   const res = await fetchWithTimeout(`/v0/runs/${encodeURIComponent(workflowId)}`, {
+    headers: { ...authHeaders() },
+  });
+  return parseJson(res);
+}
+
+export async function getResult(workflowId: string): Promise<{
+  workflowId: string;
+  status: string;
+  result: unknown;
+  error?: string;
+}> {
+  const res = await fetchWithTimeout(`/v0/runs/${encodeURIComponent(workflowId)}/result`, {
     headers: { ...authHeaders() },
   });
   return parseJson(res);
