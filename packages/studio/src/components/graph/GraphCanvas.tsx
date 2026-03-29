@@ -17,6 +17,7 @@ import '@xyflow/react/dist/style.css';
 import type { GraphStreamState, GraphStreamStateEdge } from '@/lib/types';
 import type { MemoTopology } from '@/lib/view-mode';
 import { cn } from '@/lib/utils';
+import { GitBranch } from 'lucide-react';
 
 const nodeWidth = 168;
 const nodeHeight = 40;
@@ -61,10 +62,15 @@ function GraphNode({ data }: NodeProps) {
             status === 'error' && 'bg-destructive',
           )}
         />
-        <span className="truncate font-medium">{String(data.label ?? '')}</span>
+        <span className="min-w-0 flex-1 truncate font-medium">{String(data.label ?? '')}</span>
         {conditional && (
-          <span className="text-violet-300/80 text-[9px]" title="Conditional routing">
-            ⑂
+          <span
+            className="inline-flex shrink-0 items-center gap-0.5 rounded border border-violet-400/50 bg-violet-950/55 px-1 py-0.5 text-[8px] font-semibold uppercase leading-none tracking-wide text-violet-100"
+            title="Conditional routing: the next edge is chosen from workflow graph state at this step."
+            aria-label="Conditional routing"
+          >
+            <GitBranch className="size-2.5 text-violet-300" strokeWidth={2.5} aria-hidden />
+            if
           </span>
         )}
       </div>
@@ -183,7 +189,6 @@ function edgeVisuals(
     case 'conditional_taken':
       return {
         style: { stroke: '#c084fc', strokeWidth: 2.2, ...dash },
-        animated: true,
         markerColor: '#c084fc',
       };
     case 'traversed':
@@ -333,6 +338,12 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           <span className="text-emerald-400">●</span> completed
           <span className="mx-1.5 text-zinc-500">·</span>
           <span className="text-amber-400">●</span> running
+          <span className="mx-1.5 text-zinc-500">·</span>
+          <span className="inline-flex items-center gap-0.5 rounded border border-violet-400/45 bg-violet-950/40 px-0.5 py-px text-[7px] font-semibold text-violet-200">
+            <GitBranch className="size-2 text-violet-300" strokeWidth={2.5} aria-hidden />
+            if
+          </span>{' '}
+          branch
         </span>
         <span>
           <span className="text-zinc-500">Edges</span>
