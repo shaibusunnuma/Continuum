@@ -21,11 +21,12 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
     for (const step of history.activitySteps) {
       if (step.activityName !== 'runModel' && step.activityName !== 'runTool') continue;
       
-      const payload = step.result?.payload;
+      const payload = step.result?.payload || step.result;
       if (!payload) continue;
 
       // Extract usage directly from the result payload matching RunModelResult
-      const usage = payload.usage as { totalTokens?: number; promptTokens?: number; completionTokens?: number; costUsd?: number } | undefined;
+      const usage = payload.usage as { totalTokens?: number; promptTokens?: number; completionTokens?: number } | undefined;
+      const stepCost = typeof payload.costUsd === 'number' ? payload.costUsd : 0;
       const latencyMs = typeof payload.latencyMs === 'number' ? payload.latencyMs : 0;
       const inputData = Array.isArray(step.input) ? step.input[0] : step.input;
       const modelId = inputData?.modelId as string | undefined;
@@ -49,14 +50,14 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
       
       if (modelId) st.modelIds.add(modelId);
 
-      if (usage) {
-        st.promptTokens += (usage.promptTokens || 0);
-        st.completionTokens += (usage.completionTokens || 0);
-        st.costUsd += (usage.costUsd || 0);
+      if (usage || stepCost > 0) {
+        st.promptTokens += (usage?.promptTokens || 0);
+        st.completionTokens += (usage?.completionTokens || 0);
+        st.costUsd += stepCost;
         
-        totalPrompt += (usage.promptTokens || 0);
-        totalCompletion += (usage.completionTokens || 0);
-        totalComputedCost += (usage.costUsd || 0);
+        totalPrompt += (usage?.promptTokens || 0);
+        totalCompletion += (usage?.completionTokens || 0);
+        totalComputedCost += stepCost;
       }
     }
 
