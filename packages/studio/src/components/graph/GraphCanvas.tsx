@@ -272,12 +272,16 @@ export interface GraphCanvasProps {
   topology?: MemoTopology;
   /** Executed node names from workflow result (Tier 1 — completed runs). */
   executedNodes?: string[];
+  /** Callback when a node is clicked */
+  onNodeClick?: (nodeId: string) => void;
 }
 
-export function GraphCanvas({ state, topology: memoTopology, executedNodes: resultExecutedNodes }: GraphCanvasProps) {
+const EMPTY_ARRAY: string[] = [];
+
+export function GraphCanvas({ state, topology: memoTopology, executedNodes: resultExecutedNodes, onNodeClick }: GraphCanvasProps) {
   const topology = state?.topology ?? memoTopology ?? null;
-  const activeNodes = state?.activeNodes ?? [];
-  const completedNodes = state?.completedNodes ?? resultExecutedNodes ?? [];
+  const activeNodes = state?.activeNodes ?? EMPTY_ARRAY;
+  const completedNodes = state?.completedNodes ?? resultExecutedNodes ?? EMPTY_ARRAY;
 
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!topology) {
@@ -451,6 +455,7 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick ? (_, node) => onNodeClick(node.id) : undefined}
           nodeTypes={nodeTypes}
           onInit={onInit}
           proOptions={{ hideAttribution: true }}

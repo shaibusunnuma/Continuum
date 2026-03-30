@@ -261,6 +261,7 @@ export interface RunModelResult {
   content: string;
   toolCalls: ToolCall[];
   usage: Usage;
+  latencyMs?: number;
   /** When structured output was requested (outputSchema), contains the parsed object as a JSON string. */
   parsedObject?: string;
 }
@@ -276,4 +277,5 @@ export interface RunToolParams {
 /** Output from the `runTool` Temporal activity. */
 export interface RunToolResult {
   result: unknown;
+  latencyMs?: number;
 }

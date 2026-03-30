@@ -370,10 +370,27 @@ export function parseFullHistory(history: unknown): ParsedHistory {
 
     if (historyEventMatches(eventType, 'ACTIVITY_TASK_SCHEDULED') && attrs) {
       const at = (attrs.activityType as RawEvent)?.name;
+      const actId = str(attrs.activityId);
+      const inp = attrs.input as RawEvent | undefined;
+      const decodedInput = extractDecodedPayloads(inp?.payloads) ?? null;
+      
       activitySteps.push({
         eventId: str(e.eventId),
         activityName: str(at) || 'activity',
+        activityId: actId,
+        input: decodedInput,
       });
+    }
+
+    if (historyEventMatches(eventType, 'ACTIVITY_TASK_COMPLETED') && attrs) {
+      const scheduledId = str(attrs.scheduledEventId);
+      const res = attrs.result as RawEvent | undefined;
+      const decodedResult = extractDecodedPayloads(res?.payloads) ?? null;
+      
+      const step = activitySteps.find((s) => s.eventId === scheduledId);
+      if (step) {
+        step.result = decodedResult;
+      }
     }
 
     if (historyEventMatches(eventType, 'WORKFLOW_EXECUTION_COMPLETED') && attrs) {

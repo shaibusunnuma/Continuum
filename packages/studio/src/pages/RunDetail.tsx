@@ -11,6 +11,10 @@ import { AgentTimeline } from '@/components/agent/AgentTimeline';
 import { ActivityList } from '@/components/workflow/ActivityList';
 import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
+import { XRayPane } from '@/components/ui/XRayPane';
+import { CostBreakdown } from '@/components/run-explorer/CostBreakdown';
+import type { ActivityStep } from '@/lib/types';
+import type { MemoTopology } from '@/lib/view-mode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,7 +90,29 @@ export function RunDetail() {
   const [refreshing, setRefreshing] = useState(true);
 
   // Active tab for the content area
-  const [activeTab, setActiveTab] = useState<'visualization' | 'events' | 'input' | 'result'>('visualization');
+  const [activeTab, setActiveTab] = useState<'visualization' | 'events' | 'input' | 'result' | 'cost'>('visualization');
+
+  // X-Ray Pane State
+  const [selectedStep, setSelectedStep] = useState<ActivityStep | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>();
+  const [isXRayOpen, setIsXRayOpen] = useState(false);
+
+  const openXRay = (step: ActivityStep | null, nodeId?: string) => {
+    let resolvedStep = step;
+    if (!resolvedStep && nodeId && history) {
+      // Try to find the step by traceContext.agentName or fallback to activityName matching
+      // Traverse backwards so we always show the LATEST execution of a node in loops
+      resolvedStep = [...history.activitySteps].reverse().find((s) => {
+        const inputData = Array.isArray(s.input) ? s.input[0] : s.input;
+        const tc = inputData?.traceContext as { agentName?: string } | undefined;
+        return tc?.agentName === nodeId || s.activityName === nodeId;
+      }) || null;
+    }
+
+    setSelectedStep(resolvedStep);
+    setSelectedNodeId(nodeId);
+    setIsXRayOpen(true);
+  };
 
   useEffect(() => {
     setStreamState(null);
@@ -464,26 +490,26 @@ export function RunDetail() {
               Result
             </TabButton>
           )}
+          <TabButton active={activeTab === 'cost'} onClick={() => setActiveTab('cost')}>
+            Cost Breakdown
+          </TabButton>
         </div>
 
         {/* ── Content ───────────────────────────────────────────────── */}
-        <div className="h-[560px] min-h-[420px]">
-          {refreshing && !describe && !hasEvents && (
-            <p className="text-muted-foreground font-mono text-sm">Loading…</p>
-          )}
+        <div className="flex h-[560px] min-h-[420px] gap-4">
+          <div className="flex-1 w-full relative">
+            {refreshing && !describe && !hasEvents && (
+              <p className="text-muted-foreground font-mono text-sm absolute top-0 left-0">Loading…</p>
+            )}
 
           {activeTab === 'visualization' && (
             <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto pr-1">
-              {/* Graph: live from stream-state OR static from history topology */}
-              {mode === 'graph' && streamState && (
-                <GraphCanvas state={streamState as GraphStreamState} />
-              )}
-              {mode === 'graph' && !streamState && history.topology && (
-                <GraphCanvas
-                  topology={history.topology}
-                  executedNodes={history.executedNodes ?? undefined}
-                />
-              )}
+              <GraphCanvas 
+                state={streamState ?? undefined}
+                topology={describe?.memo?.['durion:topology'] as MemoTopology | undefined}
+                executedNodes={history?.executedNodes ?? undefined}
+                onNodeClick={(id) => openXRay(null, id)}
+              />
 
               {mode === 'graph' &&
                 (history.activitySteps.length > 0 || history.activitySpans.length > 0) && (
@@ -503,7 +529,7 @@ export function RunDetail() {
                       />
                     )}
                     {history.activitySteps.length > 0 && (
-                      <ActivityList steps={history.activitySteps} />
+                      <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
                     )}
                   </div>
                 )}
@@ -513,11 +539,17 @@ export function RunDetail() {
                 <AgentTimeline state={streamState} />
               )}
               {mode === 'agent' && !streamState && (
-                <ActivityList steps={history.activitySteps} />
+                <div className="flex max-h-[560px] flex-col overflow-y-auto">
+                  {history ? (
+                    <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
+                  ) : (
+                    <p className="text-muted-foreground p-4 font-mono text-sm">Waiting for execution history…</p>
+                  )}
+                </div>
               )}
 
               {/* Workflow: always from history */}
-              {mode === 'workflow' && <ActivityList steps={history.activitySteps} />}
+              {mode === 'workflow' && <ActivityList steps={history.activitySteps} onStepClick={openXRay} />}
 
               {!mode && !refreshing && (
                 <p className="text-muted-foreground font-mono text-sm">
@@ -563,6 +595,28 @@ export function RunDetail() {
                 {JSON.stringify(effectiveWorkflowResult, null, 2)}
               </pre>
             </ScrollArea>
+          )}
+
+          {activeTab === 'cost' && (
+            <ScrollArea className="h-full rounded-md border border-border p-4">
+               <CostBreakdown 
+                 history={history} 
+                 accumulatedCostUsd={describe?.memo?.accumulatedCost as number | undefined} 
+               />
+            </ScrollArea>
+          )}
+          </div>
+
+          {/* XRay Pane Side Drawer */}
+          {isXRayOpen && (
+            <div className="w-1/3 min-w-[320px] max-w-[500px] border border-border rounded-md overflow-hidden animate-in slide-in-from-right-8 duration-300 relative z-10 shadow-2xl">
+              <XRayPane 
+                workflowId={workflowId} 
+                selectedStep={selectedStep} 
+                selectedNodeId={selectedNodeId} 
+                onClose={() => setIsXRayOpen(false)} 
+              />
+            </div>
           )}
         </div>
       </main>

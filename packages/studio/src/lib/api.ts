@@ -136,3 +136,11 @@ export async function getResult(workflowId: string): Promise<{
   });
   return parseJson(res);
 }
+
+export async function getSpans(workflowId: string): Promise<any[]> {
+  const res = await fetchWithTimeout(`/v0/studio/runs/${encodeURIComponent(workflowId)}/spans`, {
+    headers: { ...authHeaders() },
+    timeoutMs: 30_000,
+  });
+  return parseJson(res);
+}

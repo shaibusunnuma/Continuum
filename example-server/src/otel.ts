@@ -4,9 +4,12 @@ import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 
+const LOCAL_ENDPOINT = 'http://127.0.0.1:3000/v1/traces';
+const isLocal = process.env.DURION_STUDIO_LOCAL === 'true';
+
 const traceExporter = new OTLPTraceExporter({
-  // Follows standard OTel env vars when not explicitly set.
-  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  url: isLocal ? LOCAL_ENDPOINT : process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  headers: {}, // Ensure it defaults to JSON inside the JS exporter
 });
 
 function parsePrometheusPort(): number {

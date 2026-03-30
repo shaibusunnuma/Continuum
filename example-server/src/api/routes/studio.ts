@@ -83,6 +83,43 @@ export async function studioRoutes(
   fastify.get<{
     Params: { workflowId: string };
   }>(
+    '/runs/:workflowId/spans',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['workflowId'],
+          properties: { workflowId: { type: 'string' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { querySpans } = await import('../span-buffer');
+        
+        // Proxy to external OTLP backend if configured
+        if (process.env.DURION_OTLP_QUERY_URL) {
+          const res = await fetch(`${process.env.DURION_OTLP_QUERY_URL}/...`); // External proxy logic here if needed
+          const data = await res.json();
+          return reply.send(data);
+        }
+
+        // Default: return from local in-memory span buffer
+        const spans = querySpans(request.params.workflowId);
+        return reply.send(spans);
+      } catch (err) {
+        request.log.error(err);
+        return reply.status(500).send({
+          error: 'Internal server error fetching spans',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  );
+
+  fastify.get<{
+    Params: { workflowId: string };
+  }>(
     '/runs/:workflowId/history',
     {
       schema: {

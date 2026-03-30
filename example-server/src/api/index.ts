@@ -7,6 +7,7 @@ import { workflowsRoutes } from './routes/workflows';
 import { agentsRoutes } from './routes/agents';
 import { runsRoutes } from './routes/runs';
 import { studioRoutes } from './routes/studio';
+import { ingestSpans } from './span-buffer';
 
 async function main(): Promise<void> {
   await startTelemetry();
@@ -21,6 +22,19 @@ async function main(): Promise<void> {
   await fastify.register(workflowsRoutes, { prefix: '/workflows' });
   await fastify.register(agentsRoutes, { prefix: '/agents' });
   await fastify.register(runsRoutes, { prefix: '/runs' });
+
+  // Local OTLP trace ingestion for Durion Studio
+  fastify.post('/v1/traces', async (request, reply) => {
+    try {
+      if (process.env.DURION_STUDIO_LOCAL === 'true') {
+        ingestSpans(request.body);
+      }
+      return reply.code(200).send({});
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Failed to ingest log' });
+    }
+  });
 
   /** Gateway API v0 — same handlers + optional `DURION_GATEWAY_TOKEN`. See docs/gateway-api-v0.md */
   await fastify.register(

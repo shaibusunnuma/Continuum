@@ -127,6 +127,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     inputTokens: number;
     outputTokens: number;
     costUsd: number;
+    latencyMs: number;
   };
   try {
     result = await withSpan(
@@ -310,6 +311,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
         inputTokens,
         outputTokens,
         costUsd,
+        latencyMs,
       };
     },
   );
@@ -358,6 +360,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       totalTokens: result.inputTokens + result.outputTokens,
       costUsd: result.costUsd,
     },
+    latencyMs: result.latencyMs,
     ...(result.parsedObject !== undefined ? { parsedObject: JSON.stringify(result.parsedObject) } : {}),
   };
 }
@@ -407,18 +410,20 @@ export async function runTool(params: RunToolParams): Promise<RunToolResult> {
   };
 
   try {
+    const startTime = performance.now();
     const result = await withSpan(
       'ai.run_tool',
       attrs,
       async (span) => def.execute(parsed.data),
     );
+    const latencyMs = Math.round(performance.now() - startTime);
     recordToolCall({
       tool: params.toolName,
       workflow: params.traceContext?.workflowName,
       agent: params.traceContext?.agentName,
       status: 'success',
     });
-    return { result };
+    return { result, latencyMs };
   } catch (err) {
     recordToolCall({
       tool: params.toolName,

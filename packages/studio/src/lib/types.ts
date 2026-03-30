@@ -49,6 +49,9 @@ export interface GraphStreamState extends StreamState {
 export interface ActivityStep {
   eventId: string;
   activityName: string;
+  activityId?: string;
+  input?: any;
+  result?: any;
 }
 
 // ─── Rich history types (parsed from Temporal event history JSON) ──────────
