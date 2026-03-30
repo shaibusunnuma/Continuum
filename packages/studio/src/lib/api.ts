@@ -25,6 +25,9 @@ function authHeaders(): HeadersInit {
 
 const DEFAULT_FETCH_MS = 30_000;
 
+/** Workflow queries need a worker; cap wait so the run detail page still loads from describe/history. */
+export const STREAM_STATE_FETCH_MS = 3_500;
+
 async function parseJson<T>(res: Response): Promise<T> {
   const text = await res.text();
   if (!res.ok) {
@@ -93,6 +96,7 @@ export async function listRuns(params: ListRunsParams): Promise<{
 export async function getStreamState(workflowId: string): Promise<StreamState | GraphStreamState> {
   const res = await fetchWithTimeout(`/v0/runs/${encodeURIComponent(workflowId)}/stream-state`, {
     headers: { ...authHeaders() },
+    timeoutMs: STREAM_STATE_FETCH_MS,
   });
   return parseJson(res);
 }

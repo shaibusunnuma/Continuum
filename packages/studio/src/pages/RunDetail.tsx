@@ -88,7 +88,12 @@ export function RunDetail() {
   // Active tab for the content area
   const [activeTab, setActiveTab] = useState<'visualization' | 'events' | 'input' | 'result'>('visualization');
 
-  // ── Load everything in parallel ────────────────────────────────────────
+  useEffect(() => {
+    setStreamState(null);
+    setStreamAvailable(null);
+  }, [workflowId]);
+
+  // ── Load describe + history first (Temporal server only); stream-state in background (needs worker) ──
   const fullRefresh = useCallback(async () => {
     if (!workflowId) {
       setRefreshing(false);
@@ -97,10 +102,9 @@ export function RunDetail() {
     setError(null);
     setRefreshing(true);
     try {
-      const [descResult, histResult, streamResult] = await Promise.allSettled([
+      const [descResult, histResult] = await Promise.allSettled([
         describeRun(workflowId),
         getHistory(workflowId),
-        getStreamState(workflowId),
       ]);
 
       const errs: string[] = [];
@@ -128,14 +132,6 @@ export function RunDetail() {
         setHistory(EMPTY_HISTORY);
       }
 
-      if (streamResult.status === 'fulfilled') {
-        setStreamState(streamResult.value);
-        setStreamAvailable(true);
-      } else {
-        setStreamState(null);
-        setStreamAvailable(false);
-      }
-
       setError(errs.length ? errs.join(' · ') : null);
 
       if (descResult.status === 'fulfilled' && descResult.value.status !== 'RUNNING') {
@@ -153,6 +149,23 @@ export function RunDetail() {
     } finally {
       setRefreshing(false);
     }
+
+    void (async () => {
+      try {
+        const streamResult = await Promise.allSettled([getStreamState(workflowId)]);
+        const s = streamResult[0];
+        if (s.status === 'fulfilled') {
+          setStreamState(s.value);
+          setStreamAvailable(true);
+        } else {
+          setStreamState(null);
+          setStreamAvailable(false);
+        }
+      } catch {
+        setStreamState(null);
+        setStreamAvailable(false);
+      }
+    })();
   }, [workflowId]);
 
   /** Poll describe + history + stream while Temporal says RUNNING (or Durion stream still active). */
@@ -460,7 +473,7 @@ export function RunDetail() {
           )}
 
           {activeTab === 'visualization' && (
-            <>
+            <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto pr-1">
               {/* Graph: live from stream-state OR static from history topology */}
               {mode === 'graph' && streamState && (
                 <GraphCanvas state={streamState as GraphStreamState} />
@@ -471,6 +484,29 @@ export function RunDetail() {
                   executedNodes={history.executedNodes ?? undefined}
                 />
               )}
+
+              {mode === 'graph' &&
+                (history.activitySteps.length > 0 || history.activitySpans.length > 0) && (
+                  <div className="space-y-2 border-t border-border pt-3">
+                    <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                      Temporal activities
+                    </p>
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      From event history (no worker required). Same runModel / runTool boundaries as Temporal Web UI.
+                    </p>
+                    {history.activitySpans.length > 0 && (
+                      <EventHistoryGantt
+                        spans={history.activitySpans}
+                        historyStartMs={history.historyStartMs}
+                        historyEndMs={history.historyEndMs}
+                        isRunning={describe?.status === 'RUNNING'}
+                      />
+                    )}
+                    {history.activitySteps.length > 0 && (
+                      <ActivityList steps={history.activitySteps} />
+                    )}
+                  </div>
+                )}
 
               {/* Agent: only with stream-state; degrade to activity list */}
               {mode === 'agent' && streamState && (
@@ -488,7 +524,7 @@ export function RunDetail() {
                   No visualization available for this run.
                 </p>
               )}
-            </>
+            </div>
           )}
 
           {activeTab === 'events' && (

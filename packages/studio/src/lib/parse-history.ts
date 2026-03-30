@@ -13,6 +13,16 @@ function str(v: unknown): string {
   return v != null ? String(v) : '';
 }
 
+/** Uppercase `eventType` for comparisons (handles `EVENT_TYPE_*` and shorthand encodings). */
+function historyEventTypeKey(raw: unknown): string {
+  return str(raw).toUpperCase();
+}
+
+/** True if the history event type string contains the fragment (case-insensitive). */
+function historyEventMatches(raw: unknown, fragment: string): boolean {
+  return historyEventTypeKey(raw).includes(fragment.toUpperCase());
+}
+
 function eventLabel(eventType: string, attrs: RawEvent | undefined): string {
   switch (eventType) {
     case 'EVENT_TYPE_WORKFLOW_EXECUTION_STARTED': {
@@ -211,12 +221,12 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
   for (const ev of rawEvents) {
     if (typeof ev !== 'object' || ev === null) continue;
     const e = ev as RawEvent;
-    const eventType = str(e.eventType);
+    const eventType = historyEventTypeKey(e.eventType);
     const attrs = getAttrs(e);
     const t = parseEventTimeMs(e.eventTime);
     bump(t);
 
-    if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_SCHEDULED' && attrs) {
+    if (historyEventMatches(eventType, 'ACTIVITY_TASK_SCHEDULED') && attrs) {
       const id = numAttr(e.eventId);
       const at = (attrs.activityType as RawEvent)?.name;
       if (id != null) {
@@ -229,7 +239,7 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
       }
     }
 
-    if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_STARTED' && attrs) {
+    if (historyEventMatches(eventType, 'ACTIVITY_TASK_STARTED') && attrs) {
       const sid = numAttr(attrs.scheduledEventId);
       if (sid != null) {
         const slot = slots.get(sid);
@@ -241,10 +251,10 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
     }
 
     if (
-      (eventType === 'EVENT_TYPE_ACTIVITY_TASK_COMPLETED' ||
-        eventType === 'EVENT_TYPE_ACTIVITY_TASK_FAILED' ||
-        eventType === 'EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT' ||
-        eventType === 'EVENT_TYPE_ACTIVITY_TASK_CANCELED') &&
+      (historyEventMatches(eventType, 'ACTIVITY_TASK_COMPLETED') ||
+        historyEventMatches(eventType, 'ACTIVITY_TASK_FAILED') ||
+        historyEventMatches(eventType, 'ACTIVITY_TASK_TIMED_OUT') ||
+        historyEventMatches(eventType, 'ACTIVITY_TASK_CANCELED')) &&
       attrs
     ) {
       const sid = numAttr(attrs.scheduledEventId);
@@ -252,9 +262,9 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
         const slot = slots.get(sid);
         if (slot && t != null) {
           slot.endedAt = t;
-          if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_COMPLETED') slot.outcome = 'completed';
-          else if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_FAILED') slot.outcome = 'failed';
-          else if (eventType === 'EVENT_TYPE_ACTIVITY_TASK_TIMED_OUT') slot.outcome = 'timed_out';
+          if (historyEventMatches(eventType, 'ACTIVITY_TASK_COMPLETED')) slot.outcome = 'completed';
+          else if (historyEventMatches(eventType, 'ACTIVITY_TASK_FAILED')) slot.outcome = 'failed';
+          else if (historyEventMatches(eventType, 'ACTIVITY_TASK_TIMED_OUT')) slot.outcome = 'timed_out';
           else slot.outcome = 'canceled';
         }
       }
@@ -287,8 +297,7 @@ export function parseActivityStepsFromHistory(history: unknown): ActivityStep[] 
   for (const ev of events) {
     if (typeof ev !== 'object' || ev === null) continue;
     const e = ev as Record<string, unknown>;
-    const eventType = String(e.eventType ?? '');
-    if (!eventType.includes('ACTIVITY_TASK_SCHEDULED')) continue;
+    if (!historyEventMatches(e.eventType, 'ACTIVITY_TASK_SCHEDULED')) continue;
 
     const attrs = e.activityTaskScheduledEventAttributes as Record<string, unknown> | undefined;
     const activityType = attrs?.activityType as Record<string, unknown> | undefined;
@@ -336,18 +345,18 @@ export function parseFullHistory(history: unknown): ParsedHistory {
   for (const ev of rawEvents) {
     if (typeof ev !== 'object' || ev === null) continue;
     const e = ev as RawEvent;
-    const eventType = str(e.eventType);
+    const eventType = historyEventTypeKey(e.eventType);
     const attrs = getAttrs(e);
 
     parsed.push({
       eventId: str(e.eventId),
-      eventType,
+      eventType: str(e.eventType),
       eventTime: str(e.eventTime) || undefined,
       label: eventLabel(eventType, attrs),
       details: attrs,
     });
 
-    if (eventType.includes('WORKFLOW_EXECUTION_STARTED') && attrs) {
+    if (historyEventMatches(eventType, 'WORKFLOW_EXECUTION_STARTED') && attrs) {
       workflowType = str((attrs.workflowType as RawEvent)?.name) || null;
       taskQueue = taskQueueFromStartedAttributes(attrs);
       const inp = attrs.input as RawEvent | undefined;
@@ -355,11 +364,11 @@ export function parseFullHistory(history: unknown): ParsedHistory {
       memo = { ...memo, ...extractMemoFromAttrs(attrs) };
     }
 
-    if (eventType.includes('WORKFLOW_PROPERTIES_MODIFIED') && attrs) {
+    if (historyEventMatches(eventType, 'WORKFLOW_PROPERTIES_MODIFIED') && attrs) {
       memo = { ...memo, ...extractMemoFromAttrs(attrs.upsertedMemo as RawEvent | undefined ?? attrs) };
     }
 
-    if (eventType.includes('ACTIVITY_TASK_SCHEDULED') && attrs) {
+    if (historyEventMatches(eventType, 'ACTIVITY_TASK_SCHEDULED') && attrs) {
       const at = (attrs.activityType as RawEvent)?.name;
       activitySteps.push({
         eventId: str(e.eventId),
@@ -367,7 +376,7 @@ export function parseFullHistory(history: unknown): ParsedHistory {
       });
     }
 
-    if (eventType.includes('WORKFLOW_EXECUTION_COMPLETED') && attrs) {
+    if (historyEventMatches(eventType, 'WORKFLOW_EXECUTION_COMPLETED') && attrs) {
       const res = attrs.result as RawEvent | undefined;
       result = extractDecodedPayloads(res?.payloads) ?? null;
     }
