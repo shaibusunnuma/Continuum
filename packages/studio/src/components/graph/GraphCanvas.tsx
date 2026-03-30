@@ -449,7 +449,7 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           repeated transition (this run)
         </span>
       </div>
-      <div className="h-[520px] w-full">
+      <div className="h-[300px] min-h-[220px] w-full sm:h-[320px]">
         <ReactFlow
           nodes={nodes}
           edges={edges}

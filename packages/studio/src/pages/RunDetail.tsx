@@ -501,14 +501,14 @@ export function RunDetail() {
         </div>
 
         {/* ── Content ───────────────────────────────────────────────── */}
-        <div className="flex h-[560px] min-h-[420px] gap-4">
+        <div className="flex h-[min(72vh,520px)] min-h-[360px] gap-4">
           <div className="flex-1 w-full relative">
             {refreshing && !describe && !hasEvents && (
               <p className="text-muted-foreground font-mono text-sm absolute top-0 left-0">Loading…</p>
             )}
 
             {activeTab === 'visualization' && (
-              <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto pr-1">
+              <div className="flex max-h-[min(72vh,520px)] flex-col gap-3 overflow-y-auto pr-1">
                 <GraphCanvas
                   state={streamState ?? undefined}
                   topology={describe?.memo?.['durion:topology'] as MemoTopology | undefined}
@@ -544,7 +544,7 @@ export function RunDetail() {
                   <AgentTimeline state={streamState} />
                 )}
                 {mode === 'agent' && !streamState && (
-                  <div className="flex max-h-[560px] flex-col overflow-y-auto">
+                  <div className="flex max-h-[min(72vh,520px)] flex-col overflow-y-auto">
                     {history ? (
                       <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
                     ) : (
@@ -565,7 +565,7 @@ export function RunDetail() {
             )}
 
             {activeTab === 'events' && (
-              <div className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
+              <div className="flex max-h-[min(72vh,520px)] flex-col gap-4 overflow-y-auto pr-1">
                 {history.activitySpans.length > 0 && (
                   <EventHistoryGantt
                     spans={history.activitySpans}
@@ -587,7 +587,7 @@ export function RunDetail() {
             )}
 
             {activeTab === 'input' && (
-              <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border p-4">
+              <ScrollArea className="h-[min(72vh,520px)] rounded-md border border-border p-4">
                 <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-muted-foreground">
                   {JSON.stringify(history.input, null, 2)}
                 </pre>
@@ -595,7 +595,7 @@ export function RunDetail() {
             )}
 
             {activeTab === 'result' && (
-              <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border p-4">
+              <ScrollArea className="h-[min(72vh,520px)] rounded-md border border-border p-4">
                 <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-muted-foreground">
                   {JSON.stringify(effectiveWorkflowResult, null, 2)}
                 </pre>
