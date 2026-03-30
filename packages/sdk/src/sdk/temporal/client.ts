@@ -293,8 +293,15 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     async fetchWorkflowHistory(workflowId: string, runId?: string): Promise<unknown> {
       const handle = temporalClient.workflow.getHandle(workflowId, runId);
       const history = await handle.fetchHistory();
-      const json = historyToJSON(history);
-      return JSON.parse(json) as unknown;
+      
+      try {
+        const json = historyToJSON(history);
+        return JSON.parse(json) as unknown;
+      } catch (err) {
+        // Fallback for Temporal SDK bugs throwing 'know how to convert value json/plain' 
+        console.warn('historyToJSON failed, falling back to basic mapping', err);
+        return { events: history.events?.map((e: any) => (typeof e.toJSON === 'function' ? e.toJSON() : e)) || [] };
+      }
     },
 
     async close(): Promise<void> {

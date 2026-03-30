@@ -238,7 +238,7 @@ export function graph<
       });
     }
     // ── Build GraphContext for a node ───────────────────────────────────
-    function buildContext(lastError?: GraphNodeError): GraphContext<TState> {
+    function buildContext(nodeName: string, lastError?: GraphNodeError): GraphContext<TState> {
       return {
         state: Object.freeze({ ...state }) as Readonly<TState>,
         async model(modelId: string, params: ModelCallParams): Promise<ModelResult> {
@@ -258,6 +258,7 @@ export function graph<
               workflowId: info.workflowId,
               runId: info.runId,
               workflowName: name,
+              agentName: nodeName,
             },
           };
           let result;
@@ -288,6 +289,7 @@ export function graph<
               workflowId: info.workflowId,
               runId: info.runId,
               workflowName: name,
+              agentName: nodeName,
             },
           });
           return { result: result.result as T };
@@ -356,7 +358,7 @@ export function graph<
       if (!nodeFn) {
         throw new GraphExecutionError(name, `Node "${nodeName}" not found.`);
       }
-      const ctx = buildContext(lastError);
+      const ctx = buildContext(nodeName, lastError);
       let nodeResult: Partial<TState> | void;
       try {
         nodeResult = await nodeFn(ctx);

@@ -97,20 +97,25 @@ export function RunDetail() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>();
   const [isXRayOpen, setIsXRayOpen] = useState(false);
 
-  const openXRay = (step: ActivityStep | null, nodeId?: string) => {
-    let resolvedStep = step;
-    if (!resolvedStep && nodeId && history) {
-      // Try to find the step by traceContext.agentName or fallback to activityName matching
+  const openXRay = (step: any | null, nodeId?: string) => {
+    let targetStep = step;
+    
+    // If we only have a nodeId (clicked from graph), try to find its corresponding activity step
+    if (!step && nodeId && history?.activitySteps) {
       // Traverse backwards so we always show the LATEST execution of a node in loops
-      resolvedStep = [...history.activitySteps].reverse().find((s) => {
+      targetStep = [...history.activitySteps].reverse().find(s => {
+        // Find by Trace Context if available
         const inputData = Array.isArray(s.input) ? s.input[0] : s.input;
-        const tc = inputData?.traceContext as { agentName?: string } | undefined;
-        return tc?.agentName === nodeId || s.activityName === nodeId;
-      }) || null;
+        const traceCtx = (s as any).traceContext || inputData?.traceContext || (s.input && Array.isArray(s.input) ? s.input[1] : null);
+        const stepNodeId = traceCtx?.agentName || traceCtx?.['durion:nodeId'];
+        
+        // Also fallback to activityName matching if needed
+        return (stepNodeId && stepNodeId === nodeId) || s.activityName === nodeId;
+      });
     }
 
-    setSelectedStep(resolvedStep);
-    setSelectedNodeId(nodeId);
+    setSelectedStep(targetStep || null);
+    setSelectedNodeId(nodeId || undefined);
     setIsXRayOpen(true);
   };
 
@@ -502,119 +507,119 @@ export function RunDetail() {
               <p className="text-muted-foreground font-mono text-sm absolute top-0 left-0">Loading…</p>
             )}
 
-          {activeTab === 'visualization' && (
-            <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto pr-1">
-              <GraphCanvas 
-                state={streamState ?? undefined}
-                topology={describe?.memo?.['durion:topology'] as MemoTopology | undefined}
-                executedNodes={history?.executedNodes ?? undefined}
-                onNodeClick={(id) => openXRay(null, id)}
-              />
+            {activeTab === 'visualization' && (
+              <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto pr-1">
+                <GraphCanvas
+                  state={streamState ?? undefined}
+                  topology={describe?.memo?.['durion:topology'] as MemoTopology | undefined}
+                  executedNodes={history?.executedNodes ?? undefined}
+                  onNodeClick={(id) => openXRay(null, id)}
+                />
 
-              {mode === 'graph' &&
-                (history.activitySteps.length > 0 || history.activitySpans.length > 0) && (
-                  <div className="space-y-2 border-t border-border pt-3">
-                    <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-                      Temporal activities
-                    </p>
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      From event history (no worker required). Same runModel / runTool boundaries as Temporal Web UI.
-                    </p>
-                    {history.activitySpans.length > 0 && (
-                      <EventHistoryGantt
-                        spans={history.activitySpans}
-                        historyStartMs={history.historyStartMs}
-                        historyEndMs={history.historyEndMs}
-                        isRunning={describe?.status === 'RUNNING'}
-                      />
-                    )}
-                    {history.activitySteps.length > 0 && (
+                {mode === 'graph' &&
+                  (history.activitySteps.length > 0 || history.activitySpans.length > 0) && (
+                    <div className="space-y-2 border-t border-border pt-3">
+                      <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+                        Temporal activities
+                      </p>
+                      <p className="font-mono text-[10px] text-muted-foreground">
+                        From event history (no worker required). Same runModel / runTool boundaries as Temporal Web UI.
+                      </p>
+                      {history.activitySpans.length > 0 && (
+                        <EventHistoryGantt
+                          spans={history.activitySpans}
+                          historyStartMs={history.historyStartMs}
+                          historyEndMs={history.historyEndMs}
+                          isRunning={describe?.status === 'RUNNING'}
+                        />
+                      )}
+                      {history.activitySteps.length > 0 && (
+                        <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
+                      )}
+                    </div>
+                  )}
+
+                {/* Agent: only with stream-state; degrade to activity list */}
+                {mode === 'agent' && streamState && (
+                  <AgentTimeline state={streamState} />
+                )}
+                {mode === 'agent' && !streamState && (
+                  <div className="flex max-h-[560px] flex-col overflow-y-auto">
+                    {history ? (
                       <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
+                    ) : (
+                      <p className="text-muted-foreground p-4 font-mono text-sm">Waiting for execution history…</p>
                     )}
                   </div>
                 )}
 
-              {/* Agent: only with stream-state; degrade to activity list */}
-              {mode === 'agent' && streamState && (
-                <AgentTimeline state={streamState} />
-              )}
-              {mode === 'agent' && !streamState && (
-                <div className="flex max-h-[560px] flex-col overflow-y-auto">
-                  {history ? (
-                    <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
-                  ) : (
-                    <p className="text-muted-foreground p-4 font-mono text-sm">Waiting for execution history…</p>
-                  )}
-                </div>
-              )}
+                {/* Workflow: always from history */}
+                {mode === 'workflow' && <ActivityList steps={history.activitySteps} onStepClick={openXRay} />}
 
-              {/* Workflow: always from history */}
-              {mode === 'workflow' && <ActivityList steps={history.activitySteps} onStepClick={openXRay} />}
-
-              {!mode && !refreshing && (
-                <p className="text-muted-foreground font-mono text-sm">
-                  No visualization available for this run.
-                </p>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'events' && (
-            <div className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
-              {history.activitySpans.length > 0 && (
-                <EventHistoryGantt
-                  spans={history.activitySpans}
-                  historyStartMs={history.historyStartMs}
-                  historyEndMs={history.historyEndMs}
-                  isRunning={describe?.status === 'RUNNING'}
-                />
-              )}
-              <div className="min-h-0 flex-1">
-                <p className="text-muted-foreground mb-2 font-mono text-[10px] uppercase tracking-wide">
-                  Events
-                </p>
-                <EventTimeline
-                  events={history.events}
-                  scrollAreaClassName="h-72 sm:h-80"
-                />
+                {!mode && !refreshing && (
+                  <p className="text-muted-foreground font-mono text-sm">
+                    No visualization available for this run.
+                  </p>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {activeTab === 'input' && (
-            <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border p-4">
-              <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-muted-foreground">
-                {JSON.stringify(history.input, null, 2)}
-              </pre>
-            </ScrollArea>
-          )}
+            {activeTab === 'events' && (
+              <div className="flex max-h-[560px] flex-col gap-4 overflow-y-auto pr-1">
+                {history.activitySpans.length > 0 && (
+                  <EventHistoryGantt
+                    spans={history.activitySpans}
+                    historyStartMs={history.historyStartMs}
+                    historyEndMs={history.historyEndMs}
+                    isRunning={describe?.status === 'RUNNING'}
+                  />
+                )}
+                <div className="min-h-0 flex-1">
+                  <p className="text-muted-foreground mb-2 font-mono text-[10px] uppercase tracking-wide">
+                    Events
+                  </p>
+                  <EventTimeline
+                    events={history.events}
+                    scrollAreaClassName="h-72 sm:h-80"
+                  />
+                </div>
+              </div>
+            )}
 
-          {activeTab === 'result' && (
-            <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border p-4">
-              <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-muted-foreground">
-                {JSON.stringify(effectiveWorkflowResult, null, 2)}
-              </pre>
-            </ScrollArea>
-          )}
+            {activeTab === 'input' && (
+              <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border p-4">
+                <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-muted-foreground">
+                  {JSON.stringify(history.input, null, 2)}
+                </pre>
+              </ScrollArea>
+            )}
 
-          {activeTab === 'cost' && (
-            <ScrollArea className="h-full rounded-md border border-border p-4">
-               <CostBreakdown 
-                 history={history} 
-                 accumulatedCostUsd={describe?.memo?.accumulatedCost as number | undefined} 
-               />
-            </ScrollArea>
-          )}
+            {activeTab === 'result' && (
+              <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border p-4">
+                <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-muted-foreground">
+                  {JSON.stringify(effectiveWorkflowResult, null, 2)}
+                </pre>
+              </ScrollArea>
+            )}
+
+            {activeTab === 'cost' && (
+              <ScrollArea className="h-full rounded-md border border-border p-4">
+                <CostBreakdown
+                  history={history}
+                  accumulatedCostUsd={describe?.memo?.accumulatedCost as number | undefined}
+                />
+              </ScrollArea>
+            )}
           </div>
 
           {/* XRay Pane Side Drawer */}
           {isXRayOpen && (
             <div className="w-1/3 min-w-[320px] max-w-[500px] border border-border rounded-md overflow-hidden animate-in slide-in-from-right-8 duration-300 relative z-10 shadow-2xl">
-              <XRayPane 
-                workflowId={workflowId} 
-                selectedStep={selectedStep} 
-                selectedNodeId={selectedNodeId} 
-                onClose={() => setIsXRayOpen(false)} 
+              <XRayPane
+                workflowId={workflowId}
+                selectedStep={selectedStep}
+                selectedNodeId={selectedNodeId}
+                onClose={() => setIsXRayOpen(false)}
               />
             </div>
           )}
@@ -637,11 +642,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`cursor-pointer border-b-2 px-3 py-2 transition-colors ${
-        active
+      className={`cursor-pointer border-b-2 px-3 py-2 transition-colors ${active
           ? 'border-primary text-foreground'
           : 'border-transparent text-muted-foreground hover:text-foreground'
-      }`}
+        }`}
     >
       {children}
     </button>
