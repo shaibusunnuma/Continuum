@@ -21,6 +21,7 @@ import type { StreamState } from '../types';
 import type {
   ListWorkflowExecutionsParams,
   ListWorkflowExecutionsResult,
+  StudioRunPrimitive,
   StudioWorkflowExecutionSummary,
 } from './studio-types';
 
@@ -131,6 +132,28 @@ export function resolveWorkflowType(fn: (...args: any[]) => any): string {
   return name;
 }
 
+function studioPrimitiveFromMemo(memo: Record<string, unknown>): StudioRunPrimitive | null {
+  const p = memo['durion:primitive'];
+  if (p === 'graph' || p === 'agent' || p === 'workflow') return p;
+  if (memo['durion:topology'] != null) return 'graph';
+  return null;
+}
+
+function studioUsageFromMemo(memo: Record<string, unknown>): {
+  totalTokens: number | null;
+  costUsd: number | null;
+} {
+  const u = memo['durion:usage'];
+  if (u === null || u === undefined || typeof u !== 'object' || Array.isArray(u)) {
+    return { totalTokens: null, costUsd: null };
+  }
+  const o = u as Record<string, unknown>;
+  const totalTokens =
+    typeof o.totalTokens === 'number' && Number.isFinite(o.totalTokens) ? o.totalTokens : null;
+  const costUsd = typeof o.costUsd === 'number' && Number.isFinite(o.costUsd) ? o.costUsd : null;
+  return { totalTokens, costUsd };
+}
+
 // ---------------------------------------------------------------------------
 // Implementation
 // ---------------------------------------------------------------------------
@@ -181,7 +204,10 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     taskQueue: string;
     startTime: Date;
     closeTime?: Date;
+    memo?: Record<string, unknown>;
   }): StudioWorkflowExecutionSummary {
+    const memo = info.memo ?? {};
+    const { totalTokens, costUsd } = studioUsageFromMemo(memo);
     return {
       workflowId: info.workflowId,
       runId: info.runId,
@@ -190,6 +216,9 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
       taskQueue: info.taskQueue,
       startTime: info.startTime?.toISOString() ?? null,
       closeTime: info.closeTime?.toISOString() ?? null,
+      primitive: studioPrimitiveFromMemo(memo),
+      totalTokens,
+      costUsd,
     };
   }
 

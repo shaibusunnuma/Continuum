@@ -1,3 +1,6 @@
+/** Durion primitive from workflow memo (when set by SDK). */
+export type StudioRunPrimitive = 'graph' | 'agent' | 'workflow';
+
 /** Gateway `GET /v0/studio/runs` row. */
 export interface StudioRunRow {
   workflowId: string;
@@ -7,6 +10,9 @@ export interface StudioRunRow {
   taskQueue: string;
   startTime: string | null;
   closeTime: string | null;
+  primitive: StudioRunPrimitive | null;
+  totalTokens: number | null;
+  costUsd: number | null;
 }
 
 export interface StreamState {

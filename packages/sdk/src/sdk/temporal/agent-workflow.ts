@@ -86,6 +86,18 @@ export function agent(
     const streamStateQuery = wf.defineQuery<StreamState>('durion:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
 
+    if (wf.patched('durion-explorer-list-meta')) {
+      wf.upsertMemo({ 'durion:primitive': 'agent' });
+    }
+
+    function upsertListUsageMemo(): void {
+      if (wf.patched('durion-explorer-list-meta')) {
+        wf.upsertMemo({
+          'durion:usage': { totalTokens: totalUsage.totalTokens, costUsd: totalUsage.costUsd },
+        });
+      }
+    }
+
     // Build delegate lookup map (name → Delegate) for routing tool calls.
     const delegateMap = new Map<string, Delegate>();
     if (config.delegates) {
@@ -155,6 +167,7 @@ export function agent(
           },
         });
 
+        upsertListUsageMemo();
         return finalResult;
       }
 
@@ -242,6 +255,7 @@ export function agent(
       updatedAt: new Date().toISOString(),
     };
 
+    upsertListUsageMemo();
     return finalResult;
   };
 

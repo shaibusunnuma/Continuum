@@ -3,6 +3,9 @@
  * Kept separate from workflow runtime types for stable JSON shapes.
  */
 
+/** Durion primitive when present on workflow memo (Run Explorer filters). */
+export type StudioRunPrimitive = 'graph' | 'agent' | 'workflow';
+
 /** One row in the Run Explorer (from Temporal visibility). */
 export interface StudioWorkflowExecutionSummary {
   workflowId: string;
@@ -12,6 +15,11 @@ export interface StudioWorkflowExecutionSummary {
   startTime: string | null;
   closeTime: string | null;
   taskQueue: string;
+  /** From memo when SDK wrote `durion:primitive` or inferred from `durion:topology`. */
+  primitive: StudioRunPrimitive | null;
+  /** From memo `durion:usage` when workflow completed (SDK). */
+  totalTokens: number | null;
+  costUsd: number | null;
 }
 
 export interface ListWorkflowExecutionsParams {

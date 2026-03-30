@@ -14,6 +14,7 @@ import type {
   Message,
   RunMetadata,
   StreamState,
+  Usage,
 } from '../types';
 import { ConfigurationError } from '../errors';
 
@@ -52,6 +53,12 @@ export function workflow<TInput, TOutput>(
   validateWorkflowArgs(name, fn);
   const workflowFn = async function (input: TInput): Promise<TOutput> {
     let accumulatedCost = 0;
+    const totalUsage: Usage = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      costUsd: 0,
+    };
     const inputQueue: unknown[] = [];
 
     wf.setHandler(userInputSignal, (data: unknown) => {
@@ -67,6 +74,18 @@ export function workflow<TInput, TOutput>(
     };
     const streamStateQuery = wf.defineQuery<StreamState>('durion:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
+
+    if (wf.patched('durion-explorer-list-meta')) {
+      wf.upsertMemo({ 'durion:primitive': 'workflow' });
+    }
+
+    function upsertListUsageMemo(): void {
+      if (wf.patched('durion-explorer-list-meta')) {
+        wf.upsertMemo({
+          'durion:usage': { totalTokens: totalUsage.totalTokens, costUsd: totalUsage.costUsd },
+        });
+      }
+    }
 
     const ctx: WorkflowContext<TInput> = {
       input,
@@ -105,6 +124,10 @@ export function workflow<TInput, TOutput>(
         }
 
         accumulatedCost += result.usage.costUsd;
+        totalUsage.promptTokens += result.usage.promptTokens;
+        totalUsage.completionTokens += result.usage.completionTokens;
+        totalUsage.totalTokens += result.usage.totalTokens;
+        totalUsage.costUsd += result.usage.costUsd;
 
         const textForStream =
           result.parsedObject != null && result.parsedObject !== ''
@@ -180,26 +203,31 @@ export function workflow<TInput, TOutput>(
       } as RunMetadata,
     };
 
-    const result = await fn(ctx);
+    let result: TOutput;
+    try {
+      result = await fn(ctx);
 
-    streamState = {
-      status: 'completed',
-      updatedAt: new Date().toISOString(),
-    };
+      streamState = {
+        status: 'completed',
+        updatedAt: new Date().toISOString(),
+      };
 
-    await runLifecycleHooks({
-      type: 'run:complete',
-      payload: {
-        kind: 'workflow',
-        name,
-        workflowId: info.workflowId,
-        runId: info.runId,
-        input,
-        output: result,
-      },
-    });
+      await runLifecycleHooks({
+        type: 'run:complete',
+        payload: {
+          kind: 'workflow',
+          name,
+          workflowId: info.workflowId,
+          runId: info.runId,
+          input,
+          output: result,
+        },
+      });
 
-    return result;
+      return result;
+    } finally {
+      upsertListUsageMemo();
+    }
   };
 
   Object.defineProperty(workflowFn, 'name', { value: name });

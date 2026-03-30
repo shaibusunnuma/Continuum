@@ -232,7 +232,10 @@ export function graph<
     const streamStateQuery = wf.defineQuery<GraphStreamState>('durion:streamState');
     wf.setHandler(streamStateQuery, () => streamState);
     if (wf.patched('durion-topology-memo')) {
-      wf.upsertMemo({ 'durion:topology': streamState.topology });
+      wf.upsertMemo({
+        'durion:topology': streamState.topology,
+        'durion:primitive': 'graph',
+      });
     }
     // ── Build GraphContext for a node ───────────────────────────────────
     function buildContext(lastError?: GraphNodeError): GraphContext<TState> {
@@ -558,6 +561,11 @@ export function graph<
           output: state,
         },
       });
+      if (wf.patched('durion-explorer-list-meta')) {
+        wf.upsertMemo({
+          'durion:usage': { totalTokens: totalUsage.totalTokens, costUsd: totalUsage.costUsd },
+        });
+      }
       return {
         output: state,
         status: 'completed',
@@ -573,6 +581,11 @@ export function graph<
         activeNodes: [],
         updatedAt: new Date().toISOString(),
       };
+      if (wf.patched('durion-explorer-list-meta')) {
+        wf.upsertMemo({
+          'durion:usage': { totalTokens: totalUsage.totalTokens, costUsd: totalUsage.costUsd },
+        });
+      }
       return {
         output: state,
         status: 'error',

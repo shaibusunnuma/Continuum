@@ -27,6 +27,7 @@ export type { CreateWorkerConfig, WorkerHandle } from './temporal/worker-factory
 export { createClient, resolveWorkflowType } from './temporal/client';
 export type { SdkClient, WorkflowRun, CreateClientConfig, StartWorkflowOptions } from './temporal/client';
 export type {
+  StudioRunPrimitive,
   StudioWorkflowExecutionSummary,
   ListWorkflowExecutionsParams,
   ListWorkflowExecutionsResult,

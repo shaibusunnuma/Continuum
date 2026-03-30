@@ -57,15 +57,32 @@ function fetchWithTimeout(
   });
 }
 
-export async function listRuns(params: {
+export interface ListRunsParams {
   limit?: number;
   nextPageToken?: string;
+  /** Raw Temporal visibility query (AND-combined with structured filters on the server). */
   query?: string;
-}): Promise<{ runs: StudioRunRow[]; nextPageToken?: string }> {
+  executionStatus?: string;
+  workflowType?: string;
+  workflowId?: string;
+  /** ISO-8601 datetime; server maps to `StartTime >`. */
+  startAfter?: string;
+  startBefore?: string;
+}
+
+export async function listRuns(params: ListRunsParams): Promise<{
+  runs: StudioRunRow[];
+  nextPageToken?: string;
+}> {
   const sp = new URLSearchParams();
   if (params.limit != null) sp.set('limit', String(params.limit));
   if (params.nextPageToken) sp.set('nextPageToken', params.nextPageToken);
   if (params.query) sp.set('query', params.query);
+  if (params.executionStatus) sp.set('executionStatus', params.executionStatus);
+  if (params.workflowType) sp.set('workflowType', params.workflowType);
+  if (params.workflowId) sp.set('workflowId', params.workflowId);
+  if (params.startAfter) sp.set('startAfter', params.startAfter);
+  if (params.startBefore) sp.set('startBefore', params.startBefore);
   const q = sp.toString();
   const res = await fetchWithTimeout(`/v0/studio/runs${q ? `?${q}` : ''}`, {
     headers: { ...authHeaders() },

@@ -1,5 +1,9 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { getTemporalClient } from '../temporal';
+import {
+  buildStudioRunsStructuredQuery,
+  mergeStudioRunsVisibilityQuery,
+} from '../studio-visibility-query';
 
 function isNotFoundError(err: unknown): boolean {
   if (err instanceof Error) {
@@ -15,7 +19,16 @@ export async function studioRoutes(
   _opts: FastifyPluginOptions,
 ): Promise<void> {
   fastify.get<{
-    Querystring: { limit?: string; nextPageToken?: string; query?: string };
+    Querystring: {
+      limit?: string;
+      nextPageToken?: string;
+      query?: string;
+      executionStatus?: string;
+      workflowType?: string;
+      workflowId?: string;
+      startAfter?: string;
+      startBefore?: string;
+    };
   }>(
     '/runs',
     {
@@ -26,6 +39,11 @@ export async function studioRoutes(
             limit: { type: 'string' },
             nextPageToken: { type: 'string' },
             query: { type: 'string' },
+            executionStatus: { type: 'string' },
+            workflowType: { type: 'string' },
+            workflowId: { type: 'string' },
+            startAfter: { type: 'string' },
+            startBefore: { type: 'string' },
           },
         },
       },
@@ -35,10 +53,18 @@ export async function studioRoutes(
         const client = await getTemporalClient();
         const limitRaw = request.query.limit ? parseInt(request.query.limit, 10) : 20;
         const pageSize = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20;
+        const structured = buildStudioRunsStructuredQuery({
+          executionStatus: request.query.executionStatus,
+          workflowType: request.query.workflowType,
+          workflowId: request.query.workflowId,
+          startAfter: request.query.startAfter,
+          startBefore: request.query.startBefore,
+        });
+        const visibilityQuery = mergeStudioRunsVisibilityQuery(structured, request.query.query);
         const result = await client.listWorkflowExecutions({
           pageSize,
           nextPageToken: request.query.nextPageToken,
-          query: request.query.query,
+          query: visibilityQuery,
         });
         return reply.send({
           runs: result.executions,
