@@ -12,15 +12,13 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import {
   createRuntime,
   createWorker,
+  durionConfig,
   initObservability,
   RedisStreamBus,
 } from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-
-/** Dedicated queue so this worker does not compete with `worker:streaming` / `server:streaming`. */
-const TASK_QUEUE = 'durion-streaming-redis';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
@@ -64,10 +62,9 @@ async function main() {
   const handle = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
-  console.log(`[streaming-redis] Worker on queue ${TASK_QUEUE}, Redis ${REDIS_URL}`);
+  console.log(`[streaming-redis] Worker on queue ${durionConfig.TASK_QUEUE}, Redis ${REDIS_URL}`);
 
   const shutdown = (): void => {
     handle

@@ -11,7 +11,6 @@ import {
 type InputChangeEvent = ChangeEvent<HTMLInputElement>;
 type TextAreaChangeEvent = ChangeEvent<HTMLTextAreaElement>;
 
-const TASK_QUEUE = 'durion-hitl';
 const API_BASE = '';
 
 const GATEWAY_ACCESS_TOKEN =
@@ -53,7 +52,6 @@ export default function App() {
         workflowType: 'draftEmail',
         input: { topic },
         workflowId: id,
-        taskQueue: TASK_QUEUE,
       });
     } catch {
       setWorkflowId(null);

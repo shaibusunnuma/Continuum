@@ -11,7 +11,7 @@ They only need to agree on:
 |--------|-----|
 | **Temporal address** | Same `TEMPORAL_ADDRESS` (and gRPC TLS if used). |
 | **Namespace** | Same `TEMPORAL_NAMESPACE` (default is often fine). |
-| **Task queue** | Same string passed to the worker **and** to `createClient({ taskQueue: '...' })`. |
+| **Task queue** | Same value for worker and client: default is **`TASK_QUEUE` env** or **`durion`**. Optional: `createClient({ taskQueue: 'my-queue' })` when you override. |
 
 Example minimal client (copy into your other service; add `@durion/sdk`, `@temporalio/client`, env, and your workflow import or type):
 
@@ -19,10 +19,9 @@ Example minimal client (copy into your other service; add `@durion/sdk`, `@tempo
 import { createClient } from '@durion/sdk';
 import { myWorkflow } from './workflows'; // or register types your way
 
-const TASK_QUEUE = 'my-queue'; // must match the worker
-
 async function main() {
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  // Uses TASK_QUEUE env or `durion` — same as the worker unless you override either side
+  const client = await createClient();
   try {
     const handle = await client.start(myWorkflow, { input: { message: 'hi' } });
     console.log(await handle.result());

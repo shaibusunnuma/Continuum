@@ -29,7 +29,7 @@ The SDK reads **`process.env`** for Temporal defaults. Typical variables:
 | `TEMPORAL_NAMESPACE` | Namespace (default `default`) |
 | `TASK_QUEUE` | Queue shared by worker and `createClient` (default `durion`) |
 
-Load `.env` in **your** app entrypoint. The SDK does not load a `.env` from inside `node_modules`.
+Import **`durionConfig`** from `@durion/sdk` for the resolved values (after the SDK’s repo-root `.env` load). You should still load `.env` in **your** app entrypoint when paths differ (e.g. custom deploys).
 
 Provider API keys (e.g. `OPENAI_API_KEY`) are read by the AI SDK provider packages, not by Durion.
 
@@ -87,22 +87,20 @@ const runtime = createRuntime({
 const handle = await createWorker({
   runtime,
   workflowsPath: require.resolve('./workflows'),
-  taskQueue: process.env.TASK_QUEUE ?? 'durion',
+  // taskQueue optional — defaults to TASK_QUEUE env or `durion` (see `durionConfig` from `@durion/sdk`)
 });
 
 await handle.run();
 ```
 
-**3. Starting runs** (another script or service): `createClient` + the same `taskQueue`; import workflow functions for typed `client.start(...)`.
+**3. Starting runs** (another script or service): `createClient()` (same default queue as the worker); import workflow functions for typed `client.start(...)`.
 
 ```typescript
 import 'dotenv/config';
 import { createClient } from '@durion/sdk';
 import { hello } from './workflows';
 
-const client = await createClient({
-  taskQueue: process.env.TASK_QUEUE ?? 'durion',
-});
+const client = await createClient();
 const run = await client.start(hello, { input: { topic: 'shipping' } });
 console.log(await run.result());
 await client.close();

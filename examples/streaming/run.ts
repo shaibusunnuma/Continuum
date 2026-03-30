@@ -11,13 +11,17 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createClient, createRuntime, createWorker, initObservability } from '@durion/sdk';
+import {
+  createClient,
+  createRuntime,
+  createWorker,
+  durionConfig,
+  initObservability,
+} from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
 import { streamingAgent } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-
-const TASK_QUEUE = 'durion-streaming';
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -50,7 +54,6 @@ async function runWorker(): Promise<void> {
   const handle = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {
@@ -62,14 +65,14 @@ async function runWorker(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  console.log(`Streaming worker — task queue: ${TASK_QUEUE}`);
+  console.log(`Streaming worker — task queue: ${durionConfig.TASK_QUEUE}`);
   await handle.run();
 }
 
 async function runDemo(): Promise<void> {
   const query = process.argv.slice(3).join(' ') || 'Research the history of UNIX.';
 
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
 
   console.log('Starting streaming agent:', query);
   console.log('--------------------------------------------------');

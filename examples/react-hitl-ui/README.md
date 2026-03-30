@@ -28,7 +28,7 @@ If `example-server` has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEW
 ## Flow
 
 1. Client opens **SSE** `GET /v0/runs/:workflowId/token-stream` (subscribe to Redis **before** the model runs).
-2. Client **POST /v0/workflows/start** with `workflowId`, `taskQueue: durion-hitl`, `workflowType: draftEmail`, `input: { topic }`.
+2. Client **POST /v0/workflows/start** with `workflowId`, `workflowType: draftEmail`, `input: { topic }`. Omit `taskQueue` to use the server’s `TASK_QUEUE` (default `durion`), matching the HITL worker.
 3. Token deltas render from SSE; **`useRunStream`** also polls `GET /v0/runs/:id/stream-state`.
 4. On **Reject**, open a **new** SSE connection, then **POST /v0/runs/:id/signal** with `durion:user-input`.
 5. **Approve** sends the signal without a new SSE round.

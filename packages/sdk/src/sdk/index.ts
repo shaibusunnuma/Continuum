@@ -35,6 +35,8 @@ export type {
 // App (runtime + worker + client defaults)
 export { createApp } from './app';
 export type { App, CreateAppConfig } from './app';
+/** Resolved env defaults (`TASK_QUEUE`, `TEMPORAL_ADDRESS`, …) after loading repo-root `.env`. */
+export { config as durionConfig } from '../shared/config';
 // Observability (standalone init for non-worker processes like API servers)
 export { initObservability, type ObservabilityConfig } from './obs';
 // Errors (for programmatic handling)

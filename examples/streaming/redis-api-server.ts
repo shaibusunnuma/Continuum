@@ -11,18 +11,22 @@ import crypto from 'node:crypto';
 import dotenv from 'dotenv';
 import http from 'node:http';
 import { z } from 'zod';
-import { createClient, pipeStreamToResponse, RedisStreamBus } from '@durion/sdk';
+import {
+  createClient,
+  durionConfig,
+  pipeStreamToResponse,
+  RedisStreamBus,
+} from '@durion/sdk';
 import { streamingWorkflow } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const TASK_QUEUE = 'durion-streaming-redis';
 const PORT = 4001;
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 async function main() {
   const bus = new RedisStreamBus({ url: REDIS_URL });
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
 
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST' || req.url !== '/stream') {
@@ -81,7 +85,7 @@ async function main() {
 
   server.listen(PORT, () => {
     console.log(
-      `[streaming-redis] API http://localhost:${PORT}/stream (Redis ${REDIS_URL}, queue ${TASK_QUEUE})`,
+      `[streaming-redis] API http://localhost:${PORT}/stream (Redis ${REDIS_URL}, queue ${durionConfig.TASK_QUEUE})`,
     );
   });
 

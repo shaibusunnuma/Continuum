@@ -17,15 +17,13 @@ import {
   createClient,
   createRuntime,
   createWorker,
+  durionConfig,
   initObservability,
 } from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
 import { customerSupport, travelAgent } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-
-/** Matches example-server agent routing for `travelAgent`; use the same queue for workflows in this example. */
-const TASK_QUEUE = 'durion-customer-support';
 
 async function runWorker(): Promise<void> {
   initObservability({
@@ -104,7 +102,6 @@ async function runWorker(): Promise<void> {
   const handle = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {
@@ -117,7 +114,7 @@ async function runWorker(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  console.log(`Customer support worker — task queue: ${TASK_QUEUE}`);
+  console.log(`Customer support worker — task queue: ${durionConfig.TASK_QUEUE}`);
   await handle.run();
 }
 
@@ -134,7 +131,7 @@ async function runDemo(): Promise<void> {
     process.exit(1);
   }
 
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
 
   try {
     if (sub === 'customerSupport') {

@@ -15,6 +15,7 @@ import {
   createClient,
   createRuntime,
   createWorker,
+  durionConfig,
   initObservability,
   RedisStreamBus,
 } from '@durion/sdk';
@@ -23,7 +24,6 @@ import { draftEmail } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const TASK_QUEUE = 'durion-hitl';
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379';
 
 const google = createGoogleGenerativeAI({
@@ -47,7 +47,6 @@ async function runWorker(): Promise<void> {
   const handle = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {
@@ -59,12 +58,12 @@ async function runWorker(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  console.log(`HITL worker — task queue: ${TASK_QUEUE}, RedisStreamBus: ${REDIS_URL}`);
+  console.log(`HITL worker — task queue: ${durionConfig.TASK_QUEUE}, RedisStreamBus: ${REDIS_URL}`);
   await handle.run();
 }
 
 async function runDemo(): Promise<void> {
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
 
   const runId = crypto.randomBytes(4).toString('hex');
   const workflowId = `hitl-${runId}`;

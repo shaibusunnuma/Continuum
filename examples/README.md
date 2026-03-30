@@ -16,12 +16,14 @@ temporal server start-dev
 
 For a minimal remote client pattern, see [REMOTE_CLIENT.md](REMOTE_CLIENT.md).
 
+**Task queue:** Examples use the SDK default — `TASK_QUEUE` from env, or **`durion`**. The worker you run and any client (`createClient`, `example-server`, Studio) must use the **same** queue. To run **two different example workers at once**, give each process a distinct `TASK_QUEUE` so tasks are not delivered to the wrong bundle.
+
 ## Examples in this repo
 
 | Folder | Scripts | API keys | Notes |
 |--------|---------|----------|--------|
-| **customer-support** | `worker:customer-support`, `client:customer-support` | `OPENAI_API_KEY` | `client:customer-support -- demo customerSupport "…" [orderId]` or `demo travelAgent "…"`. Task queue `durion-customer-support` (set `TASK_QUEUE` the same if you use `example-server`). |
-| **research-assistant** | `worker:research-assistant`, `client:research-assistant` | Gemini key + optional `TAVILY_API_KEY` (web search) | `client:research-assistant -- demo contentBrief "topic" [audience]` or `demo researchAssistant "…"`. Queue `durion-research-assistant`. |
+| **customer-support** | `worker:customer-support`, `client:customer-support` | `OPENAI_API_KEY` | `client:customer-support -- demo customerSupport "…" [orderId]` or `demo travelAgent "…"`. |
+| **research-assistant** | `worker:research-assistant`, `client:research-assistant` | Gemini key + optional `TAVILY_API_KEY` (web search) | `client:research-assistant -- demo contentBrief "topic" [audience]` or `demo researchAssistant "…"`. |
 | **multi-agent** | `worker:multi-agent`, `client:multi-agent`, `orchestrate:multi-agent` | Gemini (same as above) | `client:multi-agent -- "Your question"` — Pattern A (one workflow). `orchestrate:multi-agent -- "…"` — Pattern B chain. |
 | **streaming** | `server:streaming`, `worker:streaming`, `client:streaming`, plus Redis variants | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; Redis for distributed variant | See [streaming/README.md](streaming/README.md). Co-located HTTP on port 4000; Redis variant uses 4001. |
 | **human-in-the-loop** | `worker:hitl`, `client:hitl` | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; **`REDIS_URL`** for token SSE with `example-server` | CLI `client:hitl` runs the scripted approve/reject flow. Optional: repo root `api:dev` + [react-hitl-ui](react-hitl-ui/README.md) for a browser UI. |

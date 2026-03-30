@@ -23,7 +23,6 @@ import { streamingWorkflow } from './workflows';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const TASK_QUEUE = 'durion-streaming';
 const PORT = 4000;
 
 const google = createGoogleGenerativeAI({
@@ -50,10 +49,9 @@ async function main() {
   const worker = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
 
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST' || req.url !== '/stream') {

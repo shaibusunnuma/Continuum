@@ -173,7 +173,7 @@ createRuntime({
 
 const handle = await createWorker({
   workflowsPath: require.resolve('./workflows'),
-  taskQueue: 'my-queue',
+  // taskQueue optional — defaults to TASK_QUEUE env or `durion`
 });
 await handle.run();
 ```
@@ -182,7 +182,7 @@ Workflows, agents, and graphs are Temporal workflows; activities run your model 
 
 ### `createApp()` (one config when worker + starts live together)
 
-`createApp` builds one `RuntimeContext` and wires the same `taskQueue` / Temporal settings to `createWorker()` and a cached `client()`:
+`createApp` builds one `RuntimeContext` and wires the same default task queue / Temporal settings to `createWorker()` and a cached `client()`:
 
 ```ts
 import { createApp } from '@durion/sdk';
@@ -192,7 +192,7 @@ const app = await createApp({
   models: { fast: openai.chat('gpt-4o-mini') },
   tools: [/* ... */],
   workflowsPath: require.resolve('./workflows'),
-  taskQueue: 'my-queue',
+  // optional: taskQueue — defaults to TASK_QUEUE env or `durion`
 });
 
 const worker = await app.createWorker();
@@ -213,7 +213,7 @@ Use `createClient` and the type-safe `start()` method with a direct function ref
 import { createClient } from '@durion/sdk';
 import { myWorkflow, myAgent } from './workflows';
 
-const client = await createClient({ taskQueue: 'my-queue' });
+const client = await createClient();
 
 const handle = await client.start(myWorkflow, { input: { prompt: 'Hello' } });
 const result = await handle.result();
@@ -224,7 +224,7 @@ const agentResult = await agentHandle.result();
 await client.close();
 ```
 
-`taskQueue` on `createClient` sets the default for all starts; you can override per call. For REST/HTTP bridges where the workflow type is a string, use `client.startWorkflow('myWorkflow', { input })`.
+Optional `taskQueue` on `createClient` overrides the default (`TASK_QUEUE` env or `durion`); you can also override per `start()`. For REST/HTTP bridges where the workflow type is a string, use `client.startWorkflow('myWorkflow', { input })`.
 
 ## React: progressive workflow UI
 

@@ -18,6 +18,7 @@ import {
   createClient,
   createRuntime,
   createWorker,
+  durionConfig,
   initObservability,
 } from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
@@ -30,9 +31,6 @@ const google = createGoogleGenerativeAI({
 });
 
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
-
-/** Matches example-server agent routing for `researchAssistant`. */
-const TASK_QUEUE = 'durion-research-assistant';
 
 async function runWorker(): Promise<void> {
   initObservability({
@@ -89,7 +87,6 @@ async function runWorker(): Promise<void> {
   const handle = await createWorker({
     runtime,
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
 
   const shutdown = (): void => {
@@ -102,7 +99,7 @@ async function runWorker(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  console.log(`Research assistant worker — task queue: ${TASK_QUEUE}`);
+  console.log(`Research assistant worker — task queue: ${durionConfig.TASK_QUEUE}`);
   await handle.run();
 }
 
@@ -119,7 +116,7 @@ async function runDemo(): Promise<void> {
     process.exit(1);
   }
 
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
 
   try {
     if (sub === 'contentBrief') {

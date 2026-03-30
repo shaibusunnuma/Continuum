@@ -15,9 +15,9 @@ import dotenv from 'dotenv';
 import { openai } from '@ai-sdk/openai';
 import { tavily } from '@tavily/core';
 import { z } from 'zod';
-import { createApp, createClient, initObservability } from '@durion/sdk';
+import { createApp, createClient, durionConfig, initObservability } from '@durion/sdk';
 import { researchPipeline, parallelAnalysis, evaluationLoop, agentResearch } from './workflows';
-const TASK_QUEUE = 'durion-graph-pipeline';
+
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
@@ -47,7 +47,6 @@ async function runWorker(): Promise<void> {
       },
     ],
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: TASK_QUEUE,
   });
   const handle = await app.createWorker();
   const shutdown = (): void => {
@@ -58,11 +57,11 @@ async function runWorker(): Promise<void> {
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
-  console.log(`Graph pipeline worker — task queue: ${TASK_QUEUE}`);
+  console.log(`Graph pipeline worker — task queue: ${durionConfig.TASK_QUEUE}`);
   await handle.run();
 }
 async function runResearchDemo(topic: string): Promise<void> {
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
   try {
     console.log(`Starting researchPipeline for: "${topic}"`);
     console.log('Graph topology:', JSON.stringify(researchPipeline.topology, null, 2));
@@ -83,7 +82,7 @@ async function runResearchDemo(topic: string): Promise<void> {
   }
 }
 async function runParallelDemo(topic: string): Promise<void> {
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
   try {
     console.log(`Starting parallelAnalysis for: "${topic}"`);
     console.log('Graph topology:', JSON.stringify(parallelAnalysis.topology, null, 2));
@@ -107,7 +106,7 @@ async function runParallelDemo(topic: string): Promise<void> {
   }
 }
 async function runEvaluateDemo(topic: string): Promise<void> {
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
   try {
     console.log(`Starting evaluationLoop for: "${topic}"`);
     console.log('Graph topology:', JSON.stringify(evaluationLoop.topology, null, 2));
@@ -146,7 +145,7 @@ async function main(): Promise<void> {
   }
 }
 async function runAgentDemo(topic: string): Promise<void> {
-  const client = await createClient({ taskQueue: TASK_QUEUE });
+  const client = await createClient();
   try {
     console.log(`Starting agentResearch for: "${topic}"`);
     console.log('Graph topology:', JSON.stringify(agentResearch.topology, null, 2));

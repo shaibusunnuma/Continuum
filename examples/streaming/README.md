@@ -43,3 +43,5 @@ npm run server:streaming-redis
 ```
 
 Optional: set `REDIS_URL` in the repo root `.env`.
+
+All streaming entrypoints use the default task queue (`TASK_QUEUE` or `durion`). If you run **this** worker alongside **another** example worker at the same time, set a **distinct** `TASK_QUEUE` in one of the processes so workflow tasks are not picked up by the wrong bundle.

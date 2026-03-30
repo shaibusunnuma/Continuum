@@ -13,11 +13,9 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { openai } from '@ai-sdk/openai';
-import { createApp, createClient, initObservability } from '@durion/sdk';
+import { createApp, createClient, durionConfig, initObservability } from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
 import { composabilityParent, composabilityOrchestrator } from './workflows';
-
-const COMPOSABILITY_TASK_QUEUE = 'durion-composability';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -45,7 +43,6 @@ async function runWorker(): Promise<void> {
       },
     },
     workflowsPath: require.resolve('./workflows'),
-    taskQueue: COMPOSABILITY_TASK_QUEUE,
   });
 
   const handle = await app.createWorker();
@@ -58,7 +55,7 @@ async function runWorker(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  console.log(`Composability worker — task queue: ${COMPOSABILITY_TASK_QUEUE}`);
+  console.log(`Composability worker — task queue: ${durionConfig.TASK_QUEUE}`);
   await handle.run();
 }
 
@@ -77,7 +74,7 @@ async function runDemo(): Promise<void> {
    * Remote / second process: only this block (plus env) is required — same TEMPORAL_ADDRESS,
    * TEMPORAL_NAMESPACE, and TASK_QUEUE as the worker. See examples/REMOTE_CLIENT.md.
    */
-  const client = await createClient({ taskQueue: COMPOSABILITY_TASK_QUEUE });
+  const client = await createClient();
 
   try {
     if (sub === 'parent') {
