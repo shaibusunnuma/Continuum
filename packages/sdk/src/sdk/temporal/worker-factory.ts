@@ -1,5 +1,7 @@
 import { NativeConnection, Worker } from '@temporalio/worker';
+import type { NativeConnectionOptions } from '@temporalio/worker';
 import { config } from '../../shared/config';
+import { mergeWorkerNativeConnectionOptions } from './connection-merge';
 import * as sdkActivities from './activities';
 import type { RuntimeContext } from '../runtime';
 import type { ObservabilityConfig } from '../obs';
@@ -17,6 +19,11 @@ export interface CreateWorkerConfig {
   temporalAddress?: string;
   /** Temporal server namespace; defaults to config.TEMPORAL_NAMESPACE. */
   temporalNamespace?: string;
+  /**
+   * Extra `NativeConnection.connect` options (TLS, API key, …). Merged after env defaults;
+   * this object wins on overlap. Omit `address` (use `temporalAddress`).
+   */
+  nativeConnection?: Omit<NativeConnectionOptions, 'address'>;
   /** Optional observability config (applied to the runtime if provided). */
   observability?: ObservabilityConfig;
 }
@@ -48,7 +55,9 @@ export async function createWorker(cfg: CreateWorkerConfig): Promise<WorkerHandl
   // Set the active runtime so activities can access models, tools, hooks
   setActiveRuntime(cfg.runtime);
 
-  const connection = await NativeConnection.connect({ address });
+  const connection = await NativeConnection.connect(
+    mergeWorkerNativeConnectionOptions(address, cfg.nativeConnection),
+  );
   const worker = await Worker.create({
     connection,
     namespace,

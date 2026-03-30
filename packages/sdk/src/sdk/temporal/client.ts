@@ -12,10 +12,12 @@
  *   const handle = await client.startWorkflow('myWorkflow', { input: { message: 'Hi' } });
  */
 import { Client, Connection, WorkflowExecutionDescription } from '@temporalio/client';
+import type { ConnectionOptions } from '@temporalio/client';
 import { executionInfoFromRaw } from '@temporalio/client/lib/helpers';
 import { historyToJSON } from '@temporalio/common/lib/proto-utils';
 import type { LoadedDataConverter } from '@temporalio/common';
 import { config } from '../../shared/config';
+import { mergeClientConnectionOptions } from './connection-merge';
 import { ConfigurationError } from '../errors';
 import type { StreamState } from '../types';
 import type {
@@ -43,6 +45,11 @@ export interface CreateClientConfig {
    * Falls back to TASK_QUEUE env / 'durion' if omitted.
    */
   taskQueue?: string;
+  /**
+   * Extra `Connection.connect` options (TLS, API key, metadata, …). Merged after env defaults
+   * (`TEMPORAL_API_KEY`, inferred `TEMPORAL_TLS`); this object wins on overlap. Omit `address` (use `temporalAddress`).
+   */
+  connection?: Omit<ConnectionOptions, 'address'>;
 }
 
 /** Options for starting a workflow. */
@@ -168,7 +175,9 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
   const namespace = cfg?.temporalNamespace ?? config.TEMPORAL_NAMESPACE;
   const defaultTaskQueue = cfg?.taskQueue;
 
-  const connection = await Connection.connect({ address });
+  const connection = await Connection.connect(
+    mergeClientConnectionOptions(address, cfg?.connection),
+  );
   const temporalClient = new Client({ connection, namespace });
 
   function resolveTaskQueue(perCall?: string): string {

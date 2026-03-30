@@ -23,6 +23,7 @@ Optional: set **`DURION_GATEWAY_TOKEN`** — when set, all **`/v0/*`** routes re
 ## Env
 
 - `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TASK_QUEUE`, `API_PORT`
+- **`TEMPORAL_API_KEY`** / **`TEMPORAL_TLS`** — same semantics as `@durion/sdk` for Temporal Cloud (API key + TLS; see SDK README).
 - **`TASK_QUEUE` must match the worker** you run. Examples default to **`durion`** (or your `TASK_QUEUE` env). Override per request with **`taskQueue`** on **POST /workflows/start** if needed.
 - **`REDIS_URL`** — default `redis://127.0.0.1:6379`; required for token SSE when the worker runs in another process (see `examples/react-hitl-ui`).
 - **`DURION_GATEWAY_TOKEN`** (optional) — secures **`/v0/*`** only; see Gateway doc above.

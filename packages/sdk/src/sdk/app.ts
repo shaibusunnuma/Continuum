@@ -15,6 +15,8 @@ import { config as sharedConfig } from '../shared/config';
 import type { RuntimeContext } from './runtime';
 import { ConfigurationError } from './errors';
 import { createRuntime, type CreateRuntimeConfig } from './runtime';
+import type { ConnectionOptions } from '@temporalio/client';
+import type { NativeConnectionOptions } from '@temporalio/worker';
 import { createWorker, type CreateWorkerConfig, type WorkerHandle } from './temporal/worker-factory';
 import { createClient, type SdkClient, type StartWorkflowOptions, type WorkflowRun } from './temporal/client';
 
@@ -26,6 +28,10 @@ export interface CreateAppConfig extends CreateRuntimeConfig {
   taskQueue?: string;
   temporalAddress?: string;
   temporalNamespace?: string;
+  /** Passed to `createClient` (merged with env TLS / API key). */
+  connection?: Omit<ConnectionOptions, 'address'>;
+  /** Passed to `createWorker` (merged with env TLS / API key). */
+  nativeConnection?: Omit<NativeConnectionOptions, 'address'>;
 }
 
 /** Application handle: shared runtime, factory for worker, cached Temporal client, convenience starters. */
@@ -41,7 +47,10 @@ export interface App {
    */
   createWorker(
     overrides?: Partial<
-      Pick<CreateWorkerConfig, 'taskQueue' | 'temporalAddress' | 'temporalNamespace' | 'observability'>
+      Pick<
+        CreateWorkerConfig,
+        'taskQueue' | 'temporalAddress' | 'temporalNamespace' | 'nativeConnection' | 'observability'
+      >
     >,
   ): Promise<WorkerHandle>;
 
@@ -76,6 +85,8 @@ export async function createApp(cfg: CreateAppConfig): Promise<App> {
     taskQueue: cfgTaskQueue,
     temporalAddress: cfgTemporalAddress,
     temporalNamespace: cfgTemporalNamespace,
+    connection: cfgConnection,
+    nativeConnection: cfgNativeConnection,
     ...runtimeConfig
   } = cfg;
 
@@ -98,6 +109,7 @@ export async function createApp(cfg: CreateAppConfig): Promise<App> {
         taskQueue,
         temporalAddress,
         temporalNamespace,
+        connection: cfgConnection,
       }).then((c) => {
         cachedClient = c;
         return c;
@@ -118,6 +130,7 @@ export async function createApp(cfg: CreateAppConfig): Promise<App> {
         taskQueue: overrides.taskQueue ?? taskQueue,
         temporalAddress: overrides.temporalAddress ?? temporalAddress,
         temporalNamespace: overrides.temporalNamespace ?? temporalNamespace,
+        nativeConnection: { ...(cfgNativeConnection ?? {}), ...(overrides.nativeConnection ?? {}) },
         observability: overrides.observability,
       }),
 

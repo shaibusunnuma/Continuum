@@ -28,8 +28,16 @@ The SDK reads **`process.env`** for Temporal defaults. Typical variables:
 | `TEMPORAL_ADDRESS` | gRPC frontend (default `localhost:7233`) |
 | `TEMPORAL_NAMESPACE` | Namespace (default `default`) |
 | `TASK_QUEUE` | Queue shared by worker and `createClient` (default `durion`) |
+| `TEMPORAL_API_KEY` | Temporal Cloud API key (optional). When set, TLS is enabled by default. Do not log. |
+| `TEMPORAL_TLS` | Optional override: `true` / `1` force TLS; `false` / `0` force plaintext (local). Unset: TLS on if `TEMPORAL_API_KEY` is set. |
 
 Import **`durionConfig`** from `@durion/sdk` for the resolved values (after the SDK’s repo-root `.env` load). You should still load `.env` in **your** app entrypoint when paths differ (e.g. custom deploys).
+
+### Temporal Cloud
+
+Point **`TEMPORAL_ADDRESS`** at your Cloud endpoint (e.g. `your-namespace.abc123.tmprl.cloud:7233`), set **`TEMPORAL_NAMESPACE`** to the namespace name, and set **`TEMPORAL_API_KEY`**. No code changes are required if env is set.
+
+For mTLS, custom metadata, or a rotating API key on the **client**, pass **`connection`** to `createClient` (see `ConnectionOptions` from `@temporalio/client`, also re-exported as a type from `@durion/sdk`). For the **worker**, use **`nativeConnection`** on `createWorker` / `createApp` (`NativeConnectionOptions` — `apiKey` must be a string).
 
 Provider API keys (e.g. `OPENAI_API_KEY`) are read by the AI SDK provider packages, not by Durion.
 
