@@ -13,6 +13,11 @@ export interface StudioRunRow {
   primitive: StudioRunPrimitive | null;
   totalTokens: number | null;
   costUsd: number | null;
+  /** Temporal child workflow parent; null for root runs. */
+  parentWorkflowId: string | null;
+  parentRunId: string | null;
+  rootWorkflowId: string | null;
+  rootRunId: string | null;
 }
 
 export interface StreamState {

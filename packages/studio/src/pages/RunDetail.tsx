@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-import { describeRun, getHistory, getResult, getStreamState } from '@/lib/api';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { describeRun, getHistory, getResult, getStreamState, runDetailHref, type RunScopedQuery } from '@/lib/api';
 import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
 import { parseFullHistory } from '@/lib/parse-history';
 import { detectViewMode } from '@/lib/view-mode';
@@ -38,6 +38,10 @@ interface DescribeData {
   startTime: string | null;
   closeTime: string | null;
   memo: Record<string, unknown>;
+  parentWorkflowId: string | null;
+  parentRunId: string | null;
+  rootWorkflowId: string | null;
+  rootRunId: string | null;
 }
 
 function formatRunDateTime(iso: string | null | undefined): string {
@@ -116,7 +120,7 @@ function HistoryActivityTimelineBlock({
   mergedSpans: ActivitySpan[];
   isRunning: boolean;
   onStepClick: (step: ActivityStep | null, nodeId?: string) => void;
-  onOpenChild: (workflowId: string) => void;
+  onOpenChild: (workflowId: string, childRunId?: string) => void;
 }) {
   const hasList = history.activitySteps.length > 0;
   const hasMergedSpans = mergedSpans.length > 0;
@@ -125,7 +129,7 @@ function HistoryActivityTimelineBlock({
   const handleMergedSpanClick = (span: ActivitySpan) => {
     const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
     if (child) {
-      onOpenChild(child.workflowId);
+      onOpenChild(child.workflowId, child.runId);
       return;
     }
     const step = history.activitySteps.find((s) => s.eventId === span.key);
@@ -166,10 +170,19 @@ export function RunDetail() {
   const { workflowId: workflowIdParam } = useParams<{ workflowId: string }>();
   const workflowId = workflowIdParam ? decodeURIComponent(workflowIdParam) : '';
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const runIdFromQuery = searchParams.get('runId')?.trim() || undefined;
+  const runScope: RunScopedQuery | undefined = useMemo(
+    () => (runIdFromQuery ? { runId: runIdFromQuery } : undefined),
+    [runIdFromQuery],
+  );
 
-  const openChildRun = useCallback((childWorkflowId: string) => {
-    navigate(`/runs/${encodeURIComponent(childWorkflowId)}`);
-  }, [navigate]);
+  const openChildRun = useCallback(
+    (childWorkflowId: string, childRunId?: string) => {
+      navigate(runDetailHref(childWorkflowId, childRunId ? { runId: childRunId } : undefined));
+    },
+    [navigate],
+  );
 
   // ── Primary: from Temporal server (no worker needed) ───────────────────
   const [describe, setDescribe] = useState<DescribeData | null>(null);
@@ -219,7 +232,7 @@ export function RunDetail() {
   useEffect(() => {
     setStreamState(null);
     setStreamAvailable(null);
-  }, [workflowId]);
+  }, [workflowId, runIdFromQuery]);
 
   // ── Load describe + history first (Temporal server only); stream-state in background (needs worker) ──
   const fullRefresh = useCallback(async () => {
@@ -231,8 +244,8 @@ export function RunDetail() {
     setRefreshing(true);
     try {
       const [descResult, histResult] = await Promise.allSettled([
-        describeRun(workflowId),
-        getHistory(workflowId),
+        describeRun(workflowId, runScope),
+        getHistory(workflowId, runScope),
       ]);
 
       const errs: string[] = [];
@@ -247,6 +260,10 @@ export function RunDetail() {
           startTime: d.startTime,
           closeTime: d.closeTime,
           memo: d.memo ?? {},
+          parentWorkflowId: d.parentWorkflowId ?? null,
+          parentRunId: d.parentRunId ?? null,
+          rootWorkflowId: d.rootWorkflowId ?? null,
+          rootRunId: d.rootRunId ?? null,
         });
       } else {
         const r = descResult.reason;
@@ -264,7 +281,7 @@ export function RunDetail() {
 
       if (descResult.status === 'fulfilled' && descResult.value.status !== 'RUNNING') {
         try {
-          const rr = await getResult(workflowId);
+          const rr = await getResult(workflowId, runScope);
           setWorkflowResultPayload(rr.result ?? null);
         } catch {
           setWorkflowResultPayload(null);
@@ -280,7 +297,7 @@ export function RunDetail() {
 
     void (async () => {
       try {
-        const streamResult = await Promise.allSettled([getStreamState(workflowId)]);
+        const streamResult = await Promise.allSettled([getStreamState(workflowId, runScope)]);
         const s = streamResult[0];
         if (s.status === 'fulfilled') {
           setStreamState(s.value);
@@ -294,16 +311,16 @@ export function RunDetail() {
         setStreamAvailable(false);
       }
     })();
-  }, [workflowId]);
+  }, [workflowId, runScope]);
 
   /** Poll describe + history + stream while Temporal says RUNNING (or Durion stream still active). */
   const pollActiveRun = useCallback(async () => {
     if (!workflowId) return;
     try {
       const [dRes, hRes, sRes] = await Promise.allSettled([
-        describeRun(workflowId),
-        getHistory(workflowId),
-        getStreamState(workflowId),
+        describeRun(workflowId, runScope),
+        getHistory(workflowId, runScope),
+        getStreamState(workflowId, runScope),
       ]);
       if (dRes.status === 'fulfilled') {
         const d = dRes.value;
@@ -315,6 +332,10 @@ export function RunDetail() {
           startTime: d.startTime,
           closeTime: d.closeTime,
           memo: d.memo ?? {},
+          parentWorkflowId: d.parentWorkflowId ?? null,
+          parentRunId: d.parentRunId ?? null,
+          rootWorkflowId: d.rootWorkflowId ?? null,
+          rootRunId: d.rootRunId ?? null,
         });
       }
       if (hRes.status === 'fulfilled') {
@@ -326,7 +347,7 @@ export function RunDetail() {
       }
       if (dRes.status === 'fulfilled' && dRes.value.status !== 'RUNNING') {
         try {
-          const rr = await getResult(workflowId);
+          const rr = await getResult(workflowId, runScope);
           setWorkflowResultPayload(rr.result ?? null);
         } catch {
           /* keep previous payload */
@@ -336,7 +357,7 @@ export function RunDetail() {
     } catch {
       /* ignore transient poll errors */
     }
-  }, [workflowId]);
+  }, [workflowId, runScope]);
 
   useEffect(() => {
     void fullRefresh();
@@ -474,6 +495,37 @@ export function RunDetail() {
             {error}
           </p>
         )}
+
+        {describe?.parentWorkflowId && (
+          <div className="rounded-md border border-border bg-muted/25 px-3 py-2 font-mono text-[11px] text-muted-foreground">
+            <span className="text-muted-foreground/90">Child of parent</span>{' '}
+            <Link
+              to={runDetailHref(
+                describe.parentWorkflowId,
+                describe.parentRunId ? { runId: describe.parentRunId } : undefined,
+              )}
+              className="text-chart-1 hover:underline"
+            >
+              {describe.parentWorkflowId}
+            </Link>
+            {describe.rootWorkflowId &&
+            describe.rootWorkflowId !== workflowId &&
+            describe.rootWorkflowId !== describe.parentWorkflowId ? (
+              <span className="block pt-1 text-[10px] text-muted-foreground/80">
+                Root:{' '}
+                <span className="text-foreground/90" title={describe.rootWorkflowId}>
+                  {describe.rootWorkflowId}
+                </span>
+              </span>
+            ) : null}
+          </div>
+        )}
+
+        {runIdFromQuery ? (
+          <p className="text-muted-foreground font-mono text-[10px]">
+            Pinned execution <span className="text-foreground">{runIdFromQuery}</span>
+          </p>
+        ) : null}
 
         {/* ── Run summary (Temporal-style dense header + graph extras) ─ */}
         <Card className="border-border py-0">
@@ -717,7 +769,7 @@ export function RunDetail() {
                     onSpanClick={(span) => {
                       const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
                       if (child) {
-                        openChildRun(child.workflowId);
+                        openChildRun(child.workflowId, child.runId);
                         return;
                       }
                       const step = history.activitySteps.find((s) => s.eventId === span.key);

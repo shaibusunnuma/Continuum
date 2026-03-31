@@ -101,8 +101,8 @@ export interface SdkClient {
     options: StartWorkflowOptions<TInput>,
   ): Promise<WorkflowRun<TResult>>;
 
-  /** Get a handle to an existing workflow by ID. */
-  getWorkflowHandle<TResult = unknown>(workflowId: string): WorkflowRun<TResult>;
+  /** Get a handle to an existing workflow by ID; optional `runId` pins a specific execution. */
+  getWorkflowHandle<TResult = unknown>(workflowId: string, runId?: string): WorkflowRun<TResult>;
 
   /**
    * List workflow executions in this namespace (visibility API).
@@ -280,9 +280,13 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     startTime: Date;
     closeTime?: Date;
     memo?: Record<string, unknown>;
+    parentExecution?: { workflowId: string | null; runId: string | null };
+    rootExecution?: { workflowId: string | null; runId: string | null };
   }): StudioWorkflowExecutionSummary {
     const memo = info.memo ?? {};
     const { totalTokens, costUsd } = studioUsageFromMemo(memo);
+    const parent = info.parentExecution;
+    const root = info.rootExecution;
     return {
       workflowId: info.workflowId,
       runId: info.runId,
@@ -294,6 +298,10 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
       primitive: studioPrimitiveFromMemo(memo),
       totalTokens,
       costUsd,
+      parentWorkflowId: parent?.workflowId ?? null,
+      parentRunId: parent?.runId ?? null,
+      rootWorkflowId: root?.workflowId ?? null,
+      rootRunId: root?.runId ?? null,
     };
   }
 
@@ -327,8 +335,8 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
       return wrapHandle<TResult>(handle);
     },
 
-    getWorkflowHandle<TResult>(workflowId: string): WorkflowRun<TResult> {
-      const handle = temporalClient.workflow.getHandle(workflowId);
+    getWorkflowHandle<TResult>(workflowId: string, runId?: string): WorkflowRun<TResult> {
+      const handle = temporalClient.workflow.getHandle(workflowId, runId);
       return wrapHandle<TResult>(handle);
     },
 

@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { runDetailHref } from '@/lib/api';
 import type { ChildWorkflowStep } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ export function ChildWorkflowList({
             </div>
             <div className="shrink-0 pl-10 sm:pl-0">
               <Link
-                to={`/runs/${encodeURIComponent(s.workflowId)}`}
+                to={runDetailHref(s.workflowId, s.runId ? { runId: s.runId } : undefined)}
                 className="text-chart-1 text-xs underline-offset-2 hover:underline"
               >
                 Open run

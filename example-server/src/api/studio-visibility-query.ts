@@ -21,12 +21,18 @@ function quoteVisibilityString(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
+export type StudioRunsCompositionFilter = 'all' | 'roots' | 'children';
+
 export function buildStudioRunsStructuredQuery(params: {
   executionStatus?: string;
   workflowType?: string;
   workflowId?: string;
   startAfter?: string;
   startBefore?: string;
+  /** Temporal visibility: ParentWorkflowId (server ≥ ~1.23 with default search attributes). */
+  composition?: StudioRunsCompositionFilter;
+  /** List runs whose parent workflow id matches (child workflows only). */
+  parentWorkflowId?: string;
 }): string | undefined {
   const parts: string[] = [];
 
@@ -45,6 +51,15 @@ export function buildStudioRunsStructuredQuery(params: {
   const wfId = params.workflowId?.trim();
   if (wfId) {
     parts.push(`WorkflowId = ${quoteVisibilityString(wfId)}`);
+  }
+
+  const parentForChildren = params.parentWorkflowId?.trim();
+  if (parentForChildren) {
+    parts.push(`ParentWorkflowId = ${quoteVisibilityString(parentForChildren)}`);
+  } else if (params.composition === 'roots') {
+    parts.push('ParentWorkflowId IS NULL');
+  } else if (params.composition === 'children') {
+    parts.push('ParentWorkflowId IS NOT NULL');
   }
 
   const after = params.startAfter?.trim();

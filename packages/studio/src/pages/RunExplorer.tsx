@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3 } from "lucide-react";
-import { listRuns, type ListRunsParams } from "@/lib/api";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  Columns3,
+  CornerUpLeft,
+  GitBranch,
+} from "lucide-react";
+import { listRuns, runDetailHref, type ListRunsParams } from "@/lib/api";
 import type { StudioRunPrimitive, StudioRunRow } from "@/lib/types";
 import { DateTimePickerField } from "@/components/run-explorer/DateTimePickerField";
 import { Badge } from "@/components/ui/badge";
@@ -69,12 +76,16 @@ const DEFAULT_VISIBILITY: Record<RunColumnId, boolean> = {
   tokens: true,
 };
 
+type CompositionFilter = "all" | "roots" | "children";
+
 interface ServerFilterForm {
   executionStatus: string;
   workflowType: string;
   workflowId: string;
   startAfter: string;
   startBefore: string;
+  composition: CompositionFilter;
+  parentWorkflowId: string;
 }
 
 const EMPTY_SERVER_FILTERS: ServerFilterForm = {
@@ -83,6 +94,8 @@ const EMPTY_SERVER_FILTERS: ServerFilterForm = {
   workflowId: "",
   startAfter: "",
   startBefore: "",
+  composition: "all",
+  parentWorkflowId: "",
 };
 
 function normalizeRun(r: StudioRunRow): StudioRunRow {
@@ -91,6 +104,10 @@ function normalizeRun(r: StudioRunRow): StudioRunRow {
     primitive: r.primitive ?? null,
     totalTokens: r.totalTokens ?? null,
     costUsd: r.costUsd ?? null,
+    parentWorkflowId: r.parentWorkflowId ?? null,
+    parentRunId: r.parentRunId ?? null,
+    rootWorkflowId: r.rootWorkflowId ?? null,
+    rootRunId: r.rootRunId ?? null,
   };
 }
 
@@ -175,6 +192,8 @@ function appliedToListParams(f: ServerFilterForm): Omit<ListRunsParams, "limit" 
   if (f.workflowId.trim()) p.workflowId = f.workflowId.trim();
   if (f.startAfter.trim()) p.startAfter = f.startAfter.trim();
   if (f.startBefore.trim()) p.startBefore = f.startBefore.trim();
+  if (f.composition !== "all") p.composition = f.composition;
+  if (f.parentWorkflowId.trim()) p.parentWorkflowId = f.parentWorkflowId.trim();
   return p;
 }
 
@@ -540,6 +559,34 @@ export function RunExplorer() {
                 }
               />
             </label>
+            <label className="flex min-w-[8rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+              Composition
+              <select
+                className={inputClass}
+                value={draftServer.composition}
+                onChange={(e) =>
+                  setDraftServer((s) => ({
+                    ...s,
+                    composition: e.target.value as CompositionFilter,
+                  }))
+                }
+              >
+                <option value="all">All runs</option>
+                <option value="roots">Root runs only</option>
+                <option value="children">Child runs only</option>
+              </select>
+            </label>
+            <label className="flex min-w-[9rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+              Parent workflow ID
+              <input
+                className={inputClass}
+                placeholder="Children of…"
+                value={draftServer.parentWorkflowId}
+                onChange={(e) =>
+                  setDraftServer((s) => ({ ...s, parentWorkflowId: e.target.value }))
+                }
+              />
+            </label>
             <DateTimePickerField
               id="run-filter-start-after"
               label="Start after"
@@ -600,10 +647,11 @@ export function RunExplorer() {
           </div>
           <p className="font-mono text-[10px] leading-snug text-muted-foreground">
             Start after / before reload the list as soon as you click Apply in the calendar (Temporal
-            visibility: StartTime range). Other fields use Apply filters. Primitive and min cost apply to
-            loaded runs only (this page and any &quot;Load more&quot; rows), not the whole namespace. Use
-            the sort icon next to Started / Duration / Cost / Tokens (cycles ascending → descending →
-            server order).
+            visibility: StartTime range). Other fields use Apply filters. Composition uses
+            ParentWorkflowId visibility (Temporal server with default search attributes). Parent workflow
+            ID narrows to children of that run. Primitive and min cost apply to loaded runs only (this
+            page and any &quot;Load more&quot; rows), not the whole namespace. Use the sort icon next to
+            Started / Duration / Cost / Tokens (cycles ascending → descending → server order).
           </p>
         </div>
 
@@ -617,7 +665,9 @@ export function RunExplorer() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {vis.workflowId && (
-                  <TableHead className="font-mono text-xs text-muted-foreground">Workflow ID</TableHead>
+                  <TableHead className="font-mono text-xs text-muted-foreground max-w-[11rem] min-w-0 !whitespace-normal">
+                    Workflow ID
+                  </TableHead>
                 )}
                 {vis.workflowType && (
                   <TableHead className="font-mono text-xs text-muted-foreground">Type</TableHead>
@@ -691,13 +741,59 @@ export function RunExplorer() {
                       displayRows.map((r) => (
                         <TableRow key={`${r.workflowId}-${r.runId}`} className="font-mono text-xs">
                           {vis.workflowId && (
-                            <TableCell className="max-w-[200px] truncate">
-                              <Link
-                                to={`/runs/${encodeURIComponent(r.workflowId)}`}
-                                className="text-primary hover:underline"
-                              >
-                                {r.workflowId}
-                              </Link>
+                            <TableCell className="max-w-[11rem] min-w-0 !whitespace-normal align-top">
+                              {r.parentWorkflowId ? (
+                                <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+                                  <div className="flex min-w-0 items-center gap-1">
+                                    <span
+                                      className="inline-flex shrink-0 text-chart-1"
+                                      title="Child workflow"
+                                      aria-label="Child workflow"
+                                    >
+                                      <GitBranch className="size-3" aria-hidden />
+                                    </span>
+                                    <Link
+                                      to={runDetailHref(r.workflowId, {
+                                        runId: r.runId || undefined,
+                                      })}
+                                      className="text-primary min-w-0 flex-1 truncate hover:underline"
+                                      title={r.workflowId}
+                                    >
+                                      {r.workflowId}
+                                    </Link>
+                                  </div>
+                                  <div className="flex min-w-0 items-center gap-0.5 pl-4">
+                                    <CornerUpLeft
+                                      className="text-muted-foreground/80 size-3 shrink-0"
+                                      aria-hidden
+                                    />
+                                    <Link
+                                      to={runDetailHref(
+                                        r.parentWorkflowId,
+                                        r.parentRunId ? { runId: r.parentRunId } : undefined,
+                                      )}
+                                      className="text-muted-foreground hover:text-chart-1 min-w-0 flex-1 truncate text-[10px] hover:underline"
+                                      title={
+                                        r.parentRunId
+                                          ? `${r.parentWorkflowId} · ${r.parentRunId}`
+                                          : r.parentWorkflowId
+                                      }
+                                    >
+                                      {r.parentWorkflowId}
+                                    </Link>
+                                  </div>
+                                </div>
+                              ) : (
+                                <Link
+                                  to={runDetailHref(r.workflowId, {
+                                    runId: r.runId || undefined,
+                                  })}
+                                  className="text-primary block min-w-0 truncate hover:underline"
+                                  title={r.workflowId}
+                                >
+                                  {r.workflowId}
+                                </Link>
+                              )}
                             </TableCell>
                           )}
                           {vis.workflowType && (

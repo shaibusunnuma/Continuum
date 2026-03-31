@@ -60,6 +60,19 @@ function fetchWithTimeout(
   });
 }
 
+/** Optional execution pin for gateway `GET /v0/runs/...` when multiple runs share a workflow id. */
+export type RunScopedQuery = { runId?: string };
+
+function runQueryString(opts?: RunScopedQuery): string {
+  const r = opts?.runId?.trim();
+  return r ? `?runId=${encodeURIComponent(r)}` : '';
+}
+
+/** Studio router path for a run; include `runId` when linking to a specific execution. */
+export function runDetailHref(workflowId: string, opts?: RunScopedQuery): string {
+  return `/runs/${encodeURIComponent(workflowId)}${runQueryString(opts)}`;
+}
+
 export interface ListRunsParams {
   limit?: number;
   nextPageToken?: string;
@@ -71,6 +84,13 @@ export interface ListRunsParams {
   /** ISO-8601 datetime; server maps to `StartTime >=` / `<=`. */
   startAfter?: string;
   startBefore?: string;
+  /**
+   * Temporal visibility `ParentWorkflowId` filter (server-dependent).
+   * `roots` → `ParentWorkflowId IS NULL`; `children` → `IS NOT NULL`.
+   */
+  composition?: 'all' | 'roots' | 'children';
+  /** Restrict to children of this parent workflow id. */
+  parentWorkflowId?: string;
 }
 
 export async function listRuns(params: ListRunsParams): Promise<{
@@ -86,6 +106,8 @@ export async function listRuns(params: ListRunsParams): Promise<{
   if (params.workflowId) sp.set('workflowId', params.workflowId);
   if (params.startAfter) sp.set('startAfter', params.startAfter);
   if (params.startBefore) sp.set('startBefore', params.startBefore);
+  if (params.composition && params.composition !== 'all') sp.set('composition', params.composition);
+  if (params.parentWorkflowId?.trim()) sp.set('parentWorkflowId', params.parentWorkflowId.trim());
   const q = sp.toString();
   const res = await fetchWithTimeout(`/v0/studio/runs${q ? `?${q}` : ''}`, {
     headers: { ...authHeaders() },
@@ -93,23 +115,35 @@ export async function listRuns(params: ListRunsParams): Promise<{
   return parseJson(res);
 }
 
-export async function getStreamState(workflowId: string): Promise<StreamState | GraphStreamState> {
-  const res = await fetchWithTimeout(`/v0/runs/${encodeURIComponent(workflowId)}/stream-state`, {
-    headers: { ...authHeaders() },
-    timeoutMs: STREAM_STATE_FETCH_MS,
-  });
+export async function getStreamState(
+  workflowId: string,
+  opts?: RunScopedQuery,
+): Promise<StreamState | GraphStreamState> {
+  const res = await fetchWithTimeout(
+    `/v0/runs/${encodeURIComponent(workflowId)}/stream-state${runQueryString(opts)}`,
+    {
+      headers: { ...authHeaders() },
+      timeoutMs: STREAM_STATE_FETCH_MS,
+    },
+  );
   return parseJson(res);
 }
 
-export async function getHistory(workflowId: string): Promise<unknown> {
-  const res = await fetchWithTimeout(`/v0/studio/runs/${encodeURIComponent(workflowId)}/history`, {
-    headers: { ...authHeaders() },
-    timeoutMs: 120_000,
-  });
+export async function getHistory(workflowId: string, opts?: RunScopedQuery): Promise<unknown> {
+  const res = await fetchWithTimeout(
+    `/v0/studio/runs/${encodeURIComponent(workflowId)}/history${runQueryString(opts)}`,
+    {
+      headers: { ...authHeaders() },
+      timeoutMs: 120_000,
+    },
+  );
   return parseJson(res);
 }
 
-export async function describeRun(workflowId: string): Promise<{
+export async function describeRun(
+  workflowId: string,
+  opts?: RunScopedQuery,
+): Promise<{
   workflowId: string;
   runId: string | null;
   status: string;
@@ -118,22 +152,35 @@ export async function describeRun(workflowId: string): Promise<{
   startTime: string | null;
   closeTime: string | null;
   memo: Record<string, unknown>;
+  parentWorkflowId: string | null;
+  parentRunId: string | null;
+  rootWorkflowId: string | null;
+  rootRunId: string | null;
 }> {
-  const res = await fetchWithTimeout(`/v0/runs/${encodeURIComponent(workflowId)}`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await fetchWithTimeout(
+    `/v0/runs/${encodeURIComponent(workflowId)}${runQueryString(opts)}`,
+    {
+      headers: { ...authHeaders() },
+    },
+  );
   return parseJson(res);
 }
 
-export async function getResult(workflowId: string): Promise<{
+export async function getResult(
+  workflowId: string,
+  opts?: RunScopedQuery,
+): Promise<{
   workflowId: string;
   status: string;
   result: unknown;
   error?: string;
 }> {
-  const res = await fetchWithTimeout(`/v0/runs/${encodeURIComponent(workflowId)}/result`, {
-    headers: { ...authHeaders() },
-  });
+  const res = await fetchWithTimeout(
+    `/v0/runs/${encodeURIComponent(workflowId)}/result${runQueryString(opts)}`,
+    {
+      headers: { ...authHeaders() },
+    },
+  );
   return parseJson(res);
 }
 

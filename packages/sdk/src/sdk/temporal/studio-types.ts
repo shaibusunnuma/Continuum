@@ -20,6 +20,12 @@ export interface StudioWorkflowExecutionSummary {
   /** From memo `durion:usage` when workflow completed (SDK). */
   totalTokens: number | null;
   costUsd: number | null;
+  /** Direct parent execution when this run is a Temporal child workflow; otherwise null. */
+  parentWorkflowId: string | null;
+  parentRunId: string | null;
+  /** Root of the execution tree (same as workflow when no parent). */
+  rootWorkflowId: string | null;
+  rootRunId: string | null;
 }
 
 export interface ListWorkflowExecutionsParams {

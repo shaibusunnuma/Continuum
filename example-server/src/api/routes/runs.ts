@@ -1,7 +1,17 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { pipeStreamToResponse } from '@durion/sdk';
+import type { SdkClient } from '@durion/sdk';
 import { getTemporalClient } from '../temporal';
 import { getStreamBus } from '../../stream-bus';
+
+function optionalRunId(q: { runId?: string }): string | undefined {
+  const r = q.runId?.trim();
+  return r || undefined;
+}
+
+function handleForRun(client: SdkClient, workflowId: string, runId?: string) {
+  return runId ? client.getWorkflowHandle(workflowId, runId) : client.getWorkflowHandle(workflowId);
+}
 
 function isNotFoundError(err: unknown): boolean {
   if (err instanceof Error) {
@@ -18,6 +28,7 @@ export async function runsRoutes(
 ): Promise<void> {
   fastify.get<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
   }>(
     '/:workflowId/stream-state',
     {
@@ -27,12 +38,16 @@ export async function runsRoutes(
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
         },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
+        },
       },
     },
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const handle = client.getWorkflowHandle(request.params.workflowId);
+        const handle = handleForRun(client, request.params.workflowId, optionalRunId(request.query));
         const state = await handle.queryStreamState();
         return reply.send(state);
       } catch (err) {
@@ -75,6 +90,7 @@ export async function runsRoutes(
 
   fastify.post<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
     Body: { name: string; data?: unknown };
   }>(
     '/:workflowId/signal',
@@ -84,6 +100,10 @@ export async function runsRoutes(
           type: 'object',
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
+        },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
         },
         body: {
           type: 'object',
@@ -98,7 +118,7 @@ export async function runsRoutes(
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const handle = client.getWorkflowHandle(request.params.workflowId);
+        const handle = handleForRun(client, request.params.workflowId, optionalRunId(request.query));
         await handle.signal(request.body.name, request.body.data);
         return reply.status(204).send();
       } catch (err) {
@@ -114,6 +134,7 @@ export async function runsRoutes(
 
   fastify.get<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
   }>(
     '/:workflowId',
     {
@@ -123,13 +144,19 @@ export async function runsRoutes(
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
         },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
+        },
       },
     },
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const handle = client.getWorkflowHandle(request.params.workflowId);
+        const handle = handleForRun(client, request.params.workflowId, optionalRunId(request.query));
         const description = await handle.describe();
+        const parent = description.parentExecution;
+        const root = description.rootExecution;
 
         return reply.send({
           workflowId: request.params.workflowId,
@@ -140,6 +167,10 @@ export async function runsRoutes(
           startTime: description.startTime?.toISOString() ?? null,
           closeTime: description.closeTime?.toISOString() ?? null,
           memo: description.memo ?? {},
+          parentWorkflowId: parent?.workflowId ?? null,
+          parentRunId: parent?.runId ?? null,
+          rootWorkflowId: root?.workflowId ?? null,
+          rootRunId: root?.runId ?? null,
         });
       } catch (err) {
         request.log.error(err);
@@ -154,6 +185,7 @@ export async function runsRoutes(
 
   fastify.get<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
   }>(
     '/:workflowId/result',
     {
@@ -163,12 +195,16 @@ export async function runsRoutes(
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
         },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
+        },
       },
     },
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const handle = client.getWorkflowHandle(request.params.workflowId);
+        const handle = handleForRun(client, request.params.workflowId, optionalRunId(request.query));
         const description = await handle.describe();
 
         if (description.status.name === 'RUNNING') {

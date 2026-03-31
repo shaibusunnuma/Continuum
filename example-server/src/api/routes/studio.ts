@@ -49,6 +49,8 @@ export async function studioRoutes(
       workflowId?: string;
       startAfter?: string;
       startBefore?: string;
+      composition?: string;
+      parentWorkflowId?: string;
     };
   }>(
     '/runs',
@@ -65,6 +67,8 @@ export async function studioRoutes(
             workflowId: { type: 'string' },
             startAfter: { type: 'string' },
             startBefore: { type: 'string' },
+            composition: { type: 'string' },
+            parentWorkflowId: { type: 'string' },
           },
         },
       },
@@ -74,12 +78,17 @@ export async function studioRoutes(
         const client = await getTemporalClient();
         const limitRaw = request.query.limit ? parseInt(request.query.limit, 10) : 20;
         const pageSize = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20;
+        const compRaw = request.query.composition?.trim().toLowerCase();
+        const composition =
+          compRaw === 'roots' || compRaw === 'children' ? compRaw : undefined;
         const structured = buildStudioRunsStructuredQuery({
           executionStatus: request.query.executionStatus,
           workflowType: request.query.workflowType,
           workflowId: request.query.workflowId,
           startAfter: request.query.startAfter,
           startBefore: request.query.startBefore,
+          composition,
+          parentWorkflowId: request.query.parentWorkflowId,
         });
         const visibilityQuery = mergeStudioRunsVisibilityQuery(structured, request.query.query);
         const result = await client.listWorkflowExecutions({
@@ -188,6 +197,7 @@ export async function studioRoutes(
 
   fastify.get<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
   }>(
     '/runs/:workflowId/history',
     {
@@ -197,12 +207,17 @@ export async function studioRoutes(
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
         },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
+        },
       },
     },
     async (request, reply) => {
       try {
         const client = await getTemporalClient();
-        const history = await client.fetchWorkflowHistory(request.params.workflowId);
+        const runId = request.query.runId?.trim() || undefined;
+        const history = await client.fetchWorkflowHistory(request.params.workflowId, runId);
         return reply.send(history);
       } catch (err) {
         request.log.error(err);
