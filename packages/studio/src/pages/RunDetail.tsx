@@ -559,8 +559,8 @@ export function RunDetail() {
         </div>
 
         {/* ── Content ───────────────────────────────────────────────── */}
-        <div className="flex h-[min(72vh,520px)] min-h-[360px] gap-4">
-          <div className="flex-1 w-full relative">
+        <div className="flex h-[min(72vh,520px)] min-h-[360px] min-w-0 gap-4">
+          <div className="relative min-w-0 flex-1">
             {refreshing && !describe && !hasEvents && (
               <p className="text-muted-foreground font-mono text-sm absolute top-0 left-0">Loading…</p>
             )}
@@ -634,7 +634,7 @@ export function RunDetail() {
             )}
 
             {activeTab === 'events' && (
-              <div className="flex max-h-[min(72vh,520px)] flex-col gap-4 overflow-y-auto pr-1">
+              <div className="flex max-h-[min(72vh,520px)] min-w-0 flex-col gap-4 overflow-y-auto pr-1">
                 {history.activitySpans.length > 0 && (
                   <EventHistoryGantt
                     spans={history.activitySpans}
@@ -656,7 +656,7 @@ export function RunDetail() {
                     }
                   />
                 )}
-                <div className="min-h-0 flex-1">
+                <div className="min-h-0 min-w-0 flex-1">
                   <p className="text-muted-foreground mb-2 font-mono text-[10px] uppercase tracking-wide">
                     Events
                   </p>
@@ -696,7 +696,7 @@ export function RunDetail() {
 
           {/* XRay Pane Side Drawer */}
           {isXRayOpen && (
-            <div className="w-1/3 min-w-[320px] max-w-[500px] border border-border rounded-md overflow-hidden animate-in slide-in-from-right-8 duration-300 relative z-10 shadow-2xl">
+            <div className="w-1/3 min-w-[320px] max-w-[500px] shrink-0 border border-border rounded-md overflow-hidden animate-in slide-in-from-right-8 duration-300 relative z-10 shadow-2xl">
               <XRayPane
                 workflowId={workflowId}
                 selectedStep={selectedStep}

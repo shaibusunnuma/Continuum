@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { HistoryEvent } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 const CATEGORY_WORKFLOW_TASK = 'wft';
@@ -95,18 +94,19 @@ export function EventTimeline({ events, compact = true, scrollAreaClassName }: P
         )}
       </div>
 
-      <ScrollArea
+      {/* Native overflow-y (not Radix ScrollArea): nested overflow-x on expanded JSON is clipped by ScrollArea's viewport. */}
+      <div
         className={cn(
-          'rounded-md border border-border',
+          'min-w-0 w-full overflow-x-hidden overflow-y-auto rounded-md border border-border',
           scrollAreaClassName ?? 'h-[min(70vh,560px)]',
         )}
       >
-        <ol className="space-y-0 divide-y divide-border font-mono text-xs">
+        <ol className="min-w-0 space-y-0 divide-y divide-border font-mono text-xs">
           {visible.map((ev) => {
             const isExpanded = expanded.has(ev.eventId);
             const hasDetails = ev.details && Object.keys(ev.details).length > 0;
             return (
-              <li key={ev.eventId} className="group">
+              <li key={ev.eventId} className="group min-w-0">
                 <button
                   className={cn(
                     'flex w-full items-start gap-3 px-4 py-2.5 text-left',
@@ -134,17 +134,19 @@ export function EventTimeline({ events, compact = true, scrollAreaClassName }: P
                   )}
                 </button>
                 {isExpanded && ev.details && (
-                  <div className="border-t border-border/40 bg-secondary/20 px-4 py-3">
-                    <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-[11px] text-muted-foreground wrap-break-word">
-                      {JSON.stringify(ev.details, null, 2)}
-                    </pre>
+                  <div className="max-w-full min-w-0 border-t border-border/40 bg-secondary/20 px-4 py-3">
+                    <div className="max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-sm border border-border/30 bg-background/40">
+                      <pre className="max-h-60 min-w-full w-max overflow-y-auto whitespace-pre p-2 text-[11px] text-muted-foreground [scrollbar-width:thin]">
+                        {JSON.stringify(ev.details, null, 2)}
+                      </pre>
+                    </div>
                   </div>
                 )}
               </li>
             );
           })}
         </ol>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
