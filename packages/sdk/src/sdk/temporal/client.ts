@@ -146,6 +146,72 @@ function studioPrimitiveFromMemo(memo: Record<string, unknown>): StudioRunPrimit
   return null;
 }
 
+/**
+ * `WorkflowClient` carries a loaded data converter at runtime for payload decoding, but it is not
+ * declared on the public TypeScript type. Validate the shape before use so we fail fast instead of
+ * throwing obscure errors inside `executionInfoFromRaw`.
+ */
+function requireLoadedDataConverterFromWorkflowClient(
+  wfClient: unknown,
+  context: string,
+): LoadedDataConverter {
+  if (wfClient === null || typeof wfClient !== 'object') {
+    throw new ConfigurationError(
+      `${context}: temporalClient.workflow is not an object (SDK / Temporal client mismatch).`,
+    );
+  }
+
+  const raw = (wfClient as { dataConverter?: unknown }).dataConverter;
+  if (raw === undefined) {
+    throw new ConfigurationError(
+      `${context}: WorkflowClient has no dataConverter. ` +
+        'Upgrade @temporalio/client to a version compatible with this SDK, or report this as a bug.',
+    );
+  }
+  if (raw === null || typeof raw !== 'object') {
+    throw new ConfigurationError(
+      `${context}: dataConverter must be a non-null object.`,
+    );
+  }
+
+  const dc = raw as Record<string, unknown>;
+  const payloadConverter = dc.payloadConverter;
+  const failureConverter = dc.failureConverter;
+  const payloadCodecs = dc.payloadCodecs;
+
+  if (payloadConverter === null || typeof payloadConverter !== 'object') {
+    throw new ConfigurationError(
+      `${context}: dataConverter.payloadConverter must be an object (LoadedDataConverter).`,
+    );
+  }
+  const pc = payloadConverter as Record<string, unknown>;
+  if (typeof pc.toPayload !== 'function' || typeof pc.fromPayload !== 'function') {
+    throw new ConfigurationError(
+      `${context}: dataConverter.payloadConverter must implement toPayload and fromPayload.`,
+    );
+  }
+
+  if (failureConverter === null || typeof failureConverter !== 'object') {
+    throw new ConfigurationError(
+      `${context}: dataConverter.failureConverter must be an object (LoadedDataConverter).`,
+    );
+  }
+  const fc = failureConverter as Record<string, unknown>;
+  if (typeof fc.errorToFailure !== 'function' || typeof fc.failureToError !== 'function') {
+    throw new ConfigurationError(
+      `${context}: dataConverter.failureConverter must implement errorToFailure and failureToError.`,
+    );
+  }
+
+  if (!Array.isArray(payloadCodecs)) {
+    throw new ConfigurationError(
+      `${context}: dataConverter.payloadCodecs must be an array (LoadedDataConverter).`,
+    );
+  }
+
+  return raw as LoadedDataConverter;
+}
+
 function studioUsageFromMemo(memo: Record<string, unknown>): {
   totalTokens: number | null;
   costUsd: number | null;
@@ -275,7 +341,10 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
         : Buffer.alloc(0);
 
       const wfClient = temporalClient.workflow;
-      const dataConverter = (wfClient as unknown as { dataConverter: LoadedDataConverter }).dataConverter;
+      const dataConverter = requireLoadedDataConverterFromWorkflowClient(
+        wfClient,
+        'SdkClient.listWorkflowExecutions',
+      );
 
       const response = await wfClient.workflowService.listWorkflowExecutions({
         namespace,

@@ -5,6 +5,27 @@ import {
   mergeStudioRunsVisibilityQuery,
 } from '../studio-visibility-query';
 
+/** Build upstream URL for GET .../runs/:workflowId/spans under `DURION_OTLP_QUERY_URL` and forward query params. */
+function buildOtlpSpansProxyUrl(baseEnv: string, workflowId: string, query: Record<string, unknown>): string {
+  const base = baseEnv.trim();
+  const path = `runs/${encodeURIComponent(workflowId)}/spans`;
+  const target = new URL(path, base.endsWith('/') ? base : `${base}/`);
+
+  const searchParams = new URLSearchParams();
+  for (const [key, val] of Object.entries(query)) {
+    if (val === undefined) continue;
+    const parts = Array.isArray(val) ? val : [val];
+    for (const p of parts) {
+      if (p !== null && p !== undefined && String(p) !== '') {
+        searchParams.append(key, String(p));
+      }
+    }
+  }
+  const q = searchParams.toString();
+  if (q) target.search = q;
+  return target.toString();
+}
+
 function isNotFoundError(err: unknown): boolean {
   if (err instanceof Error) {
     if (err.message.toLowerCase().includes('not found')) return true;
@@ -97,11 +118,59 @@ export async function studioRoutes(
       try {
         const { querySpans } = await import('../span-buffer');
         
-        // Proxy to external OTLP backend if configured
-        if (process.env.DURION_OTLP_QUERY_URL) {
-          const res = await fetch(`${process.env.DURION_OTLP_QUERY_URL}/...`); // External proxy logic here if needed
-          const data = await res.json();
-          return reply.send(data);
+        const otlpBase = process.env.DURION_OTLP_QUERY_URL?.trim();
+        if (otlpBase) {
+          let targetUrl: string;
+          try {
+            targetUrl = buildOtlpSpansProxyUrl(otlpBase, request.params.workflowId, request.query as Record<string, unknown>);
+          } catch (err) {
+            request.log.error(err, 'Invalid DURION_OTLP_QUERY_URL');
+            return reply.status(500).send({
+              error: 'Server misconfiguration',
+              message: 'DURION_OTLP_QUERY_URL is not a valid base URL',
+            });
+          }
+
+          const upstream = await fetch(targetUrl, {
+            headers: { accept: 'application/json' },
+          });
+
+          if (!upstream.ok) {
+            const bodyText = await upstream.text();
+            request.log.warn(
+              { status: upstream.status, url: targetUrl, body: bodyText.slice(0, 500) },
+              'OTLP spans query proxy upstream error',
+            );
+            let message = bodyText.trim() || upstream.statusText || 'Upstream request failed';
+            try {
+              const j = JSON.parse(bodyText) as { error?: string; message?: string };
+              if (typeof j?.message === 'string') message = j.message;
+              else if (typeof j?.error === 'string') message = j.error;
+            } catch {
+              /* keep message from text */
+            }
+            return reply.status(upstream.status).send({
+              error: 'OTLP query backend error',
+              message,
+            });
+          }
+
+          const ct = upstream.headers.get('content-type') ?? '';
+          if (ct.includes('application/json')) {
+            try {
+              const data = (await upstream.json()) as unknown;
+              return reply.send(data);
+            } catch (parseErr) {
+              request.log.error(parseErr, 'OTLP spans query proxy: invalid JSON from upstream');
+              return reply.status(502).send({
+                error: 'Bad gateway',
+                message: 'Upstream returned invalid JSON',
+              });
+            }
+          }
+
+          const text = await upstream.text();
+          return reply.type(ct || 'text/plain').send(text);
         }
 
         // Default: return from local in-memory span buffer
