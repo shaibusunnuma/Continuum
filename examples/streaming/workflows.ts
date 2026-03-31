@@ -6,7 +6,7 @@
  */
 import { agent, workflow, type WorkflowContext } from '@durion/sdk/workflow';
 
-export const streamingAgent = agent('streaming-agent', {
+export const streamingAgent = agent('streamingAgent', {
   model: 'fast',
   instructions:
     'You are a researcher. Use the slow_search tool multiple times to gather ' +

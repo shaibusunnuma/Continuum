@@ -6,6 +6,7 @@
  *
  * From examples/:
  *   npm run worker:research-assistant
+ *   npm run client:research-assistant
  *   npm run client:research-assistant -- demo contentBrief "Your topic" B2B
  *   npm run client:research-assistant -- demo researchAssistant "Your question"
  */
@@ -106,10 +107,20 @@ async function runWorker(): Promise<void> {
 type DemoTarget = 'contentBrief' | 'researchAssistant';
 
 async function runDemo(): Promise<void> {
-  const sub = process.argv[3] as DemoTarget;
-  const args = process.argv.slice(4);
+  const raw = process.argv[3];
+  let sub: DemoTarget;
+  let args: string[];
 
-  if (sub !== 'contentBrief' && sub !== 'researchAssistant') {
+  if (raw === 'contentBrief' || raw === 'researchAssistant') {
+    sub = raw;
+    args = process.argv.slice(4);
+  } else if (raw == null || raw === '') {
+    sub = 'researchAssistant';
+    args = [];
+    console.log(
+      'demo: using researchAssistant with default question (pass demo contentBrief … or demo researchAssistant "…").\n',
+    );
+  } else {
     console.error(
       'Usage: demo contentBrief "<topic>" [audience]  |  demo researchAssistant "<message>"',
     );

@@ -41,7 +41,7 @@ export const contentBrief = workflow(
   },
 );
 
-export const researchAssistant = agent('research-assistant', {
+export const researchAssistant = agent('researchAssistant', {
   model: 'reasoning',
   instructions:
     'You are a research assistant. Answer the user\'s question by using the search tool to find relevant information, then summarize your findings clearly. ' +

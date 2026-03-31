@@ -85,7 +85,7 @@ export const customerSupport = workflow(
 // Example 2: Durable travel agent (autonomous agent loop)
 // ---------------------------------------------------------------------------
 
-export const travelAgent = agent('travel-agent', {
+export const travelAgent = agent('travelAgent', {
   model: 'fast',
   instructions:
     'You are a travel booking assistant. Help users find flights and hotels. ' +
