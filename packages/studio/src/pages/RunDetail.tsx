@@ -107,7 +107,9 @@ function HistoryActivityTimelineBlock({
           isSpanClickable={hasList ? spanClickable : undefined}
         />
       )}
-      {hasList && <ActivityList steps={history.activitySteps} onStepClick={onStepClick} />}
+      {hasList && !hasSpans && (
+        <ActivityList steps={history.activitySteps} onStepClick={onStepClick} />
+      )}
     </div>
   );
 }
@@ -554,6 +556,7 @@ export function RunDetail() {
                   topology={describe?.memo?.['durion:topology'] as MemoTopology | undefined}
                   executedNodes={history?.executedNodes ?? undefined}
                   onNodeClick={(id) => openXRay(null, id)}
+                  hideIfNoTopology={mode === 'agent' && !hasGraphTopology}
                 />
 
                 {mode === 'graph' && (
@@ -564,9 +567,18 @@ export function RunDetail() {
                   />
                 )}
 
-                {/* Agent: only with stream-state; degrade to activity list */}
+                {/* Agent: live trace from stream; Temporal activities when history is available */}
                 {mode === 'agent' && streamState && (
-                  <AgentTimeline state={streamState} />
+                  <div className="flex flex-col gap-4">
+                    <AgentTimeline state={streamState} />
+                    <div className="bg-background relative z-[1] shrink-0">
+                      <HistoryActivityTimelineBlock
+                        history={history}
+                        isRunning={describe?.status === 'RUNNING'}
+                        onStepClick={openXRay}
+                      />
+                    </div>
+                  </div>
                 )}
                 {mode === 'agent' && !streamState && (
                   <div className="flex max-h-[min(72vh,520px)] flex-col overflow-y-auto">

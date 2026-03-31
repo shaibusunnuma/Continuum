@@ -1,57 +1,184 @@
 import type { StreamState } from '@/lib/types';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
+type MsgRole = NonNullable<StreamState['messages']>[number]['role'];
+
+function roleMeta(role: MsgRole) {
+  switch (role) {
+    case 'user':
+      return { label: 'User', rail: 'bg-sky-500', chip: 'border-sky-500/40 bg-sky-950/40 text-sky-100' };
+    case 'system':
+      return {
+        label: 'System',
+        rail: 'bg-violet-500',
+        chip: 'border-violet-500/40 bg-violet-950/40 text-violet-100',
+      };
+    case 'assistant':
+      return {
+        label: 'Model',
+        rail: 'bg-emerald-500',
+        chip: 'border-emerald-500/40 bg-emerald-950/40 text-emerald-100',
+      };
+    case 'tool':
+      return {
+        label: 'Tool',
+        rail: 'bg-amber-500',
+        chip: 'border-amber-500/40 bg-amber-950/40 text-amber-100',
+      };
+  }
+}
+
+function formatToolCalls(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (typeof raw === 'string') return raw;
+  try {
+    return JSON.stringify(raw, null, 2);
+  } catch {
+    return String(raw);
+  }
+}
+
+/**
+ * Live agent trace from `durion:streamState` — one row per message in order (model turns, tool results, etc.).
+ * For wall-clock activity boundaries (runModel / runTool), use the Temporal activities block below or Event History.
+ */
 export function AgentTimeline({ state }: { state: StreamState }) {
   const messages = state.messages ?? [];
   const step = state.currentStep;
 
+  const statusLabel =
+    state.status === 'running'
+      ? 'Running'
+      : state.status === 'waiting_for_input'
+        ? 'Waiting for input'
+        : state.status === 'completed'
+          ? 'Completed'
+          : state.status === 'error'
+            ? 'Error'
+            : state.status;
+
   return (
-    <div className="flex h-full min-h-[320px] flex-col gap-2">
-      {step != null && (
-        <div className="text-muted-foreground font-mono text-xs">
-          Step <span className="text-foreground">{step}</span>
+    <div className="relative isolate flex max-h-[min(52vh,420px)] min-h-0 flex-col gap-3 overflow-hidden">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="font-mono text-xs">
+          <span className="text-foreground">Agent trace</span>
+          <span className="text-muted-foreground"> · order from stream state</span>
         </div>
-      )}
-      <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border pr-3">
-        <div className="flex flex-col gap-3 py-2">
-          {messages.length === 0 ? (
-            <p className="text-muted-foreground font-mono text-sm">No messages yet.</p>
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
+          <Badge variant="outline" className="rounded-sm tabular-nums">
+            {statusLabel}
+          </Badge>
+          {step != null && (
+            <span className="text-muted-foreground">
+              loop step <span className="text-foreground">{step}</span>
+            </span>
+          )}
+          {state.updatedAt && (
+            <span className="text-muted-foreground tabular-nums" title="Last stream update">
+              {new Date(state.updatedAt).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <ScrollArea className="h-[min(42vh,320px)] min-h-[160px] shrink-0 rounded-md border border-border pr-2">
+        <div className="px-1 py-2">
+          {messages.length === 0 && !state.partialReply ? (
+            <p className="text-muted-foreground px-2 font-mono text-sm">No messages yet.</p>
           ) : (
-            messages.map((m, i) => (
-              <div
-                key={`${m.role}-${i}-${m.toolCallId ?? ''}`}
-                className={cn(
-                  'flex',
-                  m.role === 'user' ? 'justify-start' : 'justify-end',
-                )}
-              >
-                <Card
-                  className={cn(
-                    'max-w-[min(100%,520px)] border',
-                    m.role === 'user' ? 'border-border bg-card' : 'border-border bg-secondary/40',
-                  )}
-                >
-                  <CardContent className="space-y-2 px-3 py-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="rounded-sm font-mono text-[10px] uppercase">
-                        {m.role}
-                      </Badge>
-                      {m.toolName && (
-                        <Badge variant="secondary" className="rounded-sm font-mono text-[10px]">
-                          {m.toolName}
-                        </Badge>
-                      )}
+            <ol className="relative space-y-0 pl-0">
+              {messages.map((m, i) => {
+                const meta = roleMeta(m.role);
+                const toolCallsStr = formatToolCalls(m.toolCalls);
+                const connectorBelow =
+                  i < messages.length - 1 || (i === messages.length - 1 && !!state.partialReply);
+
+                return (
+                  <li key={`${m.role}-${i}-${m.toolCallId ?? ''}`} className="flex gap-3 pb-6 last:pb-2">
+                    <div className="relative flex w-4 shrink-0 flex-col items-center pt-1">
+                      <span
+                        className={cn(
+                          'relative z-[1] flex size-3.5 shrink-0 rounded-full ring-2 ring-background',
+                          meta.rail,
+                        )}
+                        title={`Step ${i + 1}`}
+                      />
+                      {connectorBelow ? (
+                        <div
+                          className="bg-border/80 absolute top-[calc(0.25rem+0.875rem)] bottom-0 w-px"
+                          aria-hidden
+                        />
+                      ) : null}
                     </div>
-                    <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word text-foreground">
-                      {m.content}
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-muted-foreground w-6 font-mono text-[10px] tabular-nums">
+                          {i + 1}.
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={cn('rounded-sm font-mono text-[10px] uppercase', meta.chip)}
+                        >
+                          {meta.label}
+                        </Badge>
+                        {m.toolName && (
+                          <Badge variant="secondary" className="rounded-sm font-mono text-[10px]">
+                            {m.toolName}
+                          </Badge>
+                        )}
+                        {m.toolCallId && (
+                          <span className="text-muted-foreground font-mono text-[9px]">
+                            id {m.toolCallId}
+                          </span>
+                        )}
+                      </div>
+                      {m.content ? (
+                        <pre className="border-border bg-card/50 max-h-64 overflow-auto rounded-md border px-3 py-2 font-mono text-xs whitespace-pre-wrap wrap-break-word text-foreground">
+                          {m.content}
+                        </pre>
+                      ) : null}
+                      {toolCallsStr ? (
+                        <div className="space-y-1">
+                          <p className="text-muted-foreground font-mono text-[9px] uppercase tracking-wide">
+                            Tool calls
+                          </p>
+                          <pre className="border-border bg-muted/20 max-h-48 overflow-auto rounded-md border px-3 py-2 font-mono text-[11px] whitespace-pre-wrap wrap-break-word">
+                            {toolCallsStr}
+                          </pre>
+                        </div>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+
+              {state.partialReply ? (
+                <li className="relative flex gap-3 pb-2">
+                  <div className="relative z-[1] flex shrink-0 flex-col items-center pt-1">
+                    <span
+                      className="border-primary bg-primary/25 flex size-3.5 animate-pulse rounded-full ring-2 ring-background"
+                      title="Streaming"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-muted-foreground w-6 font-mono text-[10px]">…</span>
+                      <Badge
+                        variant="outline"
+                        className="rounded-sm border-primary/50 bg-primary/10 font-mono text-[10px] uppercase text-primary"
+                      >
+                        In progress
+                      </Badge>
+                    </div>
+                    <pre className="border-primary/30 bg-primary/5 max-h-48 overflow-auto rounded-md border border-dashed px-3 py-2 font-mono text-xs whitespace-pre-wrap wrap-break-word">
+                      {state.partialReply}
                     </pre>
-                  </CardContent>
-                </Card>
-              </div>
-            ))
+                  </div>
+                </li>
+              ) : null}
+            </ol>
           )}
         </div>
       </ScrollArea>

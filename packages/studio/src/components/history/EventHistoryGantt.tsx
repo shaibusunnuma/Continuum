@@ -235,81 +235,82 @@ export function EventHistoryGantt({
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,9rem)_1fr] gap-x-2">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex h-3 items-center truncate text-muted-foreground" title="Workflow">
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-2">
+          <div className="flex min-h-3 items-center truncate text-muted-foreground" title="Workflow">
             Workflow
           </div>
-          {sortedEnriched.map((s) => {
-            const dup = spans.filter((x) => x.activityName === s.activityName).length > 1;
-            const label = dup ? `${s.activityName} (#${s.key})` : s.activityName;
-            return (
-              <div key={`lbl-${s.key}`} className="flex h-3 items-center truncate text-muted-foreground" title={label}>
-                {label}
-              </div>
-            );
-          })}
-        </div>
-        <div className="relative flex min-w-0 flex-col gap-2">
-          <TimelineColumnOverlay handoffAtMs={handoffAtMs} t0={t0} duration={duration} />
-          <div className="relative z-[2] h-3 overflow-hidden rounded bg-secondary/40">
-            <div className="absolute inset-y-0.5 left-0 right-0 rounded-sm bg-primary/35" />
+          <div className="relative h-3 min-w-0 overflow-hidden rounded bg-secondary/40">
+            <TimelineColumnOverlay handoffAtMs={handoffAtMs} t0={t0} duration={duration} />
+            <div className="absolute inset-y-0.5 left-0 right-0 z-[2] rounded-sm bg-primary/35" />
           </div>
+        </div>
 
-          {sortedEnriched.map((s) => {
-            const execEnd =
-              s.endedAt ??
-              (isRunning && (s.outcome === 'running' || (s.startedAt && !s.endedAt)) ? now : null);
+        {sortedEnriched.map((s) => {
+          const execEnd =
+            s.endedAt ??
+            (isRunning && (s.outcome === 'running' || (s.startedAt && !s.endedAt)) ? now : null);
 
-            const execStart = s.startedAt ?? s.scheduledAt;
-            const execEndResolved =
-              execEnd ?? (isRunning && s.startedAt ? now : execStart);
+          const execStart = s.startedAt ?? s.scheduledAt;
+          const execEndResolved =
+            execEnd ?? (isRunning && s.startedAt ? now : execStart);
 
-            const color =
-              s.outcome === 'failed' || s.outcome === 'timed_out'
-                ? 'bg-destructive/70'
-                : s.outcome === 'canceled'
-                  ? 'bg-muted-foreground/50'
-                  : s.outcome === 'running' || (isRunning && !s.endedAt && s.startedAt)
-                    ? 'animate-pulse bg-primary'
-                    : 'bg-emerald-600/80';
+          const color =
+            s.outcome === 'failed' || s.outcome === 'timed_out'
+              ? 'bg-destructive/70'
+              : s.outcome === 'canceled'
+                ? 'bg-muted-foreground/50'
+                : s.outcome === 'running' || (isRunning && !s.endedAt && s.startedAt)
+                  ? 'animate-pulse bg-primary'
+                  : 'bg-emerald-600/80';
 
-            const showScheduleWait =
-              s.startedAt != null && s.scheduledAt < s.startedAt;
+          const showScheduleWait =
+            s.startedAt != null && s.scheduledAt < s.startedAt;
 
-            const handleActivate = () => {
-              onSpanClick?.(s);
-            };
+          const handleActivate = () => {
+            onSpanClick?.(s);
+          };
 
-            const rowClickable =
-              !!onSpanClick && (isSpanClickable?.(s) ?? true);
+          const rowClickable =
+            !!onSpanClick && (isSpanClickable?.(s) ?? true);
 
-            const isRunningBar = !!(isRunning && !s.endedAt && s.startedAt);
-            const startP = pct(execStart);
-            const endP = pct(Math.max(execEndResolved, execStart));
+          const isRunningBar = !!(isRunning && !s.endedAt && s.startedAt);
+          const startP = pct(execStart);
+          const endP = pct(Math.max(execEndResolved, execStart));
 
-            return (
-              <div
-                key={s.key}
-                role={rowClickable ? 'button' : undefined}
-                tabIndex={rowClickable ? 0 : undefined}
-                onClick={rowClickable ? handleActivate : undefined}
-                onKeyDown={
-                  rowClickable
-                    ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleActivate();
-                        }
+          const dup = spans.filter((x) => x.activityName === s.activityName).length > 1;
+          const rowLabel = dup ? `${s.activityName} (#${s.key})` : s.activityName;
+
+          return (
+            <div
+              key={s.key}
+              role={rowClickable ? 'button' : undefined}
+              tabIndex={rowClickable ? 0 : undefined}
+              onClick={rowClickable ? handleActivate : undefined}
+              onKeyDown={
+                rowClickable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleActivate();
                       }
-                    : undefined
-                }
-                className={cn(
-                  'relative z-[2] h-3 overflow-hidden rounded bg-secondary/40',
-                  rowClickable &&
-                    'cursor-pointer ring-offset-background hover:ring-1 hover:ring-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                )}
+                    }
+                  : undefined
+              }
+              className={cn(
+                'grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-2 rounded-md',
+                rowClickable &&
+                  'ring-offset-background cursor-pointer hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              )}
+            >
+              <div
+                className="text-muted-foreground flex min-h-3 min-w-0 items-center truncate py-0.5 pr-1"
+                title={rowLabel}
               >
+                {rowLabel}
+              </div>
+              <div className="relative z-[2] h-3 min-w-0 overflow-hidden rounded bg-secondary/40">
+                <TimelineColumnOverlay handoffAtMs={handoffAtMs} t0={t0} duration={duration} />
                 {showScheduleWait && (
                   <div
                     className="absolute top-0.5 z-[2] h-2 rounded-sm border border-dashed border-muted-foreground/35 bg-muted-foreground/20"
@@ -334,9 +335,9 @@ export function EventHistoryGantt({
                   isRunningBar={isRunningBar}
                 />
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
