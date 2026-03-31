@@ -199,4 +199,59 @@ describe('parseFullHistory', () => {
     expect(parsed.result).toEqual(graphResult);
     expect(parsed.executedNodes).toEqual(['research', 'evaluate']);
   });
+
+  it('parses protobuf-JSON Timestamp-shaped eventTime for activity spans', () => {
+    const msToProto = (ms: number) => ({
+      seconds: String(Math.floor(ms / 1000)),
+      nanos: Math.round((ms % 1000) * 1_000_000),
+    });
+    const tWf = 1_700_000_100;
+    const tSch = 1_700_000_200;
+    const tSt = 1_700_000_300;
+    const tEn = 1_700_000_400;
+    const history = {
+      events: [
+        {
+          eventId: '1',
+          eventType: 'EVENT_TYPE_WORKFLOW_EXECUTION_STARTED',
+          eventTime: msToProto(tWf),
+          workflowExecutionStartedEventAttributes: {
+            workflowType: { name: 'wf' },
+            taskQueue: { name: 'q' },
+            input: { payloads: [] },
+            memo: {},
+          },
+        },
+        {
+          eventId: '5',
+          eventType: 'EVENT_TYPE_ACTIVITY_TASK_SCHEDULED',
+          eventTime: msToProto(tSch),
+          activityTaskScheduledEventAttributes: {
+            activityType: { name: 'runModel' },
+          },
+        },
+        {
+          eventId: '6',
+          eventType: 'EVENT_TYPE_ACTIVITY_TASK_STARTED',
+          eventTime: msToProto(tSt),
+          activityTaskStartedEventAttributes: { scheduledEventId: '5' },
+        },
+        {
+          eventId: '7',
+          eventType: 'EVENT_TYPE_ACTIVITY_TASK_COMPLETED',
+          eventTime: msToProto(tEn),
+          activityTaskCompletedEventAttributes: { scheduledEventId: '5' },
+        },
+      ],
+    };
+
+    const parsed = parseFullHistory(history);
+    expect(parsed.activitySpans).toHaveLength(1);
+    const span = parsed.activitySpans[0];
+    expect(span.scheduledAt).toBe(tSch);
+    expect(span.startedAt).toBe(tSt);
+    expect(span.endedAt).toBe(tEn);
+    expect(parsed.historyStartMs).toBe(tWf);
+    expect(parsed.historyEndMs).toBe(tEn);
+  });
 });

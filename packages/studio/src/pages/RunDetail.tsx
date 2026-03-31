@@ -4,7 +4,7 @@ import { describeRun, getHistory, getResult, getStreamState } from '@/lib/api';
 import { parseFullHistory } from '@/lib/parse-history';
 import { detectViewMode } from '@/lib/view-mode';
 import type { RunViewMode } from '@/lib/view-mode';
-import type { GraphStreamState, ParsedHistory, StreamState } from '@/lib/types';
+import type { ActivitySpan, ActivityStep, GraphStreamState, ParsedHistory, StreamState } from '@/lib/types';
 import { GraphCanvas } from '@/components/graph/GraphCanvas';
 import { parseGraphResultSummary, isGraphResultPayload } from '@/lib/graph-result-summary';
 import { AgentTimeline } from '@/components/agent/AgentTimeline';
@@ -13,7 +13,6 @@ import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
 import { XRayPane } from '@/components/ui/XRayPane';
 import { CostBreakdown } from '@/components/run-explorer/CostBreakdown';
-import type { ActivityStep } from '@/lib/types';
 import type { MemoTopology } from '@/lib/view-mode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,6 +70,47 @@ const EMPTY_HISTORY: ParsedHistory = {
   historyStartMs: null,
   historyEndMs: null,
 };
+
+function HistoryActivityTimelineBlock({
+  history,
+  isRunning,
+  onStepClick,
+}: {
+  history: ParsedHistory;
+  isRunning: boolean;
+  onStepClick: (step: ActivityStep | null, nodeId?: string) => void;
+}) {
+  const hasList = history.activitySteps.length > 0;
+  const hasSpans = history.activitySpans.length > 0;
+  if (!hasList && !hasSpans) return null;
+
+  const handleSpanClick = (span: ActivitySpan) => {
+    const step = history.activitySteps.find((s) => s.eventId === span.key);
+    if (step) onStepClick(step);
+  };
+
+  const stepEventIds = new Set(history.activitySteps.map((s) => s.eventId));
+  const spanClickable = (span: ActivitySpan) => stepEventIds.has(span.key);
+
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+        Temporal activities
+      </p>
+      {hasSpans && (
+        <EventHistoryGantt
+          spans={history.activitySpans}
+          historyStartMs={history.historyStartMs}
+          historyEndMs={history.historyEndMs}
+          isRunning={isRunning}
+          onSpanClick={hasList ? handleSpanClick : undefined}
+          isSpanClickable={hasList ? spanClickable : undefined}
+        />
+      )}
+      {hasList && <ActivityList steps={history.activitySteps} onStepClick={onStepClick} />}
+    </div>
+  );
+}
 
 export function RunDetail() {
   const { workflowId: workflowIdParam } = useParams<{ workflowId: string }>();
@@ -516,28 +556,13 @@ export function RunDetail() {
                   onNodeClick={(id) => openXRay(null, id)}
                 />
 
-                {mode === 'graph' &&
-                  (history.activitySteps.length > 0 || history.activitySpans.length > 0) && (
-                    <div className="space-y-2 border-t border-border pt-3">
-                      <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-                        Temporal activities
-                      </p>
-                      <p className="font-mono text-[10px] text-muted-foreground">
-                        From event history (no worker required). Same runModel / runTool boundaries as Temporal Web UI.
-                      </p>
-                      {history.activitySpans.length > 0 && (
-                        <EventHistoryGantt
-                          spans={history.activitySpans}
-                          historyStartMs={history.historyStartMs}
-                          historyEndMs={history.historyEndMs}
-                          isRunning={describe?.status === 'RUNNING'}
-                        />
-                      )}
-                      {history.activitySteps.length > 0 && (
-                        <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
-                      )}
-                    </div>
-                  )}
+                {mode === 'graph' && (
+                  <HistoryActivityTimelineBlock
+                    history={history}
+                    isRunning={describe?.status === 'RUNNING'}
+                    onStepClick={openXRay}
+                  />
+                )}
 
                 {/* Agent: only with stream-state; degrade to activity list */}
                 {mode === 'agent' && streamState && (
@@ -545,16 +570,27 @@ export function RunDetail() {
                 )}
                 {mode === 'agent' && !streamState && (
                   <div className="flex max-h-[min(72vh,520px)] flex-col overflow-y-auto">
-                    {history ? (
-                      <ActivityList steps={history.activitySteps} onStepClick={openXRay} />
-                    ) : (
-                      <p className="text-muted-foreground p-4 font-mono text-sm">Waiting for execution history…</p>
+                    <HistoryActivityTimelineBlock
+                      history={history}
+                      isRunning={describe?.status === 'RUNNING'}
+                      onStepClick={openXRay}
+                    />
+                    {history.activitySteps.length === 0 && history.activitySpans.length === 0 && (
+                      <p className="text-muted-foreground p-4 font-mono text-sm">
+                        Waiting for execution history…
+                      </p>
                     )}
                   </div>
                 )}
 
                 {/* Workflow: always from history */}
-                {mode === 'workflow' && <ActivityList steps={history.activitySteps} onStepClick={openXRay} />}
+                {mode === 'workflow' && (
+                  <HistoryActivityTimelineBlock
+                    history={history}
+                    isRunning={describe?.status === 'RUNNING'}
+                    onStepClick={openXRay}
+                  />
+                )}
 
                 {!mode && !refreshing && (
                   <p className="text-muted-foreground font-mono text-sm">
@@ -572,6 +608,19 @@ export function RunDetail() {
                     historyStartMs={history.historyStartMs}
                     historyEndMs={history.historyEndMs}
                     isRunning={describe?.status === 'RUNNING'}
+                    onSpanClick={
+                      history.activitySteps.length > 0
+                        ? (span) => {
+                            const step = history.activitySteps.find((s) => s.eventId === span.key);
+                            if (step) openXRay(step);
+                          }
+                        : undefined
+                    }
+                    isSpanClickable={
+                      history.activitySteps.length > 0
+                        ? (span) => history.activitySteps.some((s) => s.eventId === span.key)
+                        : undefined
+                    }
                   />
                 )}
                 <div className="min-h-0 flex-1">

@@ -68,4 +68,18 @@
   #root {
     min-height: 100vh;
   }
+
+  /* XYFlow: default style.css assumes light controls; map to Durion tokens */
+  .durion-react-flow.react-flow {
+    --xy-controls-button-background-color: var(--card);
+    --xy-controls-button-background-color-hover: var(--muted);
+    --xy-controls-button-color: var(--foreground);
+    --xy-controls-button-color-hover: var(--foreground);
+    --xy-controls-button-border-color: var(--border);
+    --xy-controls-box-shadow: none;
+  }
+
+  .durion-react-flow .react-flow__controls-button:disabled {
+    opacity: 0.35;
+  }
 }

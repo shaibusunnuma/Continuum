@@ -176,10 +176,50 @@ function parseMemoTopology(
   return raw as { nodes: string[]; edges: GraphStreamStateEdge[] };
 }
 
+/**
+ * Parse Temporal history `eventTime` to epoch ms.
+ * Handles ISO strings, protobuf-JSON `{ seconds, nanos }`, numeric epoch (sec/ms), and snake_case `event_time`.
+ */
 function parseEventTimeMs(raw: unknown): number | null {
-  if (typeof raw !== 'string' || !raw) return null;
-  const t = Date.parse(raw);
-  return Number.isFinite(t) ? t : null;
+  if (raw == null) return null;
+
+  if (typeof raw === 'string' && raw.trim()) {
+    const trimmed = raw.trim();
+    const iso = Date.parse(trimmed);
+    if (Number.isFinite(iso)) return iso;
+    if (/^-?\d+$/.test(trimmed)) {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return null;
+      return trimmed.length <= 11 ? n * 1000 : n;
+    }
+    return null;
+  }
+
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    if (raw > 1e15) return Math.trunc(raw / 1e6);
+    if (raw > 1e12) return Math.trunc(raw);
+    return Math.trunc(raw * 1000);
+  }
+
+  if (typeof raw === 'object' && raw !== null) {
+    const o = raw as Record<string, unknown>;
+    if ('seconds' in o || 'sec' in o) {
+      const secRaw = o.seconds ?? o.sec;
+      const sec =
+        typeof secRaw === 'string'
+          ? Number(secRaw)
+          : typeof secRaw === 'number'
+            ? secRaw
+            : NaN;
+      if (!Number.isFinite(sec)) return null;
+      const nanoRaw = o.nanos ?? o.nano ?? 0;
+      const nanos =
+        typeof nanoRaw === 'string' ? Number(nanoRaw) : typeof nanoRaw === 'number' ? nanoRaw : 0;
+      return Math.trunc(sec * 1000 + nanos / 1e6);
+    }
+  }
+
+  return null;
 }
 
 function numAttr(v: unknown): number | null {
@@ -211,6 +251,8 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
   const slots = new Map<number, Slot>();
   let historyStartMs: number | null = null;
   let historyEndMs: number | null = null;
+  /** Last successfully parsed event time in history order (for fallbacks when `eventTime` is missing). */
+  let lastParsedMs: number | null = null;
 
   const bump = (ms: number | null) => {
     if (ms == null) return;
@@ -223,7 +265,9 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
     const e = ev as RawEvent;
     const eventType = historyEventTypeKey(e.eventType);
     const attrs = getAttrs(e);
-    const t = parseEventTimeMs(e.eventTime);
+    const timeRaw = e.eventTime ?? e.event_time;
+    const t = parseEventTimeMs(timeRaw);
+    if (t != null) lastParsedMs = t;
     bump(t);
 
     if (historyEventMatches(eventType, 'ACTIVITY_TASK_SCHEDULED') && attrs) {
@@ -233,7 +277,8 @@ function buildActivitySpansFromRawEvents(rawEvents: unknown[]): {
         slots.set(id, {
           scheduledEventId: id,
           activityName: str(at) || 'activity',
-          scheduledAt: t ?? historyEndMs ?? 0,
+          scheduledAt:
+            t ?? lastParsedMs ?? historyEndMs ?? historyStartMs ?? 0,
           outcome: 'scheduled',
         });
       }

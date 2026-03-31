@@ -460,10 +460,10 @@ export function GraphCanvas({ state, topology: memoTopology, executedNodes: resu
           onInit={onInit}
           proOptions={{ hideAttribution: true }}
           fitView
-          className="bg-background"
+          className="durion-react-flow bg-background dark"
         >
           <Background gap={20} size={1} className="opacity-30" />
-          <Controls className="border border-border bg-card text-foreground" />
+          <Controls className="!m-2 overflow-hidden rounded-md border border-border !shadow-lg ring-1 ring-border/80" />
         </ReactFlow>
       </div>
     </div>
