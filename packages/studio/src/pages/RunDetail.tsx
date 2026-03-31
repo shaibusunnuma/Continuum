@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { describeRun, getHistory, getResult, getStreamState } from '@/lib/api';
 import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
 import { parseFullHistory } from '@/lib/parse-history';
@@ -10,6 +10,7 @@ import { GraphCanvas } from '@/components/graph/GraphCanvas';
 import { parseGraphResultSummary, isGraphResultPayload } from '@/lib/graph-result-summary';
 import { AgentTimeline } from '@/components/agent/AgentTimeline';
 import { ActivityList } from '@/components/workflow/ActivityList';
+import { ChildWorkflowList } from '@/components/workflow/ChildWorkflowList';
 import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
 import { XRayPane } from '@/components/ui/XRayPane';
@@ -68,47 +69,93 @@ const EMPTY_HISTORY: ParsedHistory = {
   executedNodes: null,
   topology: null,
   activitySpans: [],
+  childWorkflowSteps: [],
+  childWorkflowSpans: [],
   historyStartMs: null,
   historyEndMs: null,
 };
 
+function compareExecutionSpan(a: ActivitySpan, b: ActivitySpan): number {
+  const d = a.scheduledAt - b.scheduledAt;
+  if (d !== 0) return d;
+  return a.key.localeCompare(b.key);
+}
+
+/** Single timeline: activities and child workflows sorted by schedule time (fills gaps visually). */
+function mergedExecutionSpans(history: ParsedHistory): ActivitySpan[] {
+  const { activitySpans, childWorkflowSpans } = history;
+  if (childWorkflowSpans.length === 0) return activitySpans;
+  if (activitySpans.length === 0) return [...childWorkflowSpans].sort(compareExecutionSpan);
+  return [...activitySpans, ...childWorkflowSpans].sort(compareExecutionSpan);
+}
+
+function ChildWorkflowCompositionBlock({ history }: { history: ParsedHistory }) {
+  if (history.childWorkflowSteps.length === 0) return null;
+  return (
+    <div className="space-y-2 border-t border-border pt-3">
+      <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+        Child workflows
+      </p>
+      <p className="text-muted-foreground font-mono text-[11px] leading-relaxed">
+        Child runs appear as <span className="text-foreground/90">Child: …</span> rows in the run timeline above.
+        Use the list below for workflow id, run id, and links.
+      </p>
+      <ChildWorkflowList steps={history.childWorkflowSteps} />
+    </div>
+  );
+}
+
 function HistoryActivityTimelineBlock({
   history,
+  mergedSpans,
   isRunning,
   onStepClick,
+  onOpenChild,
 }: {
   history: ParsedHistory;
+  mergedSpans: ActivitySpan[];
   isRunning: boolean;
   onStepClick: (step: ActivityStep | null, nodeId?: string) => void;
+  onOpenChild: (workflowId: string) => void;
 }) {
   const hasList = history.activitySteps.length > 0;
-  const hasSpans = history.activitySpans.length > 0;
-  if (!hasList && !hasSpans) return null;
+  const hasMergedSpans = mergedSpans.length > 0;
+  if (!hasList && !hasMergedSpans) return null;
 
-  const handleSpanClick = (span: ActivitySpan) => {
+  const handleMergedSpanClick = (span: ActivitySpan) => {
+    const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
+    if (child) {
+      onOpenChild(child.workflowId);
+      return;
+    }
     const step = history.activitySteps.find((s) => s.eventId === span.key);
     if (step) onStepClick(step);
   };
 
-  const stepEventIds = new Set(history.activitySteps.map((s) => s.eventId));
-  const spanClickable = (span: ActivitySpan) => stepEventIds.has(span.key);
+  const isMergedSpanClickable = (span: ActivitySpan) =>
+    history.childWorkflowSteps.some((s) => s.initiatedEventId === span.key) ||
+    history.activitySteps.some((s) => s.eventId === span.key);
+
+  const canClickSpans =
+    history.childWorkflowSteps.length > 0 || history.activitySteps.length > 0;
 
   return (
     <div className="space-y-2 border-t border-border pt-3">
       <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-        Temporal activities
+        Run timeline
       </p>
-      {hasSpans && (
+      {hasMergedSpans && (
         <EventHistoryGantt
-          spans={history.activitySpans}
+          spans={mergedSpans}
           historyStartMs={history.historyStartMs}
           historyEndMs={history.historyEndMs}
           isRunning={isRunning}
-          onSpanClick={hasList ? handleSpanClick : undefined}
-          isSpanClickable={hasList ? spanClickable : undefined}
+          timelineTitle="Activities & child workflows"
+          onSpanClick={canClickSpans ? handleMergedSpanClick : undefined}
+          isSpanClickable={canClickSpans ? isMergedSpanClickable : undefined}
         />
       )}
-      {hasList && !hasSpans && (
+      {hasList && !hasMergedSpans && (
         <ActivityList steps={history.activitySteps} onStepClick={onStepClick} />
       )}
     </div>
@@ -118,10 +165,17 @@ function HistoryActivityTimelineBlock({
 export function RunDetail() {
   const { workflowId: workflowIdParam } = useParams<{ workflowId: string }>();
   const workflowId = workflowIdParam ? decodeURIComponent(workflowIdParam) : '';
+  const navigate = useNavigate();
+
+  const openChildRun = useCallback((childWorkflowId: string) => {
+    navigate(`/runs/${encodeURIComponent(childWorkflowId)}`);
+  }, [navigate]);
 
   // ── Primary: from Temporal server (no worker needed) ───────────────────
   const [describe, setDescribe] = useState<DescribeData | null>(null);
   const [history, setHistory] = useState<ParsedHistory>(EMPTY_HISTORY);
+
+  const mergedTimelineSpans = useMemo(() => mergedExecutionSpans(history), [history]);
 
   // ── Optional: from worker query ────────────────────────────────────────
   const [streamState, setStreamState] = useState<StreamState | GraphStreamState | null>(null);
@@ -576,23 +630,31 @@ export function RunDetail() {
                 />
 
                 {mode === 'graph' && (
-                  <HistoryActivityTimelineBlock
-                    history={history}
-                    isRunning={describe?.status === 'RUNNING'}
-                    onStepClick={openXRay}
-                  />
+                  <>
+                    <HistoryActivityTimelineBlock
+                      history={history}
+                      mergedSpans={mergedTimelineSpans}
+                      isRunning={describe?.status === 'RUNNING'}
+                      onStepClick={openXRay}
+                      onOpenChild={openChildRun}
+                    />
+                    <ChildWorkflowCompositionBlock history={history} />
+                  </>
                 )}
 
                 {/* Agent: live streamState from worker, or same UI rebuilt from runModel/runTool history */}
                 {mode === 'agent' && streamState && (
                   <div className="flex flex-col gap-4">
                     <AgentTimeline state={streamState} source="live" />
-                    <div className="bg-background relative z-[1] shrink-0">
+                    <div className="bg-background relative z-[1] shrink-0 space-y-3">
                       <HistoryActivityTimelineBlock
                         history={history}
+                        mergedSpans={mergedTimelineSpans}
                         isRunning={describe?.status === 'RUNNING'}
                         onStepClick={openXRay}
+                        onOpenChild={openChildRun}
                       />
+                      <ChildWorkflowCompositionBlock history={history} />
                     </div>
                   </div>
                 )}
@@ -601,14 +663,19 @@ export function RunDetail() {
                     {agentStreamFromHistory && (
                       <AgentTimeline state={agentStreamFromHistory} source="history" />
                     )}
-                    <div className="bg-background relative z-[1] shrink-0">
+                    <div className="bg-background relative z-[1] shrink-0 space-y-3">
                       <HistoryActivityTimelineBlock
                         history={history}
+                        mergedSpans={mergedTimelineSpans}
                         isRunning={describe?.status === 'RUNNING'}
                         onStepClick={openXRay}
+                        onOpenChild={openChildRun}
                       />
+                      <ChildWorkflowCompositionBlock history={history} />
                     </div>
-                    {history.activitySteps.length === 0 && history.activitySpans.length === 0 && (
+                    {history.activitySteps.length === 0 &&
+                      mergedTimelineSpans.length === 0 &&
+                      history.childWorkflowSteps.length === 0 && (
                       <p className="text-muted-foreground p-4 font-mono text-sm">
                         Waiting for execution history…
                       </p>
@@ -618,11 +685,16 @@ export function RunDetail() {
 
                 {/* Workflow: always from history */}
                 {mode === 'workflow' && (
-                  <HistoryActivityTimelineBlock
-                    history={history}
-                    isRunning={describe?.status === 'RUNNING'}
-                    onStepClick={openXRay}
-                  />
+                  <>
+                    <HistoryActivityTimelineBlock
+                      history={history}
+                      mergedSpans={mergedTimelineSpans}
+                      isRunning={describe?.status === 'RUNNING'}
+                      onStepClick={openXRay}
+                      onOpenChild={openChildRun}
+                    />
+                    <ChildWorkflowCompositionBlock history={history} />
+                  </>
                 )}
 
                 {!mode && !refreshing && (
@@ -635,24 +707,25 @@ export function RunDetail() {
 
             {activeTab === 'events' && (
               <div className="flex max-h-[min(72vh,520px)] min-w-0 flex-col gap-4 overflow-y-auto pr-1">
-                {history.activitySpans.length > 0 && (
+                {mergedTimelineSpans.length > 0 && (
                   <EventHistoryGantt
-                    spans={history.activitySpans}
+                    spans={mergedTimelineSpans}
                     historyStartMs={history.historyStartMs}
                     historyEndMs={history.historyEndMs}
                     isRunning={describe?.status === 'RUNNING'}
-                    onSpanClick={
-                      history.activitySteps.length > 0
-                        ? (span) => {
-                            const step = history.activitySteps.find((s) => s.eventId === span.key);
-                            if (step) openXRay(step);
-                          }
-                        : undefined
-                    }
-                    isSpanClickable={
-                      history.activitySteps.length > 0
-                        ? (span) => history.activitySteps.some((s) => s.eventId === span.key)
-                        : undefined
+                    timelineTitle="Activities & child workflows"
+                    onSpanClick={(span) => {
+                      const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
+                      if (child) {
+                        openChildRun(child.workflowId);
+                        return;
+                      }
+                      const step = history.activitySteps.find((s) => s.eventId === span.key);
+                      if (step) openXRay(step);
+                    }}
+                    isSpanClickable={(span) =>
+                      history.childWorkflowSteps.some((s) => s.initiatedEventId === span.key) ||
+                      history.activitySteps.some((s) => s.eventId === span.key)
                     }
                   />
                 )}

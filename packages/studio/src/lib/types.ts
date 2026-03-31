@@ -54,6 +54,27 @@ export interface ActivityStep {
   result?: any;
 }
 
+/** One child workflow invocation from parent history (`ctx.run` / `executeChild`). */
+export interface ChildWorkflowStep {
+  /** Initiated event id (correlates with `childWorkflowSpans[].key`). */
+  initiatedEventId: string;
+  workflowType: string;
+  workflowId: string;
+  runId?: string;
+  input?: unknown;
+  result?: unknown;
+  outcome:
+    | 'pending'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'canceled'
+    | 'timed_out'
+    | 'terminated'
+    | 'start_failed';
+  failure?: unknown;
+}
+
 // ─── Rich history types (parsed from Temporal event history JSON) ──────────
 
 export interface HistoryEvent {
@@ -97,6 +118,10 @@ export interface ParsedHistory {
   topology: { nodes: string[]; edges: GraphStreamStateEdge[] } | null;
   /** Activity intervals derived from scheduled/started/completed events. */
   activitySpans: ActivitySpan[];
+  /** Child workflow invocations (Temporal child execution lifecycle). */
+  childWorkflowSteps: ChildWorkflowStep[];
+  /** Gantt rows for child workflows (`key` = initiated event id). */
+  childWorkflowSpans: ActivitySpan[];
   /** Workflow execution window (ms) from first/last history timestamps. */
   historyStartMs: number | null;
   historyEndMs: number | null;

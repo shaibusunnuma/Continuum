@@ -139,6 +139,8 @@ interface Props {
   onSpanClick?: (span: ActivitySpan) => void;
   /** With `onSpanClick`, limit which rows look/behave clickable (e.g. only spans with an activity list step). */
   isSpanClickable?: (span: ActivitySpan) => boolean;
+  /** Heading above the timeline (default: activity timeline). */
+  timelineTitle?: string;
 }
 
 export function EventHistoryGantt({
@@ -148,6 +150,7 @@ export function EventHistoryGantt({
   isRunning,
   onSpanClick,
   isSpanClickable,
+  timelineTitle = 'Activity timeline',
 }: Props) {
   const now = Date.now();
   const times = spans.flatMap((s) => [s.scheduledAt, s.startedAt, s.endedAt].filter((x): x is number => x != null));
@@ -217,7 +220,7 @@ export function EventHistoryGantt({
   return (
     <div className="rounded-md border border-border bg-card/30 p-4 font-mono text-xs">
       <div className="text-muted-foreground mb-2 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-        <span className="text-foreground">Activity timeline</span>
+        <span className="text-foreground">{timelineTitle}</span>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 tabular-nums text-[10px] text-muted-foreground/85">
           <span>
             {formatWallClock(t0)} → {formatWallClock(t1)}

@@ -1,6 +1,7 @@
 import type {
   ActivitySpan,
   ActivityStep,
+  ChildWorkflowStep,
   GraphStreamStateEdge,
   HistoryEvent,
   ParsedHistory,
@@ -21,6 +22,95 @@ function historyEventTypeKey(raw: unknown): string {
 /** True if the history event type string contains the fragment (case-insensitive). */
 function historyEventMatches(raw: unknown, fragment: string): boolean {
   return historyEventTypeKey(raw).includes(fragment.toUpperCase());
+}
+
+function workflowTypeNameFromAttrs(attrs: RawEvent | undefined): string {
+  if (!attrs) return '';
+  const wt = attrs.workflowType as RawEvent | undefined;
+  if (wt && typeof wt === 'object' && wt !== null && wt.name != null) return str(wt.name);
+  if (typeof attrs.workflowType === 'string') return attrs.workflowType.trim();
+  return '';
+}
+
+function workflowExecutionIds(raw: unknown): { workflowId: string; runId?: string } | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as RawEvent;
+  const workflowId = str(o.workflowId);
+  if (!workflowId) return null;
+  const runId = str(o.runId);
+  return runId ? { workflowId, runId } : { workflowId };
+}
+
+type ChildSlot = {
+  workflowType: string;
+  workflowId: string;
+  runId?: string;
+  input?: unknown;
+  result?: unknown;
+  failure?: unknown;
+  outcome: ChildWorkflowStep['outcome'];
+  initiatedAtMs: number;
+  startedAtMs?: number;
+  endedAtMs?: number;
+};
+
+function childOutcomeToSpanOutcome(o: ChildWorkflowStep['outcome']): ActivitySpan['outcome'] {
+  switch (o) {
+    case 'pending':
+      return 'scheduled';
+    case 'running':
+      return 'running';
+    case 'completed':
+      return 'completed';
+    case 'timed_out':
+      return 'timed_out';
+    case 'canceled':
+      return 'canceled';
+    case 'failed':
+    case 'terminated':
+    case 'start_failed':
+      return 'failed';
+    default:
+      return 'scheduled';
+  }
+}
+
+function slotsToChildSteps(slots: Map<string, ChildSlot>): ChildWorkflowStep[] {
+  return [...slots.entries()]
+    .map(([initiatedEventId, s]) => ({
+      initiatedEventId,
+      workflowType: s.workflowType,
+      workflowId: s.workflowId,
+      runId: s.runId,
+      input: s.input,
+      result: s.result,
+      outcome: s.outcome,
+      failure: s.failure,
+    }))
+    .sort((a, b) => {
+      const na = Number.parseInt(a.initiatedEventId, 10);
+      const nb = Number.parseInt(b.initiatedEventId, 10);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+      return a.initiatedEventId.localeCompare(b.initiatedEventId);
+    });
+}
+
+function slotsToChildSpans(slots: Map<string, ChildSlot>): ActivitySpan[] {
+  return [...slots.entries()]
+    .map(([initiatedEventId, s]) => ({
+      key: initiatedEventId,
+      activityName: `Child: ${s.workflowType || 'workflow'}`,
+      scheduledAt: s.initiatedAtMs,
+      startedAt: s.startedAtMs,
+      endedAt: s.endedAtMs,
+      outcome: childOutcomeToSpanOutcome(s.outcome),
+    }))
+    .sort((a, b) => {
+      const na = Number.parseInt(a.key, 10);
+      const nb = Number.parseInt(b.key, 10);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+      return a.key.localeCompare(b.key);
+    });
 }
 
 function eventLabel(eventType: string, attrs: RawEvent | undefined): string {
@@ -81,6 +171,26 @@ function eventLabel(eventType: string, attrs: RawEvent | undefined): string {
       return 'WorkflowSignaled';
     case 'EVENT_TYPE_WORKFLOW_PROPERTIES_MODIFIED':
       return 'PropertiesModified';
+    case 'EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED': {
+      const wt = workflowTypeNameFromAttrs(attrs);
+      return wt ? `ChildInitiated (${wt})` : 'ChildWorkflowInitiated';
+    }
+    case 'EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_FAILED':
+      return 'ChildWorkflowStartFailed';
+    case 'EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_STARTED': {
+      const wt = workflowTypeNameFromAttrs(attrs);
+      return wt ? `ChildStarted (${wt})` : 'ChildWorkflowStarted';
+    }
+    case 'EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_COMPLETED':
+      return 'ChildWorkflowCompleted';
+    case 'EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_FAILED':
+      return 'ChildWorkflowFailed';
+    case 'EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_TIMED_OUT':
+      return 'ChildWorkflowTimedOut';
+    case 'EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_CANCELED':
+      return 'ChildWorkflowCanceled';
+    case 'EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_TERMINATED':
+      return 'ChildWorkflowTerminated';
     default: {
       const short = eventType
         .replace(/^EVENT_TYPE_/, '')
@@ -371,6 +481,8 @@ export function parseFullHistory(history: unknown): ParsedHistory {
     executedNodes: null,
     topology: null,
     activitySpans: [],
+    childWorkflowSteps: [],
+    childWorkflowSpans: [],
     historyStartMs: null,
     historyEndMs: null,
   };
@@ -386,6 +498,8 @@ export function parseFullHistory(history: unknown): ParsedHistory {
   let memo: Record<string, unknown> = {};
   let workflowType: string | null = null;
   let taskQueue: string | null = null;
+  const childSlots = new Map<string, ChildSlot>();
+  let lastParsedEventMs: number | null = null;
 
   for (const ev of rawEvents) {
     if (typeof ev !== 'object' || ev === null) continue;
@@ -394,6 +508,7 @@ export function parseFullHistory(history: unknown): ParsedHistory {
     const attrs = getAttrs(e);
     const timeRaw = e.eventTime ?? e.event_time;
     const eventTimeMs = parseEventTimeMs(timeRaw);
+    if (eventTimeMs != null) lastParsedEventMs = eventTimeMs;
     const eventTime =
       eventTimeMs != null ? new Date(eventTimeMs).toISOString() : undefined;
 
@@ -442,6 +557,144 @@ export function parseFullHistory(history: unknown): ParsedHistory {
       }
     }
 
+    if (historyEventMatches(eventType, 'START_CHILD_WORKFLOW_EXECUTION_INITIATED') && attrs) {
+      const id = str(e.eventId);
+      if (id) {
+        const wfType = workflowTypeNameFromAttrs(attrs) || 'workflow';
+        const wfId = str(attrs.workflowId);
+        const inp = attrs.input as RawEvent | undefined;
+        const decodedInput = extractDecodedPayloads(inp?.payloads) ?? undefined;
+        childSlots.set(id, {
+          workflowType: wfType,
+          workflowId: wfId || id,
+          input: decodedInput,
+          outcome: 'pending',
+          initiatedAtMs: eventTimeMs ?? lastParsedEventMs ?? 0,
+        });
+      }
+    }
+
+    if (historyEventMatches(eventType, 'START_CHILD_WORKFLOW_EXECUTION_FAILED') && attrs) {
+      const iid = str(attrs.initiatedEventId);
+      const t = eventTimeMs ?? lastParsedEventMs ?? 0;
+      const wfType =
+        workflowTypeNameFromAttrs(attrs) ||
+        (typeof attrs.workflowType === 'string' ? attrs.workflowType.trim() : '') ||
+        'workflow';
+      const wfId = str(attrs.workflowId);
+      if (iid) {
+        const slot = childSlots.get(iid);
+        if (slot) {
+          slot.outcome = 'start_failed';
+          slot.failure = attrs.failure ?? attrs;
+          slot.endedAtMs = eventTimeMs ?? slot.endedAtMs;
+        } else {
+          childSlots.set(iid, {
+            workflowType: wfType,
+            workflowId: wfId || iid,
+            outcome: 'start_failed',
+            failure: attrs.failure ?? attrs,
+            initiatedAtMs: t,
+            endedAtMs: eventTimeMs ?? undefined,
+          });
+        }
+      }
+    }
+
+    if (historyEventMatches(eventType, 'CHILD_WORKFLOW_EXECUTION_STARTED') && attrs) {
+      const iid = str(attrs.initiatedEventId);
+      if (iid) {
+        const we = workflowExecutionIds(attrs.workflowExecution);
+        const wfType = workflowTypeNameFromAttrs(attrs);
+        const slot = childSlots.get(iid);
+        if (slot) {
+          if (we?.workflowId) slot.workflowId = we.workflowId;
+          if (we?.runId) slot.runId = we.runId;
+          if (wfType) slot.workflowType = wfType;
+          slot.startedAtMs = eventTimeMs ?? slot.startedAtMs;
+          slot.outcome = 'running';
+        } else {
+          childSlots.set(iid, {
+            workflowType: wfType || 'workflow',
+            workflowId: we?.workflowId ?? iid,
+            runId: we?.runId,
+            outcome: 'running',
+            initiatedAtMs: eventTimeMs ?? lastParsedEventMs ?? 0,
+            startedAtMs: eventTimeMs ?? undefined,
+          });
+        }
+      }
+    }
+
+    if (historyEventMatches(eventType, 'CHILD_WORKFLOW_EXECUTION_COMPLETED') && attrs) {
+      const iid = str(attrs.initiatedEventId);
+      if (iid) {
+        const slot = childSlots.get(iid);
+        const res = attrs.result as RawEvent | undefined;
+        const decoded = extractDecodedPayloads(res?.payloads) ?? undefined;
+        const we = workflowExecutionIds(attrs.workflowExecution);
+        if (slot) {
+          slot.result = decoded;
+          slot.outcome = 'completed';
+          slot.endedAtMs = eventTimeMs ?? slot.endedAtMs;
+          if (we?.runId) slot.runId = we.runId;
+          if (we?.workflowId) slot.workflowId = we.workflowId;
+        }
+      }
+    }
+
+    if (
+      historyEventMatches(eventType, 'CHILD_WORKFLOW_EXECUTION_FAILED') &&
+      !historyEventMatches(eventType, 'START_CHILD_WORKFLOW_EXECUTION_FAILED') &&
+      attrs
+    ) {
+      const iid = str(attrs.initiatedEventId);
+      if (iid) {
+        const slot = childSlots.get(iid);
+        if (slot) {
+          slot.outcome = 'failed';
+          slot.failure = attrs.failure ?? attrs;
+          slot.endedAtMs = eventTimeMs ?? slot.endedAtMs;
+        }
+      }
+    }
+
+    if (historyEventMatches(eventType, 'CHILD_WORKFLOW_EXECUTION_TIMED_OUT') && attrs) {
+      const iid = str(attrs.initiatedEventId);
+      if (iid) {
+        const slot = childSlots.get(iid);
+        if (slot) {
+          slot.outcome = 'timed_out';
+          slot.failure = attrs;
+          slot.endedAtMs = eventTimeMs ?? slot.endedAtMs;
+        }
+      }
+    }
+
+    if (historyEventMatches(eventType, 'CHILD_WORKFLOW_EXECUTION_CANCELED') && attrs) {
+      const iid = str(attrs.initiatedEventId);
+      if (iid) {
+        const slot = childSlots.get(iid);
+        if (slot) {
+          slot.outcome = 'canceled';
+          slot.failure = attrs;
+          slot.endedAtMs = eventTimeMs ?? slot.endedAtMs;
+        }
+      }
+    }
+
+    if (historyEventMatches(eventType, 'CHILD_WORKFLOW_EXECUTION_TERMINATED') && attrs) {
+      const iid = str(attrs.initiatedEventId);
+      if (iid) {
+        const slot = childSlots.get(iid);
+        if (slot) {
+          slot.outcome = 'terminated';
+          slot.failure = attrs;
+          slot.endedAtMs = eventTimeMs ?? slot.endedAtMs;
+        }
+      }
+    }
+
     if (historyEventMatches(eventType, 'WORKFLOW_EXECUTION_COMPLETED') && attrs) {
       const res = attrs.result as RawEvent | undefined;
       result = extractDecodedPayloads(res?.payloads) ?? null;
@@ -468,6 +721,8 @@ export function parseFullHistory(history: unknown): ParsedHistory {
     executedNodes,
     topology,
     activitySpans: spans,
+    childWorkflowSteps: slotsToChildSteps(childSlots),
+    childWorkflowSpans: slotsToChildSpans(childSlots),
     historyStartMs,
     historyEndMs,
   };
