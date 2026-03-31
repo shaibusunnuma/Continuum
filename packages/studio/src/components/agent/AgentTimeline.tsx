@@ -8,24 +8,24 @@ type MsgRole = NonNullable<StreamState['messages']>[number]['role'];
 function roleMeta(role: MsgRole) {
   switch (role) {
     case 'user':
-      return { label: 'User', rail: 'bg-sky-500', chip: 'border-sky-500/40 bg-sky-950/40 text-sky-100' };
+      return { label: 'User', rail: 'bg-chart-1', chip: 'border-chart-1/40 bg-chart-1/15 text-chart-1' };
     case 'system':
       return {
         label: 'System',
-        rail: 'bg-violet-500',
-        chip: 'border-violet-500/40 bg-violet-950/40 text-violet-100',
+        rail: 'bg-chart-3',
+        chip: 'border-chart-3/40 bg-chart-3/15 text-chart-3',
       };
     case 'assistant':
       return {
         label: 'Model',
-        rail: 'bg-emerald-500',
-        chip: 'border-emerald-500/40 bg-emerald-950/40 text-emerald-100',
+        rail: 'bg-primary',
+        chip: 'border-primary/40 bg-primary/12 text-primary',
       };
     case 'tool':
       return {
         label: 'Tool',
-        rail: 'bg-amber-500',
-        chip: 'border-amber-500/40 bg-amber-950/40 text-amber-100',
+        rail: 'bg-warning',
+        chip: 'border-warning/40 bg-warning/12 text-warning',
       };
   }
 }

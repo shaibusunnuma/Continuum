@@ -24,7 +24,7 @@ function CumulativeCostSparkline({ steps }: { steps: { cumulative: number }[] })
     return `${x},${y}`;
   });
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full text-emerald-500/70" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full text-primary/70" preserveAspectRatio="none">
       <polyline fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" points={pts.join(' ')} />
     </svg>
   );
@@ -142,7 +142,7 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
 
   if (!hasUsage && displayCost === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-muted-foreground border border-dashed rounded-lg bg-black/40 backdrop-blur-md">
+      <div className="flex flex-col items-center justify-center p-12 text-muted-foreground border border-dashed rounded-lg bg-muted/40 backdrop-blur-md">
         <Activity className="h-8 w-8 mb-4 opacity-50" />
         <h3 className="text-lg font-medium text-primary/80 tracking-tight">No Usage Data</h3>
         <p className="text-sm opacity-70">Model usage or token metrics were not found in this workflow's event history.</p>
@@ -153,59 +153,59 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
       {/* KPI Cards */}
-      <Card className="bg-black/60 border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
-        <div className="absolute inset-0 bg-linear-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <Card className="bg-card/90 border-border/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
+        <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <CardHeader className="gap-1 px-4 py-0">
-          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-green-400">
+          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-primary">
             Total Run Cost
           </CardDescription>
-          <CardTitle className="text-3xl font-light tracking-tighter text-zinc-100">
+          <CardTitle className="text-3xl font-light tracking-tighter text-foreground">
             ${displayCost.toFixed(5)}
           </CardTitle>
         </CardHeader>
       </Card>
 
-      <Card className="bg-black/60 border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
-        <div className="absolute inset-0 bg-linear-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <Card className="bg-card/90 border-border/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
+        <div className="absolute inset-0 bg-linear-to-br from-chart-2/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         <CardHeader className="gap-1 px-4 py-0">
-          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-blue-400">
+          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-chart-2">
             Total Tokens
           </CardDescription>
-          <CardTitle className="text-3xl font-light tracking-tighter text-zinc-100">
+          <CardTitle className="text-3xl font-light tracking-tighter text-foreground">
             {(totals.prompt + totals.completion).toLocaleString()}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-0.5 px-4 pb-0 pt-1 text-xs text-zinc-500">
+        <CardContent className="space-y-0.5 px-4 pb-0 pt-1 text-xs text-muted-foreground">
           <div className="flex justify-between">
             <span>Prompt</span>
-            <span className="font-mono text-zinc-300">{totals.prompt.toLocaleString()}</span>
+            <span className="font-mono text-foreground/90">{totals.prompt.toLocaleString()}</span>
           </div>
           <div className="flex justify-between">
             <span>Completion</span>
-            <span className="font-mono text-zinc-300">{totals.completion.toLocaleString()}</span>
+            <span className="font-mono text-foreground/90">{totals.completion.toLocaleString()}</span>
           </div>
         </CardContent>
       </Card>
 
       {modelDistribution.length > 0 && (
-        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">
+        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-card/60 border-border/80 py-3 backdrop-blur-xl">
           <CardHeader className="px-4 py-0 pb-1">
-            <CardTitle className="text-xs font-medium tracking-wide text-zinc-300 uppercase">
+            <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Model usage (tokens)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 px-4 pb-3 pt-0">
             {modelDistribution.map((row) => (
               <div key={row.modelId} className="space-y-1">
-                <div className="flex justify-between gap-2 font-mono text-[11px] text-zinc-400">
-                  <span className="min-w-0 truncate text-zinc-300">{row.modelId}</span>
+                <div className="flex justify-between gap-2 font-mono text-[11px] text-muted-foreground">
+                  <span className="min-w-0 truncate text-foreground/90">{row.modelId}</span>
                   <span className="shrink-0 tabular-nums">
                     {row.tokens.toLocaleString()} tok · ${row.costUsd.toFixed(5)}
                   </span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-900">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-sky-600/80"
+                    className="h-full rounded-full bg-chart-1/80"
                     style={{ width: `${Math.max(row.pct, 0.5)}%` }}
                   />
                 </div>
@@ -216,14 +216,14 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
       )}
 
       {cumulativeCostSteps.length > 0 && (
-        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">
+        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-card/60 border-border/80 py-3 backdrop-blur-xl">
           <CardHeader className="px-4 py-0 pb-1">
-            <CardTitle className="text-xs font-medium tracking-wide text-zinc-300 uppercase">
+            <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Cumulative cost by step order
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3 pt-0">
-            <div className="mb-3 h-16 w-full font-mono text-[10px] text-zinc-500">
+            <div className="mb-3 h-16 w-full font-mono text-[10px] text-muted-foreground">
               <CumulativeCostSparkline steps={cumulativeCostSteps} />
             </div>
             <ScrollArea className="max-h-40 pr-3">
@@ -231,12 +231,12 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
                 {cumulativeCostSteps.map((row, i) => (
                   <div
                     key={`${row.label}-${i}`}
-                    className="flex justify-between gap-2 border-b border-zinc-800/50 py-1 last:border-0"
+                    className="flex justify-between gap-2 border-b border-border/60 py-1 last:border-0"
                   >
-                    <span className="min-w-0 flex-1 truncate text-zinc-400" title={row.label}>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground" title={row.label}>
                       {row.label}
                     </span>
-                    <span className="shrink-0 tabular-nums text-emerald-400/90">
+                    <span className="shrink-0 tabular-nums text-primary/90">
                       +${row.deltaCost.toFixed(5)} → ${row.cumulative.toFixed(5)}
                     </span>
                   </div>
@@ -248,9 +248,9 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
       )}
 
       {/* Node Breakdown Table */}
-      <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">
+      <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-card/60 border-border/80 py-3 backdrop-blur-xl">
         <CardHeader className="px-4 py-0 pb-1">
-          <CardTitle className="text-xs font-medium tracking-wide text-zinc-300 uppercase">
+          <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Per-Node Attribution
           </CardTitle>
         </CardHeader>
@@ -260,31 +260,31 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
               {nodeStats.map(([nodeId, stats]) => (
                 <div
                   key={nodeId}
-                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-900/50 p-2 transition-colors hover:border-zinc-700"
+                  className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 p-2 transition-colors hover:border-muted-foreground/40"
                 >
                   <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="font-mono text-xs border-zinc-700 bg-black/50 text-emerald-400">
+                    <Badge variant="outline" className="font-mono text-xs border-border bg-card/80 text-primary">
                       {nodeId}
                     </Badge>
                     <div className="flex gap-2">
                       {Array.from(stats.modelIds).map(m => (
-                        <Badge key={m} variant="secondary" className="text-[10px] bg-zinc-800 text-zinc-400">{m}</Badge>
+                        <Badge key={m} variant="secondary" className="text-[10px] bg-secondary text-muted-foreground">{m}</Badge>
                       ))}
                     </div>
                   </div>
                   
                   <div className="flex text-right gap-6">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Calls</span>
-                      <span className="text-sm font-mono text-zinc-300">{stats.calls}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Calls</span>
+                      <span className="text-sm font-mono text-foreground/90">{stats.calls}</span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Tokens</span>
-                      <span className="text-sm font-mono text-zinc-300">{(stats.promptTokens + stats.completionTokens).toLocaleString()}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tokens</span>
+                      <span className="text-sm font-mono text-foreground/90">{(stats.promptTokens + stats.completionTokens).toLocaleString()}</span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Cost</span>
-                      <span className="text-sm font-mono text-emerald-400">${stats.costUsd.toFixed(5)}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Cost</span>
+                      <span className="text-sm font-mono text-primary">${stats.costUsd.toFixed(5)}</span>
                     </div>
                   </div>
                 </div>

@@ -115,7 +115,7 @@ function BarEndMarkers({
         ? 'border-muted-foreground bg-muted-foreground/55'
         : isRunningBar || outcome === 'running'
           ? 'border-primary bg-primary'
-          : 'border-emerald-500/80 bg-emerald-600/90',
+          : 'border-primary/80 bg-primary/90',
   );
   return (
     <>
@@ -262,7 +262,7 @@ export function EventHistoryGantt({
                 ? 'bg-muted-foreground/50'
                 : s.outcome === 'running' || (isRunning && !s.endedAt && s.startedAt)
                   ? 'animate-pulse bg-primary'
-                  : 'bg-emerald-600/80';
+                  : 'bg-primary/80';
 
           const showScheduleWait =
             s.startedAt != null && s.scheduledAt < s.startedAt;

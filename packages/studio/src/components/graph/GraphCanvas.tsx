@@ -27,9 +27,9 @@ function GraphNode({ data }: NodeProps) {
   const conditional = data.conditional as boolean | undefined;
   const handleClass =
     status === 'active'
-      ? '!size-2.5 !border-2 !border-amber-400 !bg-amber-500'
+      ? '!size-2.5 !border-2 !border-warning !bg-warning'
       : status === 'done'
-        ? '!size-2 !border border-emerald-600/80 !bg-emerald-500'
+        ? '!size-2 !border border-primary/80 !bg-primary'
         : status === 'error'
           ? '!size-2 !bg-destructive'
           : '!size-2 !bg-muted-foreground/35';
@@ -41,13 +41,13 @@ function GraphNode({ data }: NodeProps) {
         'min-w-[140px] shadow-sm',
         /* Not reached yet — quiet */
         status === 'idle' &&
-          'border-zinc-600/50 bg-zinc-950/60 text-zinc-400 dark:border-zinc-500/40 dark:bg-zinc-950/80',
+          'border-muted-foreground/35 bg-card/70 text-muted-foreground',
         /* Finished successfully — green story */
         status === 'done' &&
-          'border-emerald-600/90 bg-emerald-950/50 text-emerald-100/90 dark:border-emerald-500/70 dark:bg-emerald-950/40',
+          'border-primary/90 bg-primary/12 text-primary',
         /* Running now — warm, high contrast */
         status === 'active' &&
-          'border-amber-400 bg-amber-950/55 text-amber-50 shadow-[0_0_20px_-4px_rgba(251,191,36,0.45)] ring-2 ring-amber-400/35 dark:border-amber-400 dark:bg-amber-950/50',
+          'border-warning bg-warning/12 text-warning shadow-[0_0_20px_-4px_color-mix(in_oklch,var(--warning)_45%,transparent)] ring-2 ring-warning/35',
         status === 'error' && 'border-destructive bg-destructive/10 text-destructive',
       )}
     >
@@ -56,20 +56,21 @@ function GraphNode({ data }: NodeProps) {
         <span
           className={cn(
             'size-2.5 shrink-0 rounded-full',
-            status === 'idle' && 'bg-zinc-500/40 ring-1 ring-zinc-500/20',
-            status === 'active' && 'animate-pulse bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]',
-            status === 'done' && 'bg-emerald-400 ring-1 ring-emerald-300/30',
+            status === 'idle' && 'bg-muted-foreground/40 ring-1 ring-border/60',
+            status === 'active' &&
+              'animate-pulse bg-warning shadow-[0_0_8px_color-mix(in_oklch,var(--warning)_70%,transparent)]',
+            status === 'done' && 'bg-primary ring-1 ring-primary/40',
             status === 'error' && 'bg-destructive',
           )}
         />
         <span className="min-w-0 flex-1 truncate font-medium">{String(data.label ?? '')}</span>
         {conditional && (
           <span
-            className="inline-flex shrink-0 items-center gap-0.5 rounded border border-violet-400/50 bg-violet-950/55 px-1 py-0.5 text-[8px] font-semibold uppercase leading-none tracking-wide text-violet-100"
+            className="inline-flex shrink-0 items-center gap-0.5 rounded border border-chart-4/50 bg-chart-4/15 px-1 py-0.5 text-[8px] font-semibold uppercase leading-none tracking-wide text-chart-4"
             title="Conditional routing: the next edge is chosen from workflow graph state at this step."
             aria-label="Conditional routing"
           >
-            <GitBranch className="size-2.5 text-violet-300" strokeWidth={2.5} aria-hidden />
+            <GitBranch className="size-2.5 text-chart-4" strokeWidth={2.5} aria-hidden />
             if
           </span>
         )}
@@ -227,40 +228,40 @@ function edgeVisuals(
   switch (story) {
     case 'conditional_taken':
       return {
-        style: { stroke: '#c084fc', strokeWidth: 2.2, ...dash },
-        markerColor: '#c084fc',
+        style: { stroke: 'var(--chart-4)', strokeWidth: 2.2, ...dash },
+        markerColor: 'var(--chart-4)',
       };
     case 'traversed':
       return {
-        style: { stroke: '#10b981', strokeWidth: 2.25, ...dash },
-        markerColor: '#10b981',
+        style: { stroke: 'var(--primary)', strokeWidth: 2.25, ...dash },
+        markerColor: 'var(--primary)',
       };
     case 'into_active':
       return {
-        style: { stroke: '#fbbf24', strokeWidth: 2.75, ...dash },
+        style: { stroke: 'var(--warning)', strokeWidth: 2.75, ...dash },
         animated: true,
-        markerColor: '#fbbf24',
+        markerColor: 'var(--warning)',
       };
     case 'from_active':
       return {
-        style: { stroke: '#fcd34d', strokeWidth: 2.75, ...dash },
+        style: { stroke: 'var(--warning-soft)', strokeWidth: 2.75, ...dash },
         animated: true,
-        markerColor: '#fcd34d',
+        markerColor: 'var(--warning-soft)',
       };
     case 'possible_next':
       return {
-        style: { stroke: '#38bdf8', strokeWidth: 1.75, strokeDasharray: '4 4' },
-        markerColor: '#38bdf8',
+        style: { stroke: 'var(--chart-1)', strokeWidth: 1.75, strokeDasharray: '4 4' },
+        markerColor: 'var(--chart-1)',
       };
     case 'conditional_possible':
       return {
-        style: { stroke: '#71717a', strokeWidth: 1.25, strokeDasharray: '5 4' },
-        markerColor: '#71717a',
+        style: { stroke: 'var(--muted-foreground)', strokeWidth: 1.25, strokeDasharray: '5 4' },
+        markerColor: 'var(--muted-foreground)',
       };
     default:
       return {
-        style: { stroke: '#52525b', strokeWidth: 1.15, ...dash },
-        markerColor: '#52525b',
+        style: { stroke: 'var(--border)', strokeWidth: 1.15, ...dash },
+        markerColor: 'var(--border)',
       };
   }
 }
@@ -427,34 +428,34 @@ export function GraphCanvas({
     <div className="w-full rounded-md border border-border">
       <div className="text-muted-foreground flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-border bg-card/40 px-3 py-2 font-mono text-[10px] leading-tight">
         <span>
-          <span className="text-zinc-500">Nodes</span>
-          <span className="mx-1.5 text-zinc-400">·</span>
-          <span className="text-zinc-400">○</span> not reached
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="text-emerald-400">●</span> completed
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="text-amber-400">●</span> running
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="inline-flex items-center gap-0.5 rounded border border-violet-400/45 bg-violet-950/40 px-0.5 py-px text-[7px] font-semibold text-violet-200">
-            <GitBranch className="size-2 text-violet-300" strokeWidth={2.5} aria-hidden />
+          <span className="text-muted-foreground">Nodes</span>
+          <span className="mx-1.5 text-muted-foreground/80">·</span>
+          <span className="text-muted-foreground">○</span> not reached
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-primary">●</span> completed
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-warning">●</span> running
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="inline-flex items-center gap-0.5 rounded border border-chart-4/45 bg-chart-4/15 px-0.5 py-px text-[7px] font-semibold text-chart-4">
+            <GitBranch className="size-2 text-chart-4" strokeWidth={2.5} aria-hidden />
             if
           </span>{' '}
           branch
         </span>
         <span>
-          <span className="text-zinc-500">Edges</span>
-          <span className="mx-1.5 text-zinc-400">·</span>
-          <span className="text-emerald-500">━</span> path taken
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="text-amber-400">━</span> into / out of running
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="text-sky-500/80">┅</span> likely next
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="text-violet-400">┅</span> branch taken
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="text-zinc-500">┅</span> branch not taken
-          <span className="mx-1.5 text-zinc-500">·</span>
-          <span className="rounded border border-zinc-600 bg-zinc-900 px-1 py-px text-[9px] text-zinc-200">×N</span>{' '}
+          <span className="text-muted-foreground">Edges</span>
+          <span className="mx-1.5 text-muted-foreground/80">·</span>
+          <span className="text-primary">━</span> path taken
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-warning">━</span> into / out of running
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-chart-1/90">┅</span> likely next
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-chart-4">┅</span> branch taken
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="text-muted-foreground">┅</span> branch not taken
+          <span className="mx-1.5 text-muted-foreground">·</span>
+          <span className="rounded border border-border bg-muted px-1 py-px text-[9px] text-foreground/90">×N</span>{' '}
           repeated transition (this run)
         </span>
       </div>
