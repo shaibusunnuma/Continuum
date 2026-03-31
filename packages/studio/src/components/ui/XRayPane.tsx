@@ -1,8 +1,80 @@
 import { useEffect, useState } from 'react';
 import { getSpans } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, Clock, Cpu, Database, Network } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Cpu,
+  Database,
+  GitBranch,
+  Layers,
+  Network,
+  Wrench,
+  Workflow,
+} from 'lucide-react';
 import type { ActivityStep } from '@/lib/types';
+
+type XRayKind = 'model' | 'tool' | 'lifecycle' | 'graph' | 'activity';
+
+/** Header badge + styling from Temporal activity name (or graph-only selection). */
+export function getXRayHeaderMeta(
+  selectedStep: ActivityStep | null,
+  selectedNodeId: string | undefined,
+  payload: unknown,
+): {
+  kind: XRayKind;
+  primaryBadge: string;
+  badgeClass: string;
+  /** Prefer showing token/latency badges only for model calls. */
+  showModelMetrics: boolean;
+} {
+  if (!selectedStep && selectedNodeId) {
+    return {
+      kind: 'graph',
+      primaryBadge: 'Graph node',
+      badgeClass: 'text-sky-400 border-sky-900 bg-sky-950',
+      showModelMetrics: false,
+    };
+  }
+
+  const name = selectedStep?.activityName ?? '';
+  const p = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : undefined;
+
+  if (name === 'runModel') {
+    const mid = p?.modelId;
+    return {
+      kind: 'model',
+      primaryBadge: typeof mid === 'string' && mid.trim() ? mid : 'Model',
+      badgeClass: 'text-indigo-400 border-indigo-900 bg-indigo-950',
+      showModelMetrics: true,
+    };
+  }
+  if (name === 'runTool') {
+    const tn = p?.toolName;
+    return {
+      kind: 'tool',
+      primaryBadge: typeof tn === 'string' && tn.trim() ? tn : 'Tool',
+      badgeClass: 'text-amber-400 border-amber-900 bg-amber-950',
+      showModelMetrics: false,
+    };
+  }
+  if (name === 'runLifecycleHooks') {
+    return {
+      kind: 'lifecycle',
+      primaryBadge: 'Lifecycle',
+      badgeClass: 'text-violet-400 border-violet-900 bg-violet-950',
+      showModelMetrics: false,
+    };
+  }
+
+  return {
+    kind: 'activity',
+    primaryBadge: name.trim() || 'Activity',
+    badgeClass: 'text-zinc-400 border-zinc-800 bg-zinc-900',
+    showModelMetrics: false,
+  };
+}
 
 interface XRayPaneProps {
   workflowId: string;
@@ -43,12 +115,47 @@ export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: 
 
   if (!selectedStep && !selectedNodeId) return null;
 
-  const payload = Array.isArray(selectedStep?.input) ? selectedStep?.input[0] : selectedStep?.input;
+  const payload = selectedStep
+    ? Array.isArray(selectedStep.input)
+      ? selectedStep.input[0]
+      : selectedStep.input
+    : undefined;
+  const meta = getXRayHeaderMeta(selectedStep, selectedNodeId, payload);
   const resultPayload = selectedStep?.result?.payload || selectedStep?.result;
 
   const usage = resultPayload?.usage;
   const latency = resultPayload?.latencyMs;
-  const modelId = payload?.modelId || 'Unknown Model';
+
+  const HeaderIcon =
+    meta.kind === 'model'
+      ? Cpu
+      : meta.kind === 'tool'
+        ? Wrench
+        : meta.kind === 'lifecycle'
+          ? Workflow
+          : meta.kind === 'graph'
+            ? GitBranch
+            : Layers;
+
+  const iconClass =
+    meta.kind === 'model'
+      ? 'text-indigo-400'
+      : meta.kind === 'tool'
+        ? 'text-amber-400'
+        : meta.kind === 'lifecycle'
+          ? 'text-violet-400'
+          : meta.kind === 'graph'
+            ? 'text-sky-400'
+            : 'text-zinc-400';
+
+  const lifecycleType =
+    meta.kind === 'lifecycle' &&
+    payload &&
+    typeof payload === 'object' &&
+    'type' in payload &&
+    typeof (payload as { type: unknown }).type === 'string'
+      ? String((payload as { type: string }).type)
+      : null;
 
   return (
     <div className="flex flex-col h-full bg-black text-zinc-300">
@@ -56,19 +163,24 @@ export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: 
         <div className="flex justify-between items-start mb-4">
           <div>
             <h2 className="text-xl font-light tracking-tight text-white flex items-center gap-3">
-              <Cpu className="h-5 w-5 text-indigo-400" />
+              <HeaderIcon className={`h-5 w-5 shrink-0 ${iconClass}`} />
               {selectedNodeId || selectedStep?.activityName || 'Execution Step'}
             </h2>
-            <div className="flex mt-2 gap-2 text-xs">
-              <Badge variant="outline" className="text-indigo-400 border-indigo-900 bg-indigo-950">
-                {modelId}
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <Badge variant="outline" className={meta.badgeClass}>
+                {meta.primaryBadge}
               </Badge>
-              {latency !== undefined && (
+              {lifecycleType ? (
+                <Badge variant="outline" className="font-mono text-zinc-400 border-zinc-800 bg-zinc-900">
+                  {lifecycleType}
+                </Badge>
+              ) : null}
+              {meta.showModelMetrics && latency !== undefined && (
                 <Badge variant="outline" className="text-zinc-400 border-zinc-800 bg-zinc-900 font-mono">
-                  <Clock className="w-3 h-3 mr-1 inline" /> {latency}ms
+                  <Clock className="mr-1 inline w-3 h-3" /> {latency}ms
                 </Badge>
               )}
-              {usage !== undefined && (
+              {meta.showModelMetrics && usage !== undefined && (
                 <Badge variant="outline" className="text-emerald-400 border-emerald-900 bg-emerald-950 font-mono">
                   {usage.totalTokens} Tokens
                 </Badge>
