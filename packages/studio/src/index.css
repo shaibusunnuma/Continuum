@@ -83,3 +83,36 @@
     opacity: 0.35;
   }
 }
+
+/*
+ * react-day-picker is imported unlayered above. Rules in @layer base lose to it, so
+ * defaults like --rdp-accent-color: blue kept winning. These overrides must be unlayered.
+ */
+.rdp-root {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: color-mix(in oklch, var(--primary) 24%, transparent);
+  --rdp-selected-border: 2px solid transparent;
+  --rdp-today-color: var(--muted-foreground);
+  --rdp-day_button-border-radius: var(--radius-md);
+}
+
+.rdp-selected {
+  font-weight: 600;
+  font-size: inherit;
+}
+
+.rdp-selected .rdp-day_button {
+  border: 2px solid transparent;
+  color: inherit;
+  outline: none;
+  box-shadow: none;
+}
+
+.rdp-today:not(.rdp-outside) {
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.rdp-selected.rdp-today:not(.rdp-outside) {
+  color: var(--primary-foreground);
+}

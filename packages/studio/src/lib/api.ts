@@ -68,7 +68,7 @@ export interface ListRunsParams {
   executionStatus?: string;
   workflowType?: string;
   workflowId?: string;
-  /** ISO-8601 datetime; server maps to `StartTime >`. */
+  /** ISO-8601 datetime; server maps to `StartTime >=` / `<=`. */
   startAfter?: string;
   startBefore?: string;
 }

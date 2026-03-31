@@ -51,7 +51,7 @@ export function buildStudioRunsStructuredQuery(params: {
   if (after) {
     const d = new Date(after);
     if (!Number.isNaN(d.getTime())) {
-      parts.push(`StartTime > ${quoteVisibilityString(d.toISOString())}`);
+      parts.push(`StartTime >= ${quoteVisibilityString(d.toISOString())}`);
     }
   }
 
@@ -59,7 +59,7 @@ export function buildStudioRunsStructuredQuery(params: {
   if (before) {
     const d = new Date(before);
     if (!Number.isNaN(d.getTime())) {
-      parts.push(`StartTime < ${quoteVisibilityString(d.toISOString())}`);
+      parts.push(`StartTime <= ${quoteVisibilityString(d.toISOString())}`);
     }
   }
 

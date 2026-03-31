@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ChevronDown, ChevronUp, Columns3 } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3 } from "lucide-react";
 import { listRuns, type ListRunsParams } from "@/lib/api";
 import type { StudioRunPrimitive, StudioRunRow } from "@/lib/types";
 import { DateTimePickerField } from "@/components/run-explorer/DateTimePickerField";
@@ -178,16 +178,45 @@ function appliedToListParams(f: ServerFilterForm): Omit<ListRunsParams, "limit" 
   return p;
 }
 
-function nextToggleSort(current: ColumnSort, asc: ColumnSort, desc: ColumnSort, target: "asc" | "desc"): ColumnSort {
-  if (target === "asc") {
-    if (current === asc) return "server";
-    return asc;
-  }
-  if (current === desc) return "server";
-  return desc;
+/** Null / non-finite numbers sort after real values; never returns NaN. */
+function compareNullableNumberAsc(
+  a: number | null | undefined,
+  b: number | null | undefined,
+): number {
+  const ai = a != null && Number.isFinite(a);
+  const bi = b != null && Number.isFinite(b);
+  if (!ai && !bi) return 0;
+  if (!ai) return 1;
+  if (!bi) return -1;
+  if (a! < b!) return -1;
+  if (a! > b!) return 1;
+  return 0;
 }
 
-function SortableTableHead({
+function compareNullableNumberDesc(
+  a: number | null | undefined,
+  b: number | null | undefined,
+): number {
+  const ai = a != null && Number.isFinite(a);
+  const bi = b != null && Number.isFinite(b);
+  if (!ai && !bi) return 0;
+  if (!ai) return 1;
+  if (!bi) return -1;
+  if (a! > b!) return -1;
+  if (a! < b!) return 1;
+  return 0;
+}
+
+function sortTieBreak(a: StudioRunRow, b: StudioRunRow, primary: number): number {
+  if (primary !== 0) return primary;
+  return rowKey(a).localeCompare(rowKey(b));
+}
+
+/**
+ * One control per column: off → ascending → descending → off.
+ * Avoids two chevrons with different state machines (confusing when combined with other columns).
+ */
+function ColumnSortCycleButton({
   label,
   sortAsc,
   sortDesc,
@@ -202,34 +231,38 @@ function SortableTableHead({
   onColumnSort: (next: ColumnSort) => void;
   className?: string;
 }) {
-  const ascActive = columnSort === sortAsc;
-  const descActive = columnSort === sortDesc;
+  const mode =
+    columnSort === sortAsc ? "asc" : columnSort === sortDesc ? "desc" : "off";
+
+  const cycle = () => {
+    if (mode === "off") onColumnSort(sortAsc);
+    else if (mode === "asc") onColumnSort(sortDesc);
+    else onColumnSort("server");
+  };
+
+  const Icon = mode === "asc" ? ChevronUp : mode === "desc" ? ChevronDown : ChevronsUpDown;
+  const title =
+    mode === "off"
+      ? `${label}: sort ascending`
+      : mode === "asc"
+        ? `${label}: ascending — next: descending`
+        : `${label}: descending — next: clear sort`;
+
   return (
     <TableHead className={className}>
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1">
         <span className="text-muted-foreground">{label}</span>
-        <div className="flex shrink-0 flex-col gap-0">
-          <Button
-            type="button"
-            variant={ascActive ? "secondary" : "ghost"}
-            size="icon-xs"
-            className="size-5 rounded-sm"
-            aria-label={`Sort ${label} ascending`}
-            onClick={() => onColumnSort(nextToggleSort(columnSort, sortAsc, sortDesc, "asc"))}
-          >
-            <ChevronUp className="size-3" />
-          </Button>
-          <Button
-            type="button"
-            variant={descActive ? "secondary" : "ghost"}
-            size="icon-xs"
-            className="size-5 rounded-sm"
-            aria-label={`Sort ${label} descending`}
-            onClick={() => onColumnSort(nextToggleSort(columnSort, sortAsc, sortDesc, "desc"))}
-          >
-            <ChevronDown className="size-3" />
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant={mode === "off" ? "ghost" : "secondary"}
+          size="icon-xs"
+          className="size-5 shrink-0 rounded-sm"
+          aria-label={title}
+          title={title}
+          onClick={cycle}
+        >
+          <Icon className="size-3" />
+        </Button>
       </div>
     </TableHead>
   );
@@ -334,6 +367,16 @@ export function RunExplorer() {
     void load();
   };
 
+  /** Date pickers commit on Apply inside the popover; refresh the list immediately without a second "Apply filters" click. */
+  const commitDraftPatchAndReload = (patch: Partial<ServerFilterForm>) => {
+    setDraftServer((s) => {
+      const next = { ...s, ...patch };
+      appliedServerRef.current = next;
+      queueMicrotask(() => void load());
+      return next;
+    });
+  };
+
   const resetServerFilters = () => {
     setDraftServer({ ...EMPTY_SERVER_FILTERS });
     appliedServerRef.current = { ...EMPTY_SERVER_FILTERS };
@@ -352,33 +395,38 @@ export function RunExplorer() {
     if (columnSort === "server") return list;
 
     const out = [...list];
-    const num = (v: number | null, empty: number) =>
-      v == null || !Number.isFinite(v) ? empty : v;
 
     out.sort((a, b) => {
+      let c = 0;
       switch (columnSort) {
         case "startedAsc":
-          return startMsForSort(a) - startMsForSort(b);
+          c = startMsForSort(a) - startMsForSort(b);
+          break;
         case "startedDesc":
-          return startMsForSort(b) - startMsForSort(a);
+          c = startMsForSort(b) - startMsForSort(a);
+          break;
         case "durationDesc":
-          return durationMsForSort(b) - durationMsForSort(a);
+          c = durationMsForSort(b) - durationMsForSort(a);
+          break;
         case "durationAsc":
-          return durationMsForSort(a) - durationMsForSort(b);
+          c = durationMsForSort(a) - durationMsForSort(b);
+          break;
         case "costDesc":
-          return num(b.costUsd, -1) - num(a.costUsd, -1);
+          c = compareNullableNumberDesc(a.costUsd, b.costUsd);
+          break;
         case "costAsc":
-          return num(a.costUsd, Number.POSITIVE_INFINITY) - num(b.costUsd, Number.POSITIVE_INFINITY);
+          c = compareNullableNumberAsc(a.costUsd, b.costUsd);
+          break;
         case "tokensDesc":
-          return num(b.totalTokens, -1) - num(a.totalTokens, -1);
+          c = compareNullableNumberDesc(a.totalTokens, b.totalTokens);
+          break;
         case "tokensAsc":
-          return (
-            num(a.totalTokens, Number.POSITIVE_INFINITY) -
-            num(b.totalTokens, Number.POSITIVE_INFINITY)
-          );
+          c = compareNullableNumberAsc(a.totalTokens, b.totalTokens);
+          break;
         default:
-          return 0;
+          c = 0;
       }
+      return sortTieBreak(a, b, c);
     });
     return out;
   }, [rows, primitiveFilter, minCostUsd, columnSort]);
@@ -496,13 +544,13 @@ export function RunExplorer() {
               id="run-filter-start-after"
               label="Start after"
               value={draftServer.startAfter}
-              onChange={(iso) => setDraftServer((s) => ({ ...s, startAfter: iso }))}
+              onChange={(iso) => commitDraftPatchAndReload({ startAfter: iso })}
             />
             <DateTimePickerField
               id="run-filter-start-before"
               label="Start before"
               value={draftServer.startBefore}
-              onChange={(iso) => setDraftServer((s) => ({ ...s, startBefore: iso }))}
+              onChange={(iso) => commitDraftPatchAndReload({ startBefore: iso })}
             />
             <Button
               type="button"
@@ -551,9 +599,11 @@ export function RunExplorer() {
             </label>
           </div>
           <p className="font-mono text-[10px] leading-snug text-muted-foreground">
-            Primitive and min cost apply to loaded runs only (this page and any &quot;Load more&quot; rows),
-            not the whole namespace. Use column arrows to sort; click an active arrow again to restore
-            server order.
+            Start after / before reload the list as soon as you click Apply in the calendar (Temporal
+            visibility: StartTime range). Other fields use Apply filters. Primitive and min cost apply to
+            loaded runs only (this page and any &quot;Load more&quot; rows), not the whole namespace. Use
+            the sort icon next to Started / Duration / Cost / Tokens (cycles ascending → descending →
+            server order).
           </p>
         </div>
 
@@ -576,7 +626,7 @@ export function RunExplorer() {
                   <TableHead className="font-mono text-xs text-muted-foreground">Status</TableHead>
                 )}
                 {vis.started && (
-                  <SortableTableHead
+                  <ColumnSortCycleButton
                     label="Started"
                     sortAsc="startedAsc"
                     sortDesc="startedDesc"
@@ -586,7 +636,7 @@ export function RunExplorer() {
                   />
                 )}
                 {vis.duration && (
-                  <SortableTableHead
+                  <ColumnSortCycleButton
                     label="Duration"
                     sortAsc="durationAsc"
                     sortDesc="durationDesc"
@@ -596,7 +646,7 @@ export function RunExplorer() {
                   />
                 )}
                 {vis.cost && (
-                  <SortableTableHead
+                  <ColumnSortCycleButton
                     label="Cost (USD)"
                     sortAsc="costAsc"
                     sortDesc="costDesc"
@@ -606,7 +656,7 @@ export function RunExplorer() {
                   />
                 )}
                 {vis.tokens && (
-                  <SortableTableHead
+                  <ColumnSortCycleButton
                     label="Tokens"
                     sortAsc="tokensAsc"
                     sortDesc="tokensDesc"

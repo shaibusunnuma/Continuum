@@ -59,11 +59,14 @@ function Calendar({
         [UI.DayButton]: cn(
           buttonVariants({ variant: "ghost" }),
           "size-8 p-0 font-normal aria-selected:opacity-100",
+          /* Ghost buttons use focus-visible ring; on circular/rounded cells it reads as a blue halo */
+          "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none",
           defaults[UI.DayButton],
         ),
         [UI.MonthGrid]: cn("w-full border-collapse", defaults[UI.MonthGrid]),
         [SelectionState.selected]: cn(
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-md",
+          "[&_.rdp-day_button]:border-transparent [&_.rdp-day_button]:text-inherit",
           defaults[SelectionState.selected],
         ),
         ...classNames,
