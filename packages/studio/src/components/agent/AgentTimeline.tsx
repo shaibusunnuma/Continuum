@@ -41,10 +41,16 @@ function formatToolCalls(raw: unknown): string | null {
 }
 
 /**
- * Live agent trace from `durion:streamState` — one row per message in order (model turns, tool results, etc.).
- * For wall-clock activity boundaries (runModel / runTool), use the Temporal activities block below or Event History.
+ * Agent trace: either live `durion:streamState` from the worker, or the same shape rebuilt from
+ * `runModel` / `runTool` activity payloads in history when the worker is offline.
  */
-export function AgentTimeline({ state }: { state: StreamState }) {
+export function AgentTimeline({
+  state,
+  source = 'live',
+}: {
+  state: StreamState;
+  source?: 'live' | 'history';
+}) {
   const messages = state.messages ?? [];
   const step = state.currentStep;
 
@@ -64,7 +70,11 @@ export function AgentTimeline({ state }: { state: StreamState }) {
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <div className="font-mono text-xs">
           <span className="text-foreground">Agent trace</span>
-          <span className="text-muted-foreground"> · order from stream state</span>
+          <span className="text-muted-foreground">
+            {source === 'history'
+              ? ' · reconstructed from activity history (no worker)'
+              : ' · live stream state'}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
           <Badge variant="outline" className="rounded-sm tabular-nums">

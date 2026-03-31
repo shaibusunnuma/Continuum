@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { describeRun, getHistory, getResult, getStreamState } from '@/lib/api';
+import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
 import { parseFullHistory } from '@/lib/parse-history';
 import { detectViewMode } from '@/lib/view-mode';
 import type { RunViewMode } from '@/lib/view-mode';
@@ -302,10 +303,25 @@ export function RunDetail() {
   const mode: RunViewMode | null = (() => {
     if (streamState) return detectViewMode(streamState);
     if (history.topology) return 'graph';
+    if (history.memo?.['durion:primitive'] === 'agent') return 'agent';
+    if (
+      !history.topology &&
+      history.activitySteps.some((s) => s.activityName === 'runModel') &&
+      history.activitySteps.some((s) => s.activityName === 'runTool')
+    ) {
+      return 'agent';
+    }
     if (history.activitySteps.length > 0) return 'workflow';
     if (describe) return 'workflow';
     return null;
   })();
+
+  const agentStreamFromHistory = useMemo((): StreamState | null => {
+    if (mode !== 'agent' || streamState != null) return null;
+    return reconstructAgentStreamStateFromHistory(history, {
+      workflowStatus: describe?.status ?? null,
+    });
+  }, [mode, streamState, history, describe?.status]);
 
   const typeLabel = (() => {
     const t = describe?.type ?? history.workflowType;
@@ -567,10 +583,10 @@ export function RunDetail() {
                   />
                 )}
 
-                {/* Agent: live trace from stream; Temporal activities when history is available */}
+                {/* Agent: live streamState from worker, or same UI rebuilt from runModel/runTool history */}
                 {mode === 'agent' && streamState && (
                   <div className="flex flex-col gap-4">
-                    <AgentTimeline state={streamState} />
+                    <AgentTimeline state={streamState} source="live" />
                     <div className="bg-background relative z-[1] shrink-0">
                       <HistoryActivityTimelineBlock
                         history={history}
@@ -581,12 +597,17 @@ export function RunDetail() {
                   </div>
                 )}
                 {mode === 'agent' && !streamState && (
-                  <div className="flex max-h-[min(72vh,520px)] flex-col overflow-y-auto">
-                    <HistoryActivityTimelineBlock
-                      history={history}
-                      isRunning={describe?.status === 'RUNNING'}
-                      onStepClick={openXRay}
-                    />
+                  <div className="flex max-h-[min(72vh,520px)] flex-col gap-4 overflow-y-auto">
+                    {agentStreamFromHistory && (
+                      <AgentTimeline state={agentStreamFromHistory} source="history" />
+                    )}
+                    <div className="bg-background relative z-[1] shrink-0">
+                      <HistoryActivityTimelineBlock
+                        history={history}
+                        isRunning={describe?.status === 'RUNNING'}
+                        onStepClick={openXRay}
+                      />
+                    </div>
                     {history.activitySteps.length === 0 && history.activitySpans.length === 0 && (
                       <p className="text-muted-foreground p-4 font-mono text-sm">
                         Waiting for execution history…
