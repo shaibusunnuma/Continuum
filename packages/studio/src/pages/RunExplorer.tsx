@@ -645,13 +645,11 @@ export function RunExplorer() {
               />
             </label>
           </div>
-          <p className="font-mono text-[10px] leading-snug text-muted-foreground">
-            Start after / before reload the list as soon as you click Apply in the calendar (Temporal
-            visibility: StartTime range). Other fields use Apply filters. Composition uses
-            ParentWorkflowId visibility (Temporal server with default search attributes). Parent workflow
-            ID narrows to children of that run. Primitive and min cost apply to loaded runs only (this
-            page and any &quot;Load more&quot; rows), not the whole namespace. Use the sort icon next to
-            Started / Duration / Cost / Tokens (cycles ascending → descending → server order).
+          <p className="w-full font-mono text-[10px] leading-snug text-muted-foreground">
+            Apply filters runs a new search. Confirm dates in the calendar to use the time range.
+            Composition and parent workflow narrow which runs are returned. Primitive type and minimum
+            cost only filter rows already on this page (including after Load more). Use the sort icon in
+            a column header to change ordering.
           </p>
         </div>
 

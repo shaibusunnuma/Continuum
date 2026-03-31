@@ -678,7 +678,6 @@ export function RunDetail() {
                   topology={describe?.memo?.['durion:topology'] as MemoTopology | undefined}
                   executedNodes={history?.executedNodes ?? undefined}
                   onNodeClick={(id) => openXRay(null, id)}
-                  hideIfNoTopology={mode === 'agent' && !hasGraphTopology}
                 />
 
                 {mode === 'graph' && (

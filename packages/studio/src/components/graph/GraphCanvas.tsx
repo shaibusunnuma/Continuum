@@ -275,8 +275,6 @@ export interface GraphCanvasProps {
   executedNodes?: string[];
   /** Callback when a node is clicked */
   onNodeClick?: (nodeId: string) => void;
-  /** When there is no topology, render nothing instead of the empty-state banner (e.g. agent runs). */
-  hideIfNoTopology?: boolean;
 }
 
 const EMPTY_ARRAY: string[] = [];
@@ -286,7 +284,6 @@ export function GraphCanvas({
   topology: memoTopology,
   executedNodes: resultExecutedNodes,
   onNodeClick,
-  hideIfNoTopology = false,
 }: GraphCanvasProps) {
   const topology = state?.topology ?? memoTopology ?? null;
   const activeNodes = state?.activeNodes ?? EMPTY_ARRAY;
@@ -416,12 +413,7 @@ export function GraphCanvas({
   }, []);
 
   if (!topology || topology.nodes.length === 0) {
-    if (hideIfNoTopology) return null;
-    return (
-      <div className="text-muted-foreground flex h-full items-center justify-center font-mono text-sm">
-        No graph topology available.
-      </div>
-    );
+    return null;
   }
 
   return (
