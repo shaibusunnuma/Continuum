@@ -10,60 +10,130 @@ interface CostBreakdownProps {
   accumulatedCostUsd?: number; // from describe memo if present
 }
 
+function CumulativeCostSparkline({ steps }: { steps: { cumulative: number }[] }) {
+  if (steps.length === 0) return null;
+  const max = Math.max(...steps.map((s) => s.cumulative), 1e-9);
+  const w = 400;
+  const h = 48;
+  const pad = 4;
+  const innerW = w - 2 * pad;
+  const innerH = h - 2 * pad;
+  const pts = steps.map((s, i) => {
+    const x = pad + (steps.length <= 1 ? innerW / 2 : (i / (steps.length - 1)) * innerW);
+    const y = pad + innerH - (s.cumulative / max) * innerH;
+    return `${x},${y}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-full w-full text-emerald-500/70" preserveAspectRatio="none">
+      <polyline fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" points={pts.join(' ')} />
+    </svg>
+  );
+}
+
 export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProps) {
-  // Extract token counts and costs from activity events in history
-  const { nodeStats, totals } = useMemo(() => {
-    const stats = new Map<string, { calls: number; latencyMs: number; promptTokens: number; completionTokens: number; costUsd: number; modelIds: Set<string> }>();
+  const { nodeStats, totals, modelDistribution, cumulativeCostSteps } = useMemo(() => {
+    const stats = new Map<
+      string,
+      {
+        calls: number;
+        latencyMs: number;
+        promptTokens: number;
+        completionTokens: number;
+        costUsd: number;
+        modelIds: Set<string>;
+      }
+    >();
     let totalPrompt = 0;
     let totalCompletion = 0;
     let totalComputedCost = 0;
 
+    const byModel = new Map<string, { tokens: number; costUsd: number }>();
+    const cumulativeCostSteps: { label: string; deltaCost: number; cumulative: number }[] = [];
+    let cumulative = 0;
+
     for (const step of history.activitySteps) {
       if (step.activityName !== 'runModel' && step.activityName !== 'runTool') continue;
-      
+
       const payload = step.result?.payload || step.result;
       if (!payload) continue;
 
-      // Extract usage directly from the result payload matching RunModelResult
-      const usage = payload.usage as { totalTokens?: number; promptTokens?: number; completionTokens?: number } | undefined;
+      const usage = payload.usage as
+        | { totalTokens?: number; promptTokens?: number; completionTokens?: number }
+        | undefined;
       const stepCost = typeof payload.costUsd === 'number' ? payload.costUsd : 0;
       const latencyMs = typeof payload.latencyMs === 'number' ? payload.latencyMs : 0;
       const inputData = Array.isArray(step.input) ? step.input[0] : step.input;
       const modelId = inputData?.modelId as string | undefined;
-      
+
       let nodeRef = step.activityName;
-      
-      // Attempt to correlate to graph node from input traceContext
-      const tc = inputData?.traceContext as { agentName?: string; } | undefined;
+      const tc = inputData?.traceContext as { agentName?: string } | undefined;
       if (tc?.agentName) {
         nodeRef = tc.agentName;
       }
 
       const id = nodeRef;
       if (!stats.has(id)) {
-        stats.set(id, { calls: 0, latencyMs: 0, promptTokens: 0, completionTokens: 0, costUsd: 0, modelIds: new Set() });
+        stats.set(id, {
+          calls: 0,
+          latencyMs: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          costUsd: 0,
+          modelIds: new Set(),
+        });
       }
-      
+
       const st = stats.get(id)!;
       st.calls += 1;
       st.latencyMs += latencyMs;
-      
+
       if (modelId) st.modelIds.add(modelId);
 
       if (usage || stepCost > 0) {
-        st.promptTokens += (usage?.promptTokens || 0);
-        st.completionTokens += (usage?.completionTokens || 0);
+        st.promptTokens += usage?.promptTokens || 0;
+        st.completionTokens += usage?.completionTokens || 0;
         st.costUsd += stepCost;
-        
-        totalPrompt += (usage?.promptTokens || 0);
-        totalCompletion += (usage?.completionTokens || 0);
+
+        totalPrompt += usage?.promptTokens || 0;
+        totalCompletion += usage?.completionTokens || 0;
         totalComputedCost += stepCost;
+
+        const tokens = (usage?.promptTokens || 0) + (usage?.completionTokens || 0);
+        if (modelId && (tokens > 0 || stepCost > 0)) {
+          const m = byModel.get(modelId) ?? { tokens: 0, costUsd: 0 };
+          m.tokens += tokens;
+          m.costUsd += stepCost;
+          byModel.set(modelId, m);
+        }
+
+        if (stepCost > 0) {
+          cumulative += stepCost;
+          cumulativeCostSteps.push({
+            label: `${nodeRef} · ${step.activityName} (#${step.eventId})`,
+            deltaCost: stepCost,
+            cumulative,
+          });
+        }
       }
     }
 
-    return { 
-      nodeStats: Array.from(stats.entries()).sort((a,b) => b[1].costUsd - a[1].costUsd || b[1].calls - a[1].calls), 
-      totals: { prompt: totalPrompt, completion: totalCompletion, costUsd: totalComputedCost } 
+    const modelTotalTokens = [...byModel.values()].reduce((s, m) => s + m.tokens, 0);
+    const modelDistribution = [...byModel.entries()]
+      .map(([modelId, v]) => ({
+        modelId,
+        tokens: v.tokens,
+        costUsd: v.costUsd,
+        pct: modelTotalTokens > 0 ? (v.tokens / modelTotalTokens) * 100 : 0,
+      }))
+      .sort((a, b) => b.tokens - a.tokens);
+
+    return {
+      nodeStats: Array.from(stats.entries()).sort(
+        (a, b) => b[1].costUsd - a[1].costUsd || b[1].calls - a[1].calls,
+      ),
+      totals: { prompt: totalPrompt, completion: totalCompletion, costUsd: totalComputedCost },
+      modelDistribution,
+      cumulativeCostSteps,
     };
   }, [history]);
 
@@ -116,6 +186,66 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
           </div>
         </CardContent>
       </Card>
+
+      {modelDistribution.length > 0 && (
+        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">
+          <CardHeader className="px-4 py-0 pb-1">
+            <CardTitle className="text-xs font-medium tracking-wide text-zinc-300 uppercase">
+              Model usage (tokens)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 px-4 pb-3 pt-0">
+            {modelDistribution.map((row) => (
+              <div key={row.modelId} className="space-y-1">
+                <div className="flex justify-between gap-2 font-mono text-[11px] text-zinc-400">
+                  <span className="min-w-0 truncate text-zinc-300">{row.modelId}</span>
+                  <span className="shrink-0 tabular-nums">
+                    {row.tokens.toLocaleString()} tok · ${row.costUsd.toFixed(5)}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-900">
+                  <div
+                    className="h-full rounded-full bg-sky-600/80"
+                    style={{ width: `${Math.max(row.pct, 0.5)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {cumulativeCostSteps.length > 0 && (
+        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">
+          <CardHeader className="px-4 py-0 pb-1">
+            <CardTitle className="text-xs font-medium tracking-wide text-zinc-300 uppercase">
+              Cumulative cost by step order
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="mb-3 h-16 w-full font-mono text-[10px] text-zinc-500">
+              <CumulativeCostSparkline steps={cumulativeCostSteps} />
+            </div>
+            <ScrollArea className="max-h-40 pr-3">
+              <div className="space-y-1 font-mono text-[11px]">
+                {cumulativeCostSteps.map((row, i) => (
+                  <div
+                    key={`${row.label}-${i}`}
+                    className="flex justify-between gap-2 border-b border-zinc-800/50 py-1 last:border-0"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-zinc-400" title={row.label}>
+                      {row.label}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-emerald-400/90">
+                      +${row.deltaCost.toFixed(5)} → ${row.cumulative.toFixed(5)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Node Breakdown Table */}
       <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">

@@ -17,6 +17,17 @@ import type { ActivityStep } from '@/lib/types';
 
 type XRayKind = 'model' | 'tool' | 'lifecycle' | 'graph' | 'activity';
 
+type OtlpSpan = {
+  name?: string;
+  attributes?: Array<{ key: string; value?: { stringValue?: string } }>;
+};
+
+function spanAttrString(span: OtlpSpan, key: string): string | undefined {
+  const a = span.attributes?.find((x) => x.key === key);
+  const s = a?.value?.stringValue;
+  return typeof s === 'string' ? s : undefined;
+}
+
 /** Header badge + styling from Temporal activity name (or graph-only selection). */
 export function getXRayHeaderMeta(
   selectedStep: ActivityStep | null,
@@ -84,32 +95,50 @@ interface XRayPaneProps {
 }
 
 export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: XRayPaneProps) {
-  const [spans, setSpans] = useState<any[]>([]);
+  const [spans, setSpans] = useState<OtlpSpan[]>([]);
   const [messagesExpanded, setMessagesExpanded] = useState(false);
   const [resultExpanded, setResultExpanded] = useState(true);
 
   useEffect(() => {
-    if (!selectedStep?.activityId) {
+    const activityId = selectedStep?.activityId;
+    const input0 =
+      selectedStep?.input != null
+        ? Array.isArray(selectedStep.input)
+          ? selectedStep.input[0]
+          : selectedStep.input
+        : undefined;
+    const agentFromInput =
+      input0 && typeof input0 === 'object' && input0 !== null && 'traceContext' in input0
+        ? (input0 as { traceContext?: { agentName?: string } }).traceContext?.agentName
+        : undefined;
+    const agentName =
+      typeof selectedNodeId === 'string' && selectedNodeId.trim()
+        ? selectedNodeId
+        : typeof agentFromInput === 'string'
+          ? agentFromInput
+          : undefined;
+
+    if (!activityId && !agentName) {
       setSpans([]);
       return;
     }
 
     getSpans(workflowId)
-      .then(allSpans => {
-        // Find spans corresponding to this activity/node
-        // Temporal attributes usually contain `activityId` but we also check our custom attributes
-        if (!allSpans) return setSpans([]);
-        const relevantSpans = allSpans.filter(span => {
-          const attrs = span.attributes || [];
-          return attrs.some((a: any) =>
-            (a.key === 'ai.agent_name' && a.value?.stringValue === selectedNodeId) ||
-            (a.key === 'ai.model.id') // basic correlation heuristic
-          );
-        });
-        setSpans(relevantSpans);
+      .then((allSpans) => {
+        if (!Array.isArray(allSpans) || allSpans.length === 0) {
+          setSpans([]);
+          return;
+        }
+        const list = allSpans as OtlpSpan[];
+        if (activityId) {
+          setSpans(list.filter((s) => spanAttrString(s, 'durion.activityId') === activityId));
+          return;
+        }
+        setSpans(list.filter((s) => spanAttrString(s, 'durion.agentName') === agentName));
       })
       .catch((err) => {
         console.error('Failed to fetch spans', err);
+        setSpans([]);
       });
   }, [workflowId, selectedStep, selectedNodeId]);
 

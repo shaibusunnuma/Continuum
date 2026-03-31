@@ -663,6 +663,9 @@ export function RunDetail() {
                   <EventTimeline
                     events={history.events}
                     scrollAreaClassName="h-72 sm:h-80"
+                    scopedScheduledEventId={
+                      isXRayOpen && selectedStep?.eventId ? selectedStep.eventId : undefined
+                    }
                   />
                 </div>
               </div>

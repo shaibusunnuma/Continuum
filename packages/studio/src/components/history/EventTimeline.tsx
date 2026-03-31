@@ -40,21 +40,46 @@ function formatTime(eventTime?: string): string {
   }
 }
 
+function scheduledEventIdFromDetails(details: Record<string, unknown> | undefined): string | undefined {
+  if (!details) return undefined;
+  const v = details.scheduledEventId;
+  if (v === undefined || v === null) return undefined;
+  return String(v);
+}
+
+/** ActivityTask* events reference the schedule via `scheduledEventId`; the schedule row uses `eventId` equal to that id. */
+function eventMatchesScheduledActivity(ev: HistoryEvent, scheduledEventId: string): boolean {
+  if (ev.eventId === scheduledEventId) return true;
+  return scheduledEventIdFromDetails(ev.details as Record<string, unknown> | undefined) === scheduledEventId;
+}
+
 interface Props {
   events: HistoryEvent[];
   /** When true, hide low-level WorkflowTask events for a cleaner view. */
   compact?: boolean;
   /** Scroll area height (Tailwind class). Default: tall panel for standalone use. */
   scrollAreaClassName?: string;
+  /**
+   * When set (e.g. X-Ray selected step), only show events for that activity:
+   * the `ActivityTaskScheduled` row (`eventId`) and related `ActivityTask*` events with matching `scheduledEventId`.
+   */
+  scopedScheduledEventId?: string;
 }
 
-export function EventTimeline({ events, compact = true, scrollAreaClassName }: Props) {
+export function EventTimeline({
+  events,
+  compact = true,
+  scrollAreaClassName,
+  scopedScheduledEventId,
+}: Props) {
   const [showAll, setShowAll] = useState(!compact);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const visible = showAll
+  const scopeId = scopedScheduledEventId?.trim();
+  const base = showAll
     ? events
     : events.filter((e) => categorize(e.eventType) !== CATEGORY_WORKFLOW_TASK);
+  const visible = scopeId ? base.filter((ev) => eventMatchesScheduledActivity(ev, scopeId)) : base;
 
   const toggle = (eventId: string) => {
     setExpanded((prev) => {
@@ -73,12 +98,25 @@ export function EventTimeline({ events, compact = true, scrollAreaClassName }: P
     );
   }
 
+  if (scopeId && visible.length === 0) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-muted-foreground font-mono text-xs">
+          No history events match the selected activity (scheduled event {scopeId}).
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground font-mono text-xs">
           {visible.length} event{visible.length !== 1 ? 's' : ''}
-          {!showAll && visible.length < events.length && (
+          {scopeId && (
+            <span className="text-muted-foreground/70"> (scoped to selected step)</span>
+          )}
+          {!showAll && !scopeId && visible.length < events.length && (
             <span className="text-muted-foreground/60">
               {' '}(hiding {events.length - visible.length} workflow-task events)
             </span>

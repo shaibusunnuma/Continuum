@@ -42,18 +42,18 @@ export function ingestSpans(payload: any) {
 }
 
 /**
- * Scans the buffer and finds spans related to a specific workflowId/traceId.
- * We look at span attributes for 'durion.runId' or 'durion.workflowId'.
+ * Returns spans whose attributes include `durion.workflowId` equal to `workflowId`
+ * (the Temporal workflow id passed from Studio / gateway).
+ *
+ * Spans may also carry `durion.runId` (Temporal run id); that is a different id from
+ * workflow id. A future run-scoped API could filter on `durion.runId` explicitly.
  */
 export function querySpans(workflowId: string): OTLPSpan[] {
   return spanBuffer.filter((span) => {
-    // Check attributes for workflowId correlation
     const attrs = span.attributes || [];
-    return attrs.some((attr) => {
-      if (attr.key === 'durion.workflowId' || attr.key === 'durion.runId') {
-        return attr.value?.stringValue === workflowId;
-      }
-      return false;
-    });
+    return attrs.some(
+      (attr) =>
+        attr.key === 'durion.workflowId' && attr.value?.stringValue === workflowId,
+    );
   });
 }

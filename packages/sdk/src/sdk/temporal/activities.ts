@@ -77,11 +77,26 @@ function toModelMessages(messages: Message[]): ModelMessage[] {
 function traceContextAttrs(tc?: { workflowId?: string; runId?: string; workflowName?: string; agentName?: string }): Record<string, string> {
   if (!tc) return {};
   const a: Record<string, string> = {};
-  if (tc.workflowId) a['ai.workflow_id'] = tc.workflowId;
-  if (tc.runId) a['ai.run_id'] = tc.runId;
-  if (tc.workflowName) a['ai.workflow_name'] = tc.workflowName;
-  if (tc.agentName) a['ai.agent_name'] = tc.agentName;
+  if (tc.workflowId) a['durion.workflowId'] = tc.workflowId;
+  if (tc.runId) a['durion.runId'] = tc.runId;
+  if (tc.workflowName) a['durion.workflowName'] = tc.workflowName;
+  if (tc.agentName) a['durion.agentName'] = tc.agentName;
   return a;
+}
+
+/** Span attributes from Temporal activity context (Studio / OTLP correlation with history). */
+function durionTemporalContextAttrs(): Record<string, string> {
+  try {
+    const info = Context.current().info;
+    return {
+      'durion.activityId': info.activityId,
+      'durion.workflowType': info.workflowType,
+      'durion.workflowId': info.workflowExecution.workflowId,
+      'durion.runId': info.workflowExecution.runId,
+    };
+  } catch {
+    return {};
+  }
 }
 
 export async function runModel(params: RunModelParams): Promise<RunModelResult> {
@@ -116,8 +131,9 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
   }
 
   const baseAttrs: Record<string, string | number> = {
-    'ai.model_id': params.modelId,
+    'durion.modelId': params.modelId,
     ...traceContextAttrs(params.traceContext),
+    ...durionTemporalContextAttrs(),
   };
 
   let result: {
@@ -131,7 +147,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
   };
   try {
     result = await withSpan(
-    'ai.run_model',
+    'durion.run_model',
     baseAttrs,
     async (span) => {
       let genText: string = '';
@@ -282,10 +298,10 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
 
       if (span) {
         span.setAttributes({
-          'ai.usage.prompt_tokens': inputTokens,
-          'ai.usage.completion_tokens': outputTokens,
-          'ai.usage.total_tokens': inputTokens + outputTokens,
-          'ai.usage.cost_usd': costUsd,
+          'durion.usage.prompt_tokens': inputTokens,
+          'durion.usage.completion_tokens': outputTokens,
+          'durion.usage.total_tokens': inputTokens + outputTokens,
+          'durion.usage.cost_usd': costUsd,
         });
         if (
           model &&
@@ -295,12 +311,12 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
         ) {
           const m = model as { provider: string; modelId: string };
           span.setAttributes({
-            'ai.model.provider': m.provider,
-            'ai.model.id': m.modelId,
+            'durion.model.provider': m.provider,
+            'durion.model.id': m.modelId,
           });
         }
         if (params.toolNames?.length) {
-          span.setAttribute('ai.tools_used', params.toolNames.join(','));
+          span.setAttribute('durion.toolsUsed', params.toolNames.join(','));
         }
       }
 
@@ -405,14 +421,15 @@ export async function runTool(params: RunToolParams): Promise<RunToolResult> {
   }
 
   const attrs: Record<string, string> = {
-    'ai.tool_name': params.toolName,
+    'durion.toolName': params.toolName,
     ...traceContextAttrs(params.traceContext),
+    ...durionTemporalContextAttrs(),
   };
 
   try {
     const startTime = performance.now();
     const result = await withSpan(
-      'ai.run_tool',
+      'durion.run_tool',
       attrs,
       async (span) => def.execute(parsed.data),
     );

@@ -325,7 +325,7 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 
 ## Observability and evaluation
 
-Enable tracing and metrics by passing `true` or `false` when you call `initObservability()` in your worker or server. The SDK emits `ai.run_model` and `ai.run_tool` spans (OTLP) and metrics such as `ai_model_calls_total`, `ai_model_tokens_total`, and `ai_model_cost_usd_total` (default port 9464). You can send traces to any OTLP-compatible backend (e.g. Jaeger) and scrape metrics with Prometheus and visualize with Grafana if you like; see `docker-compose.metrics.yml` for an optional stack.
+Enable tracing and metrics by passing `true` or `false` when you call `initObservability()` in your worker or server. The SDK emits `durion.run_model` and `durion.run_tool` spans (OTLP) with `durion.*` attributes and metrics such as `ai_model_calls_total`, `ai_model_tokens_total`, and `ai_model_cost_usd_total` (default port 9464). You can send traces to any OTLP-compatible backend (e.g. Jaeger) and scrape metrics with Prometheus and visualize with Grafana if you like; see `docker-compose.metrics.yml` for an optional stack.
 
 ```ts
 // worker.ts — enable tracing and metrics in code
