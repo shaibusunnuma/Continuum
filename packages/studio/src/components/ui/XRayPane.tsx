@@ -37,15 +37,15 @@ export function getXRayHeaderMeta(
   kind: XRayKind;
   primaryBadge: string;
   badgeClass: string;
-  /** Prefer showing token/latency badges only for model calls. */
-  showModelMetrics: boolean;
+  /** Token usage badges — only model activities carry `usage`. */
+  showTokenMetrics: boolean;
 } {
   if (!selectedStep && selectedNodeId) {
     return {
       kind: 'graph',
       primaryBadge: 'Graph node',
       badgeClass: 'text-chart-1 border-chart-1/35 bg-chart-1/12',
-      showModelMetrics: false,
+      showTokenMetrics: false,
     };
   }
 
@@ -58,7 +58,7 @@ export function getXRayHeaderMeta(
       kind: 'model',
       primaryBadge: typeof mid === 'string' && mid.trim() ? mid : 'Model',
       badgeClass: 'text-chart-2 border-chart-2/35 bg-chart-2/12',
-      showModelMetrics: true,
+      showTokenMetrics: true,
     };
   }
   if (name === 'runTool') {
@@ -67,7 +67,7 @@ export function getXRayHeaderMeta(
       kind: 'tool',
       primaryBadge: typeof tn === 'string' && tn.trim() ? tn : 'Tool',
       badgeClass: 'text-warning border-warning/35 bg-warning/12',
-      showModelMetrics: false,
+      showTokenMetrics: false,
     };
   }
   if (name === 'runLifecycleHooks') {
@@ -75,7 +75,7 @@ export function getXRayHeaderMeta(
       kind: 'lifecycle',
       primaryBadge: 'Lifecycle',
       badgeClass: 'text-chart-3 border-chart-3/35 bg-chart-3/12',
-      showModelMetrics: false,
+      showTokenMetrics: false,
     };
   }
 
@@ -83,7 +83,7 @@ export function getXRayHeaderMeta(
     kind: 'activity',
     primaryBadge: name.trim() || 'Activity',
     badgeClass: 'text-muted-foreground border-border bg-muted',
-    showModelMetrics: false,
+    showTokenMetrics: false,
   };
 }
 
@@ -153,7 +153,9 @@ export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: 
   const resultPayload = selectedStep?.result?.payload || selectedStep?.result;
 
   const usage = resultPayload?.usage;
-  const latency = resultPayload?.latencyMs;
+  const latencyMs = resultPayload?.latencyMs;
+  const showLatencyBadge =
+    selectedStep != null && typeof latencyMs === 'number' && Number.isFinite(latencyMs);
 
   const HeaderIcon =
     meta.kind === 'model'
@@ -204,12 +206,12 @@ export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: 
                   {lifecycleType}
                 </Badge>
               ) : null}
-              {meta.showModelMetrics && latency !== undefined && (
+              {showLatencyBadge && (
                 <Badge variant="outline" className="text-muted-foreground border-border bg-muted font-mono">
-                  <Clock className="mr-1 inline w-3 h-3" /> {latency}ms
+                  <Clock className="mr-1 inline w-3 h-3" /> {latencyMs}ms
                 </Badge>
               )}
-              {meta.showModelMetrics && usage !== undefined && (
+              {meta.showTokenMetrics && usage !== undefined && (
                 <Badge variant="outline" className="text-primary border-primary/35 bg-primary/12 font-mono">
                   {usage.totalTokens} Tokens
                 </Badge>
