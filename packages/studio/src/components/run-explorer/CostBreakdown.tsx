@@ -81,42 +81,57 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
       {/* KPI Cards */}
-      <Card className="bg-black/60 border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+      <Card className="bg-black/60 border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
         <div className="absolute inset-0 bg-linear-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardHeader className="pb-2">
-          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-green-400">Total Run Cost</CardDescription>
-          <CardTitle className="text-4xl font-light tracking-tighter text-zinc-100">
+        <CardHeader className="gap-1 px-4 py-0">
+          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-green-400">
+            Total Run Cost
+          </CardDescription>
+          <CardTitle className="text-3xl font-light tracking-tighter text-zinc-100">
             ${displayCost.toFixed(5)}
           </CardTitle>
         </CardHeader>
       </Card>
 
-      <Card className="bg-black/60 border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group">
+      <Card className="bg-black/60 border-zinc-800/50 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
         <div className="absolute inset-0 bg-linear-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardHeader className="pb-2">
-          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-blue-400">Total Tokens</CardDescription>
-          <CardTitle className="text-4xl font-light tracking-tighter text-zinc-100">
+        <CardHeader className="gap-1 px-4 py-0">
+          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-blue-400">
+            Total Tokens
+          </CardDescription>
+          <CardTitle className="text-3xl font-light tracking-tighter text-zinc-100">
             {(totals.prompt + totals.completion).toLocaleString()}
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-xs text-zinc-500 space-y-1">
-          <div className="flex justify-between"><span>Prompt</span><span className="text-zinc-300 font-mono">{totals.prompt.toLocaleString()}</span></div>
-          <div className="flex justify-between"><span>Completion</span><span className="text-zinc-300 font-mono">{totals.completion.toLocaleString()}</span></div>
+        <CardContent className="space-y-0.5 px-4 pb-0 pt-1 text-xs text-zinc-500">
+          <div className="flex justify-between">
+            <span>Prompt</span>
+            <span className="font-mono text-zinc-300">{totals.prompt.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Completion</span>
+            <span className="font-mono text-zinc-300">{totals.completion.toLocaleString()}</span>
+          </div>
         </CardContent>
       </Card>
 
       {/* Node Breakdown Table */}
-      <Card className="md:col-span-2 lg:col-span-3 bg-black/40 border-zinc-800/50 backdrop-blur-xl">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium tracking-wide text-zinc-300 uppercase">Per-Node Attribution</CardTitle>
+      <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-black/40 border-zinc-800/50 py-3 backdrop-blur-xl">
+        <CardHeader className="px-4 py-0 pb-1">
+          <CardTitle className="text-xs font-medium tracking-wide text-zinc-300 uppercase">
+            Per-Node Attribution
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[300px] pr-4">
-            <div className="space-y-2">
+        <CardContent className="px-4 pb-3 pt-0">
+          <ScrollArea className="h-[min(280px,45vh)] pr-3">
+            <div className="space-y-1.5">
               {nodeStats.map(([nodeId, stats]) => (
-                <div key={nodeId} className="flex items-center justify-between p-3 rounded-md bg-zinc-900/50 border border-zinc-800 hover:border-zinc-700 transition-colors">
+                <div
+                  key={nodeId}
+                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-900/50 p-2 transition-colors hover:border-zinc-700"
+                >
                   <div className="flex items-center gap-3">
                     <Badge variant="outline" className="font-mono text-xs border-zinc-700 bg-black/50 text-emerald-400">
                       {nodeId}
