@@ -32,8 +32,9 @@ function dotColor(eventType: string): string {
 
 function formatTime(eventTime?: string): string {
   if (!eventTime) return '';
+  const d = new Date(eventTime);
+  if (Number.isNaN(d.getTime())) return '';
   try {
-    const d = new Date(eventTime);
     return d.toLocaleTimeString(undefined, { hour12: false, fractionalSecondDigits: 3 });
   } catch {
     return '';

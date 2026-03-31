@@ -253,5 +253,11 @@ describe('parseFullHistory', () => {
     expect(span.endedAt).toBe(tEn);
     expect(parsed.historyStartMs).toBe(tWf);
     expect(parsed.historyEndMs).toBe(tEn);
+    expect(parsed.events.map((ev) => ev.eventTime)).toEqual([
+      new Date(tWf).toISOString(),
+      new Date(tSch).toISOString(),
+      new Date(tSt).toISOString(),
+      new Date(tEn).toISOString(),
+    ]);
   });
 });

@@ -392,11 +392,15 @@ export function parseFullHistory(history: unknown): ParsedHistory {
     const e = ev as RawEvent;
     const eventType = historyEventTypeKey(e.eventType);
     const attrs = getAttrs(e);
+    const timeRaw = e.eventTime ?? e.event_time;
+    const eventTimeMs = parseEventTimeMs(timeRaw);
+    const eventTime =
+      eventTimeMs != null ? new Date(eventTimeMs).toISOString() : undefined;
 
     parsed.push({
       eventId: str(e.eventId),
       eventType: str(e.eventType),
-      eventTime: str(e.eventTime) || undefined,
+      eventTime,
       label: eventLabel(eventType, attrs),
       details: attrs,
     });
