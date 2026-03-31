@@ -15,6 +15,7 @@ import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
 import { XRayPane } from '@/components/ui/XRayPane';
 import { CostBreakdown } from '@/components/run-explorer/CostBreakdown';
+import { CompositionPanel } from '@/components/run-explorer/CompositionPanel';
 import type { MemoTopology } from '@/lib/view-mode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -496,30 +497,25 @@ export function RunDetail() {
           </p>
         )}
 
-        {describe?.parentWorkflowId && (
-          <div className="rounded-md border border-border bg-muted/25 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-            <span className="text-muted-foreground/90">Child of parent</span>{' '}
-            <Link
-              to={runDetailHref(
-                describe.parentWorkflowId,
-                describe.parentRunId ? { runId: describe.parentRunId } : undefined,
-              )}
-              className="text-chart-1 hover:underline"
-            >
-              {describe.parentWorkflowId}
-            </Link>
-            {describe.rootWorkflowId &&
-            describe.rootWorkflowId !== workflowId &&
-            describe.rootWorkflowId !== describe.parentWorkflowId ? (
-              <span className="block pt-1 text-[10px] text-muted-foreground/80">
-                Root:{' '}
-                <span className="text-foreground/90" title={describe.rootWorkflowId}>
-                  {describe.rootWorkflowId}
-                </span>
-              </span>
-            ) : null}
-          </div>
-        )}
+        <CompositionPanel
+          workflowId={workflowId}
+          describe={
+            describe
+              ? {
+                  runId: describe.runId,
+                  parentWorkflowId: describe.parentWorkflowId,
+                  parentRunId: describe.parentRunId,
+                  rootWorkflowId: describe.rootWorkflowId,
+                  rootRunId: describe.rootRunId,
+                  memo: describe.memo,
+                  startTime: describe.startTime,
+                  closeTime: describe.closeTime,
+                  status: describe.status,
+                }
+              : null
+          }
+          historyChildSteps={history.childWorkflowSteps}
+        />
 
         {runIdFromQuery ? (
           <p className="text-muted-foreground font-mono text-[10px]">
