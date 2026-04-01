@@ -17,7 +17,7 @@ Optional: set **`DURION_GATEWAY_TOKEN`** — when set, all **`/v0/*`** routes re
 - **GET /runs/:workflowId** — run status
 - **GET /runs/:workflowId/result** — run result (or 202 while running)
 - **GET /runs/:workflowId/stream-state** — Temporal query `durion:streamState` (for `useWorkflowStreamState`)
-- **GET /runs/:workflowId/token-stream** — SSE of LLM token deltas (Vercel AI UI stream format). Uses **`RedisStreamBus`**; must match the worker’s `REDIS_URL` and channel id = Temporal workflow id. **Subscribe (open this request) before starting the workflow or sending a reject signal** so pub/sub does not miss chunks.
+- **GET /runs/:workflowId/token-stream** — SSE of LLM token deltas (Vercel AI UI stream format). Uses **`RedisStreamBus`**; must match the worker’s `REDIS_URL`. Channel id is the **Temporal workflow id**, or **`workflowId::temporalRunId`** when query **`runId=<Temporal run id>`** is present (same key the worker uses when `traceContext.runId` is set). **Subscribe (open this request) before starting the workflow or sending a reject signal** so pub/sub does not miss chunks.
 - **POST /runs/:workflowId/signal** — body: `{ name: string, data?: unknown }` (e.g. `{ "name": "durion:user-input", "data": { "action": "approve" } }`)
 
 ## Env

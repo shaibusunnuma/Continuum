@@ -33,6 +33,8 @@ export function buildStudioRunsStructuredQuery(params: {
   composition?: StudioRunsCompositionFilter;
   /** List runs whose parent workflow id matches (child workflows only). */
   parentWorkflowId?: string;
+  /** When set with parentWorkflowId, narrows to children of that parent execution (Temporal ParentRunId SA). */
+  parentRunId?: string;
 }): string | undefined {
   const parts: string[] = [];
 
@@ -56,6 +58,10 @@ export function buildStudioRunsStructuredQuery(params: {
   const parentForChildren = params.parentWorkflowId?.trim();
   if (parentForChildren) {
     parts.push(`ParentWorkflowId = ${quoteVisibilityString(parentForChildren)}`);
+    const parentRun = params.parentRunId?.trim();
+    if (parentRun) {
+      parts.push(`ParentRunId = ${quoteVisibilityString(parentRun)}`);
+    }
   } else if (params.composition === 'roots') {
     parts.push('ParentWorkflowId IS NULL');
   } else if (params.composition === 'children') {

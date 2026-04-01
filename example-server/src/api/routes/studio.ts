@@ -51,6 +51,7 @@ export async function studioRoutes(
       startBefore?: string;
       composition?: string;
       parentWorkflowId?: string;
+      parentRunId?: string;
     };
   }>(
     '/runs',
@@ -69,6 +70,7 @@ export async function studioRoutes(
             startBefore: { type: 'string' },
             composition: { type: 'string' },
             parentWorkflowId: { type: 'string' },
+            parentRunId: { type: 'string' },
           },
         },
       },
@@ -89,6 +91,7 @@ export async function studioRoutes(
           startBefore: request.query.startBefore,
           composition,
           parentWorkflowId: request.query.parentWorkflowId,
+          parentRunId: request.query.parentRunId,
         });
         const visibilityQuery = mergeStudioRunsVisibilityQuery(structured, request.query.query);
         const result = await client.listWorkflowExecutions({
@@ -112,6 +115,7 @@ export async function studioRoutes(
 
   fastify.get<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
   }>(
     '/runs/:workflowId/spans',
     {
@@ -120,6 +124,10 @@ export async function studioRoutes(
           type: 'object',
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
+        },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
         },
       },
     },
@@ -183,7 +191,8 @@ export async function studioRoutes(
         }
 
         // Default: return from local in-memory span buffer
-        const spans = querySpans(request.params.workflowId);
+        const runId = request.query.runId?.trim() || undefined;
+        const spans = querySpans(request.params.workflowId, runId);
         return reply.send(spans);
       } catch (err) {
         request.log.error(err);

@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { pipeStreamToResponse } from '@durion/sdk';
+import { pipeStreamToResponse, redisStreamChannelKey } from '@durion/sdk';
 import type { SdkClient } from '@durion/sdk';
 import { getTemporalClient } from '../temporal';
 import { getStreamBus } from '../../stream-bus';
@@ -63,6 +63,7 @@ export async function runsRoutes(
 
   fastify.get<{
     Params: { workflowId: string };
+    Querystring: { runId?: string };
   }>(
     '/:workflowId/token-stream',
     {
@@ -72,12 +73,20 @@ export async function runsRoutes(
           required: ['workflowId'],
           properties: { workflowId: { type: 'string' } },
         },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
+        },
       },
     },
     async (request, reply) => {
       reply.hijack();
       try {
-        await pipeStreamToResponse(getStreamBus(), request.params.workflowId, reply.raw);
+        const channel = redisStreamChannelKey(
+          request.params.workflowId,
+          optionalRunId(request.query),
+        );
+        await pipeStreamToResponse(getStreamBus(), channel, reply.raw);
       } catch (err) {
         request.log.error(err);
         if (!reply.raw.headersSent) {

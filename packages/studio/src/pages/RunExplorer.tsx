@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   ChevronDown,
   ChevronUp,
@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 const inputClass =
   "h-8 min-w-[8rem] rounded-md border border-border bg-background px-2 font-mono text-xs text-foreground placeholder:text-muted-foreground";
@@ -86,6 +87,7 @@ interface ServerFilterForm {
   startBefore: string;
   composition: CompositionFilter;
   parentWorkflowId: string;
+  parentRunId: string;
 }
 
 const EMPTY_SERVER_FILTERS: ServerFilterForm = {
@@ -96,7 +98,124 @@ const EMPTY_SERVER_FILTERS: ServerFilterForm = {
   startBefore: "",
   composition: "roots",
   parentWorkflowId: "",
+  parentRunId: "",
 };
+
+const COLUMN_SORT_VALUES = new Set<ColumnSort>([
+  "server",
+  "startedAsc",
+  "startedDesc",
+  "durationAsc",
+  "durationDesc",
+  "costAsc",
+  "costDesc",
+  "tokensAsc",
+  "tokensDesc",
+]);
+
+function parseServerFormFromSearch(sp: URLSearchParams): ServerFilterForm {
+  const comp = sp.get("composition");
+  const composition: CompositionFilter =
+    comp === "all" || comp === "children" ? comp : "roots";
+  return {
+    executionStatus: sp.get("executionStatus") ?? "",
+    workflowType: sp.get("workflowType") ?? "",
+    workflowId: sp.get("workflowId") ?? "",
+    startAfter: sp.get("startAfter") ?? "",
+    startBefore: sp.get("startBefore") ?? "",
+    composition,
+    parentWorkflowId: sp.get("parentWorkflowId") ?? "",
+    parentRunId: sp.get("parentRunId") ?? "",
+  };
+}
+
+function buildRunExplorerSearchParams(
+  server: ServerFilterForm,
+  primitive: PrimitiveFilter,
+  minCost: string,
+  sort: ColumnSort,
+): URLSearchParams {
+  const sp = new URLSearchParams();
+  const set = (k: string, v: string) => {
+    const t = v.trim();
+    if (t) sp.set(k, t);
+  };
+  set("executionStatus", server.executionStatus);
+  set("workflowType", server.workflowType);
+  set("workflowId", server.workflowId);
+  set("startAfter", server.startAfter);
+  set("startBefore", server.startBefore);
+  if (server.composition !== "roots") sp.set("composition", server.composition);
+  set("parentWorkflowId", server.parentWorkflowId);
+  set("parentRunId", server.parentRunId);
+  if (primitive !== "all") sp.set("primitive", primitive);
+  set("minCost", minCost);
+  if (sort !== "server") sp.set("sort", sort);
+  return sp;
+}
+
+function augmentListErrorMessage(msg: string): string {
+  const m = msg.toLowerCase();
+  const visibilityHint =
+    "Hint: Composition and parent filters require Temporal visibility search attributes (e.g. ParentWorkflowId, ParentRunId on advanced visibility). Use a compatible server version or switch to “All runs” and filter client-side.";
+  if (
+    m.includes("parentworkflowid") ||
+    m.includes("parentrunid") ||
+    m.includes("invalid query") ||
+    m.includes("malformed") ||
+    (m.includes("unknown") && m.includes("attribute")) ||
+    (m.includes("search attribute") && m.includes("not"))
+  ) {
+    return `${msg}\n\n${visibilityHint}`;
+  }
+  return msg;
+}
+
+type GroupOrRow =
+  | { kind: "header"; rootWorkflowId: string; anchorRunId: string }
+  | { kind: "row"; r: StudioRunRow; indent: boolean };
+
+function buildGroupedDisplay(
+  rows: StudioRunRow[],
+  composition: CompositionFilter,
+): GroupOrRow[] {
+  if (composition === "roots") {
+    return rows.map((r) => ({ kind: "row" as const, r, indent: false }));
+  }
+  const groups = new Map<string, StudioRunRow[]>();
+  for (const r of rows) {
+    const key = r.rootWorkflowId ?? r.workflowId;
+    const arr = groups.get(key) ?? [];
+    arr.push(r);
+    groups.set(key, arr);
+  }
+  const maxStart = (xs: StudioRunRow[]) =>
+    Math.max(-1, ...xs.map((x) => startMsForSort(x)));
+  const entries = [...groups.entries()].sort(
+    (a, b) => maxStart(b[1]) - maxStart(a[1]),
+  );
+  const out: GroupOrRow[] = [];
+  for (const [rootWf, members] of entries) {
+    members.sort((a, b) => {
+      const aRoot = !a.parentWorkflowId;
+      const bRoot = !b.parentWorkflowId;
+      if (aRoot !== bRoot) return aRoot ? -1 : 1;
+      return startMsForSort(a) - startMsForSort(b);
+    });
+    const anchor =
+      members.find((m) => m.workflowId === rootWf && !m.parentWorkflowId) ??
+      members[0];
+    out.push({
+      kind: "header",
+      rootWorkflowId: rootWf,
+      anchorRunId: anchor.runId,
+    });
+    for (const r of members) {
+      out.push({ kind: "row", r, indent: Boolean(r.parentWorkflowId) });
+    }
+  }
+  return out;
+}
 
 function normalizeRun(r: StudioRunRow): StudioRunRow {
   return {
@@ -194,7 +313,32 @@ function appliedToListParams(f: ServerFilterForm): Omit<ListRunsParams, "limit" 
   if (f.startBefore.trim()) p.startBefore = f.startBefore.trim();
   if (f.composition !== "all") p.composition = f.composition;
   if (f.parentWorkflowId.trim()) p.parentWorkflowId = f.parentWorkflowId.trim();
+  if (f.parentRunId.trim()) p.parentRunId = f.parentRunId.trim();
   return p;
+}
+
+function initialServerFromUrl(): ServerFilterForm {
+  if (typeof window === "undefined") return { ...EMPTY_SERVER_FILTERS };
+  return parseServerFormFromSearch(new URLSearchParams(window.location.search));
+}
+
+function initialPrimitiveFromUrl(): PrimitiveFilter {
+  if (typeof window === "undefined") return "all";
+  const p = new URLSearchParams(window.location.search).get("primitive");
+  if (p === "graph" || p === "agent" || p === "workflow") return p;
+  return "all";
+}
+
+function initialSortFromUrl(): ColumnSort {
+  if (typeof window === "undefined") return "server";
+  const s = new URLSearchParams(window.location.search).get("sort");
+  if (s && COLUMN_SORT_VALUES.has(s as ColumnSort)) return s as ColumnSort;
+  return "server";
+}
+
+function initialMinCostFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("minCost") ?? "";
 }
 
 /** Null / non-finite numbers sort after real values; never returns NaN. */
@@ -288,6 +432,7 @@ function ColumnSortCycleButton({
 }
 
 export function RunExplorer() {
+  const [, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState<StudioRunRow[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
@@ -295,12 +440,30 @@ export function RunExplorer() {
   const [newSinceOpen, setNewSinceOpen] = useState(0);
   const loadedMoreRef = useRef(false);
   const knownKeysRef = useRef<Set<string>>(new Set());
-  const appliedServerRef = useRef<ServerFilterForm>({ ...EMPTY_SERVER_FILTERS });
-  const [draftServer, setDraftServer] = useState<ServerFilterForm>({ ...EMPTY_SERVER_FILTERS });
+  const appliedServerRef = useRef<ServerFilterForm>(initialServerFromUrl());
+  const [draftServer, setDraftServer] = useState<ServerFilterForm>(() => initialServerFromUrl());
 
-  const [primitiveFilter, setPrimitiveFilter] = useState<PrimitiveFilter>("all");
-  const [minCostUsd, setMinCostUsd] = useState("");
-  const [columnSort, setColumnSort] = useState<ColumnSort>("server");
+  const [primitiveFilter, setPrimitiveFilter] = useState<PrimitiveFilter>(initialPrimitiveFromUrl);
+  const [minCostUsd, setMinCostUsd] = useState(initialMinCostFromUrl);
+  const [columnSort, setColumnSort] = useState<ColumnSort>(initialSortFromUrl);
+  /** Mirrors last applied server composition so grouping useMemo stays in sync (ref alone does not trigger). */
+  const [listComposition, setListComposition] = useState<CompositionFilter>(
+    () => initialServerFromUrl().composition,
+  );
+
+  const pushExplorerUrl = useCallback(
+    (
+      server: ServerFilterForm,
+      primitive: PrimitiveFilter,
+      minCost: string,
+      sort: ColumnSort,
+      replace = false,
+    ) => {
+      const next = buildRunExplorerSearchParams(server, primitive, minCost, sort);
+      setSearchParams(next, { replace });
+    },
+    [setSearchParams],
+  );
   const [columnVisibility, setColumnVisibility] = useState<Record<RunColumnId, boolean>>({
     ...DEFAULT_VISIBILITY,
   });
@@ -332,7 +495,8 @@ export function RunExplorer() {
       }
       setNextPageToken(res.nextPageToken);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const raw = e instanceof Error ? e.message : String(e);
+      setError(augmentListErrorMessage(raw));
     } finally {
       setLoading(false);
     }
@@ -383,6 +547,8 @@ export function RunExplorer() {
 
   const applyServerFilters = () => {
     appliedServerRef.current = { ...draftServer };
+    setListComposition(draftServer.composition);
+    pushExplorerUrl(appliedServerRef.current, primitiveFilter, minCostUsd, columnSort);
     void load();
   };
 
@@ -391,7 +557,11 @@ export function RunExplorer() {
     setDraftServer((s) => {
       const next = { ...s, ...patch };
       appliedServerRef.current = next;
-      queueMicrotask(() => void load());
+      setListComposition(next.composition);
+      queueMicrotask(() => {
+        pushExplorerUrl(next, primitiveFilter, minCostUsd, columnSort, true);
+        void load();
+      });
       return next;
     });
   };
@@ -399,6 +569,11 @@ export function RunExplorer() {
   const resetServerFilters = () => {
     setDraftServer({ ...EMPTY_SERVER_FILTERS });
     appliedServerRef.current = { ...EMPTY_SERVER_FILTERS };
+    setListComposition("roots");
+    setPrimitiveFilter("all");
+    setMinCostUsd("");
+    setColumnSort("server");
+    pushExplorerUrl(EMPTY_SERVER_FILTERS, "all", "", "server");
     void load();
   };
 
@@ -449,6 +624,21 @@ export function RunExplorer() {
     });
     return out;
   }, [rows, primitiveFilter, minCostUsd, columnSort]);
+
+  const groupedDisplay = useMemo(
+    () => buildGroupedDisplay(displayRows, listComposition),
+    [displayRows, listComposition],
+  );
+
+  useEffect(() => {
+    pushExplorerUrl(
+      appliedServerRef.current,
+      primitiveFilter,
+      minCostUsd,
+      columnSort,
+      true,
+    );
+  }, [primitiveFilter, minCostUsd, columnSort, pushExplorerUrl]);
 
   const vis = columnVisibility;
 
@@ -587,6 +777,17 @@ export function RunExplorer() {
                 }
               />
             </label>
+            <label className="flex min-w-[8rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+              Parent run ID
+              <input
+                className={inputClass}
+                placeholder="Temporal run id"
+                value={draftServer.parentRunId}
+                onChange={(e) =>
+                  setDraftServer((s) => ({ ...s, parentRunId: e.target.value }))
+                }
+              />
+            </label>
             <DateTimePickerField
               id="run-filter-start-after"
               label="Start after"
@@ -648,14 +849,15 @@ export function RunExplorer() {
           <p className="w-full font-mono text-[10px] leading-snug text-muted-foreground">
             Default view is root runs only; switch Composition to &quot;All runs&quot; or &quot;Child runs
             only&quot; to broaden. Apply filters runs a new search. Confirm dates in the calendar to use
-            the time range. Parent workflow id limits to children of that id. Primitive type and minimum
+            the time range. Parent workflow id limits to children of that id; optional parent run id
+            narrows to one parent execution (Temporal ParentRunId visibility). Primitive type and minimum
             cost only filter rows already on this page (including after Load more). Use the sort icon in a
             column header to change ordering.
           </p>
         </div>
 
         {error && (
-          <p className="text-destructive mb-4 font-mono text-sm" role="alert">
+          <p className="text-destructive mb-4 whitespace-pre-line font-mono text-sm" role="alert">
             {error}
           </p>
         )}
@@ -737,101 +939,141 @@ export function RunExplorer() {
                       </TableRow>
                     )
                   : (
-                      displayRows.map((r) => (
-                        <TableRow key={`${r.workflowId}-${r.runId}`} className="font-mono text-xs">
-                          {vis.workflowId && (
-                            <TableCell className="max-w-[11rem] min-w-0 !whitespace-normal align-top">
-                              {r.parentWorkflowId ? (
-                                <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
-                                  <div className="flex min-w-0 items-center gap-1">
-                                    <span
-                                      className="inline-flex shrink-0 text-chart-1"
-                                      title="Child workflow"
-                                      aria-label="Child workflow"
-                                    >
-                                      <GitBranch className="size-3" aria-hidden />
-                                    </span>
-                                    <Link
-                                      to={runDetailHref(r.workflowId, {
-                                        runId: r.runId || undefined,
-                                      })}
-                                      className="text-primary min-w-0 flex-1 truncate hover:underline"
-                                      title={r.workflowId}
-                                    >
-                                      {r.workflowId}
-                                    </Link>
-                                  </div>
-                                  <div className="flex min-w-0 items-center gap-0.5 pl-4">
-                                    <CornerUpLeft
-                                      className="text-muted-foreground/80 size-3 shrink-0"
-                                      aria-hidden
-                                    />
-                                    <Link
-                                      to={runDetailHref(
-                                        r.parentWorkflowId,
-                                        r.parentRunId ? { runId: r.parentRunId } : undefined,
-                                      )}
-                                      className="text-muted-foreground hover:text-chart-1 min-w-0 flex-1 truncate text-[10px] hover:underline"
-                                      title={
-                                        r.parentRunId
-                                          ? `${r.parentWorkflowId} · ${r.parentRunId}`
-                                          : r.parentWorkflowId
-                                      }
-                                    >
-                                      {r.parentWorkflowId}
-                                    </Link>
-                                  </div>
-                                </div>
-                              ) : (
+                      groupedDisplay.map((item, gi) => {
+                        if (item.kind === "header") {
+                          return (
+                            <TableRow
+                              key={`grp-${item.rootWorkflowId}-${gi}`}
+                              className="bg-muted/25 hover:bg-muted/35"
+                            >
+                              <TableCell
+                                colSpan={Math.max(visibleCount, 1)}
+                                className="text-muted-foreground py-2 font-mono text-[10px]"
+                              >
+                                <span className="text-muted-foreground/90 uppercase tracking-wide">
+                                  Root
+                                </span>{" "}
                                 <Link
-                                  to={runDetailHref(r.workflowId, {
-                                    runId: r.runId || undefined,
+                                  to={runDetailHref(item.rootWorkflowId, {
+                                    runId: item.anchorRunId,
                                   })}
-                                  className="text-primary block min-w-0 truncate hover:underline"
-                                  title={r.workflowId}
+                                  className="text-chart-1 hover:underline"
+                                  title={item.rootWorkflowId}
                                 >
-                                  {r.workflowId}
+                                  {item.rootWorkflowId}
                                 </Link>
-                              )}
-                            </TableCell>
-                          )}
-                          {vis.workflowType && (
-                            <TableCell>
-                              <Badge variant="outline" className="rounded-sm font-mono text-[10px]">
-                                {r.workflowType}
-                              </Badge>
-                            </TableCell>
-                          )}
-                          {vis.status && (
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <StatusDot status={r.status} />
-                                <span className="text-muted-foreground">{r.status}</span>
-                              </div>
-                            </TableCell>
-                          )}
-                          {vis.started && (
-                            <TableCell className="text-muted-foreground whitespace-nowrap">
-                              {r.startTime ? new Date(r.startTime).toLocaleString() : "—"}
-                            </TableCell>
-                          )}
-                          {vis.duration && (
-                            <TableCell className="text-muted-foreground whitespace-nowrap">
-                              {formatDuration(r.startTime, r.closeTime, r.status)}
-                            </TableCell>
-                          )}
-                          {vis.cost && (
-                            <TableCell className="text-muted-foreground whitespace-nowrap">
-                              {formatUsd(r.costUsd)}
-                            </TableCell>
-                          )}
-                          {vis.tokens && (
-                            <TableCell className="text-muted-foreground whitespace-nowrap">
-                              {formatTokens(r.totalTokens)}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+                        const r = item.r;
+                        return (
+                          <TableRow
+                            key={`${r.workflowId}-${r.runId}`}
+                            className={cn(
+                              "font-mono text-xs",
+                              item.indent && "bg-muted/10",
+                            )}
+                          >
+                            {vis.workflowId && (
+                              <TableCell
+                                className={cn(
+                                  "max-w-[11rem] min-w-0 !whitespace-normal align-top",
+                                  item.indent && "border-l-2 border-l-chart-1/35 pl-3",
+                                )}
+                              >
+                                {r.parentWorkflowId ? (
+                                  <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+                                    <div className="flex min-w-0 items-center gap-1">
+                                      <span
+                                        className="inline-flex shrink-0 text-chart-1"
+                                        title="Child workflow"
+                                        aria-label="Child workflow"
+                                      >
+                                        <GitBranch className="size-3" aria-hidden />
+                                      </span>
+                                      <Link
+                                        to={runDetailHref(r.workflowId, {
+                                          runId: r.runId || undefined,
+                                        })}
+                                        className="text-primary min-w-0 flex-1 truncate hover:underline"
+                                        title={r.workflowId}
+                                      >
+                                        {r.workflowId}
+                                      </Link>
+                                    </div>
+                                    <div className="flex min-w-0 items-center gap-0.5 pl-4">
+                                      <CornerUpLeft
+                                        className="text-muted-foreground/80 size-3 shrink-0"
+                                        aria-hidden
+                                      />
+                                      <Link
+                                        to={runDetailHref(
+                                          r.parentWorkflowId,
+                                          r.parentRunId ? { runId: r.parentRunId } : undefined,
+                                        )}
+                                        className="text-muted-foreground hover:text-chart-1 min-w-0 flex-1 truncate text-[10px] hover:underline"
+                                        title={
+                                          r.parentRunId
+                                            ? `${r.parentWorkflowId} · ${r.parentRunId}`
+                                            : r.parentWorkflowId
+                                        }
+                                      >
+                                        {r.parentWorkflowId}
+                                      </Link>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Link
+                                    to={runDetailHref(r.workflowId, {
+                                      runId: r.runId || undefined,
+                                    })}
+                                    className="text-primary block min-w-0 truncate hover:underline"
+                                    title={r.workflowId}
+                                  >
+                                    {r.workflowId}
+                                  </Link>
+                                )}
+                              </TableCell>
+                            )}
+                            {vis.workflowType && (
+                              <TableCell>
+                                <Badge variant="outline" className="rounded-sm font-mono text-[10px]">
+                                  {r.workflowType}
+                                </Badge>
+                              </TableCell>
+                            )}
+                            {vis.status && (
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <StatusDot status={r.status} />
+                                  <span className="text-muted-foreground">{r.status}</span>
+                                </div>
+                              </TableCell>
+                            )}
+                            {vis.started && (
+                              <TableCell className="text-muted-foreground whitespace-nowrap">
+                                {r.startTime ? new Date(r.startTime).toLocaleString() : "—"}
+                              </TableCell>
+                            )}
+                            {vis.duration && (
+                              <TableCell className="text-muted-foreground whitespace-nowrap">
+                                {formatDuration(r.startTime, r.closeTime, r.status)}
+                              </TableCell>
+                            )}
+                            {vis.cost && (
+                              <TableCell className="text-muted-foreground whitespace-nowrap">
+                                {formatUsd(r.costUsd)}
+                              </TableCell>
+                            )}
+                            {vis.tokens && (
+                              <TableCell className="text-muted-foreground whitespace-nowrap">
+                                {formatTokens(r.totalTokens)}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })
                     )}
             </TableBody>
           </Table>

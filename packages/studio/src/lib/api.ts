@@ -91,6 +91,8 @@ export interface ListRunsParams {
   composition?: 'all' | 'roots' | 'children';
   /** Restrict to children of this parent workflow id. */
   parentWorkflowId?: string;
+  /** With parentWorkflowId, optional Temporal parent execution run id (visibility ParentRunId). */
+  parentRunId?: string;
 }
 
 export async function listRuns(params: ListRunsParams): Promise<{
@@ -108,6 +110,7 @@ export async function listRuns(params: ListRunsParams): Promise<{
   if (params.startBefore) sp.set('startBefore', params.startBefore);
   if (params.composition && params.composition !== 'all') sp.set('composition', params.composition);
   if (params.parentWorkflowId?.trim()) sp.set('parentWorkflowId', params.parentWorkflowId.trim());
+  if (params.parentRunId?.trim()) sp.set('parentRunId', params.parentRunId.trim());
   const q = sp.toString();
   const res = await fetchWithTimeout(`/v0/studio/runs${q ? `?${q}` : ''}`, {
     headers: { ...authHeaders() },
@@ -184,10 +187,13 @@ export async function getResult(
   return parseJson(res);
 }
 
-export async function getSpans(workflowId: string): Promise<any[]> {
-  const res = await fetchWithTimeout(`/v0/studio/runs/${encodeURIComponent(workflowId)}/spans`, {
-    headers: { ...authHeaders() },
-    timeoutMs: 30_000,
-  });
+export async function getSpans(workflowId: string, opts?: RunScopedQuery): Promise<any[]> {
+  const res = await fetchWithTimeout(
+    `/v0/studio/runs/${encodeURIComponent(workflowId)}/spans${runQueryString(opts)}`,
+    {
+      headers: { ...authHeaders() },
+      timeoutMs: 30_000,
+    },
+  );
   return parseJson(res);
 }

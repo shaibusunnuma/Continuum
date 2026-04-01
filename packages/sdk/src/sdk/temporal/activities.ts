@@ -19,6 +19,7 @@ import type {
 } from '../types';
 import { dispatchHooks as dispatchRegisteredHooks, type LifecycleEvent } from '../hooks';
 import { ConfigurationError, ToolValidationError } from '../errors';
+import { redisStreamChannelKey } from '../streaming/stream-channel';
 
 // ---------------------------------------------------------------------------
 // runModel — calls an LLM via Vercel AI SDK
@@ -174,7 +175,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
           maxOutputTokens: options.maxTokens,
         });
 
-        const channel = workflowId;
+        const channel = redisStreamChannelKey(workflowId, params.traceContext?.runId);
         let assembled = '';
 
         try {

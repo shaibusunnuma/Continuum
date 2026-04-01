@@ -33,6 +33,8 @@ export interface UseRunStreamOptions {
   onStatusChange?: (status: RunStreamStatus) => void;
   /** When false, disables both SSE and polling. Default true when runId is set. */
   enabled?: boolean;
+  /** Temporal execution id; adds `?runId=` to stream-state and token-stream when set. */
+  temporalRunId?: string;
 }
 
 export interface UseRunStreamReturn {
@@ -79,6 +81,7 @@ export function useRunStream(
     onToken,
     onStatusChange,
     enabled: enabledOpt,
+    temporalRunId,
   } = options;
 
   const active =
@@ -157,7 +160,7 @@ export function useRunStream(
     setError(null);
     setStatus('connecting');
 
-    const url = gatewayTokenStreamUrl(baseURL, runId, { accessToken });
+    const url = gatewayTokenStreamUrl(baseURL, runId, { accessToken, temporalRunId });
     const es = new EventSource(url);
     esRef.current = es;
 
@@ -230,7 +233,7 @@ export function useRunStream(
       closeSSE();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, runId, baseURL, accessToken]);
+  }, [active, runId, baseURL, accessToken, temporalRunId]);
 
   // ---- Poll stream-state ---------------------------------------------------
   useEffect(() => {
@@ -244,7 +247,7 @@ export function useRunStream(
 
     const tick = async () => {
       try {
-        const url = gatewayStreamStateUrl(baseURL, runId);
+        const url = gatewayStreamStateUrl(baseURL, runId, { temporalRunId });
         const headers = new Headers();
         if (accessToken) {
           headers.set('Authorization', `Bearer ${accessToken}`);
@@ -283,7 +286,7 @@ export function useRunStream(
       if (timer) clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, runId, baseURL, accessToken, pollIntervalMs]);
+  }, [active, runId, baseURL, accessToken, temporalRunId, pollIntervalMs]);
 
   // ---- Compute final text --------------------------------------------------
   // SSE text takes priority; fall back to polled partialReply when SSE hasn't received data

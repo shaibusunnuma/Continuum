@@ -12,20 +12,37 @@ function joinBasePath(baseURL: string, path: string): string {
 const RUNS = '/v0/runs';
 const WORKFLOWS = '/v0/workflows';
 
-export function gatewayStreamStateUrl(baseURL: string, runId: string): string {
-  return joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(runId)}/stream-state`);
+export function gatewayStreamStateUrl(
+  baseURL: string,
+  workflowId: string,
+  options?: { temporalRunId?: string },
+): string {
+  let u = joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(workflowId)}/stream-state`);
+  const tr = options?.temporalRunId?.trim();
+  if (tr) {
+    const sep = u.includes('?') ? '&' : '?';
+    u = `${u}${sep}runId=${encodeURIComponent(tr)}`;
+  }
+  return u;
 }
 
 export function gatewayTokenStreamUrl(
   baseURL: string,
-  runId: string,
-  options?: { accessToken?: string },
+  workflowId: string,
+  options?: { accessToken?: string; temporalRunId?: string },
 ): string {
-  const u = joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(runId)}/token-stream`);
+  let u = joinBasePath(baseURL, `${RUNS}/${encodeURIComponent(workflowId)}/token-stream`);
+  const params = new URLSearchParams();
+  const tr = options?.temporalRunId?.trim();
+  if (tr) params.set('runId', tr);
   const token = options?.accessToken;
-  if (token == null || token === '') return u;
-  const sep = u.includes('?') ? '&' : '?';
-  return `${u}${sep}access_token=${encodeURIComponent(token)}`;
+  if (token != null && token !== '') params.set('access_token', token);
+  const q = params.toString();
+  if (q) {
+    const sep = u.includes('?') ? '&' : '?';
+    u = `${u}${sep}${q}`;
+  }
+  return u;
 }
 
 export function gatewaySignalUrl(baseURL: string, runId: string): string {

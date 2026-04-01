@@ -93,5 +93,6 @@ export type {
 export type { StreamBus, StreamChunk } from './streaming/stream-bus';
 export { LocalStreamBus } from './streaming/stream-bus';
 export { pipeStreamToResponse } from './streaming/sse';
+export { redisStreamChannelKey } from './streaming/stream-channel';
 export { RedisStreamBus } from './streaming/redis-stream-bus';
 export type { RedisStreamBusConfig } from './streaming/redis-stream-bus';

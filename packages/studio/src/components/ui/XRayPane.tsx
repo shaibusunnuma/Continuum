@@ -89,12 +89,20 @@ export function getXRayHeaderMeta(
 
 interface XRayPaneProps {
   workflowId: string;
+  /** Temporal run id when pinned; scopes OTLP span fetch to one execution. */
+  temporalRunId?: string | null;
   selectedStep: ActivityStep | null;
   selectedNodeId?: string; // from graph
   onClose?: () => void;
 }
 
-export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: XRayPaneProps) {
+export function XRayPane({
+  workflowId,
+  temporalRunId,
+  selectedStep,
+  selectedNodeId,
+  onClose,
+}: XRayPaneProps) {
   const [spans, setSpans] = useState<OtlpSpan[]>([]);
   const [messagesExpanded, setMessagesExpanded] = useState(false);
   const [resultExpanded, setResultExpanded] = useState(true);
@@ -123,7 +131,7 @@ export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: 
       return;
     }
 
-    getSpans(workflowId)
+    getSpans(workflowId, temporalRunId?.trim() ? { runId: temporalRunId.trim() } : undefined)
       .then((allSpans) => {
         if (!Array.isArray(allSpans) || allSpans.length === 0) {
           setSpans([]);
@@ -140,7 +148,7 @@ export function XRayPane({ workflowId, selectedStep, selectedNodeId, onClose }: 
         console.error('Failed to fetch spans', err);
         setSpans([]);
       });
-  }, [workflowId, selectedStep, selectedNodeId]);
+  }, [workflowId, temporalRunId, selectedStep, selectedNodeId]);
 
   if (!selectedStep && !selectedNodeId) return null;
 

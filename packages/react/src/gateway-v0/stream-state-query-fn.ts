@@ -10,6 +10,7 @@ async function resolveHeaders(
 
 export interface GatewayStreamStateQueryFnOptions {
   accessToken?: string;
+  temporalRunId?: string;
   headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
 }
 
@@ -21,7 +22,9 @@ export function createGatewayStreamStateQueryFn(
   options?: GatewayStreamStateQueryFnOptions,
 ): (workflowId: string, signal: AbortSignal) => Promise<StreamState> {
   return async (workflowId, signal) => {
-    const url = gatewayStreamStateUrl(baseURL, workflowId);
+    const url = gatewayStreamStateUrl(baseURL, workflowId, {
+      temporalRunId: options?.temporalRunId,
+    });
     const extra = await resolveHeaders(options?.headers);
     const headers = new Headers(extra as HeadersInit | undefined);
     if (options?.accessToken != null && options.accessToken !== '') {

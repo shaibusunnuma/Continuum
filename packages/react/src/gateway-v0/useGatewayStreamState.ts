@@ -11,6 +11,8 @@ export interface UseGatewayStreamStateOptions {
   enabled?: boolean;
   /** Sent as `Authorization: Bearer` on poll requests. */
   accessToken?: string;
+  /** Temporal execution run id; adds `?runId=` to stream-state requests. */
+  temporalRunId?: string;
   extraHeaders?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
   /**
    * Replace the default Gateway poll entirely (escape hatch).
@@ -24,6 +26,7 @@ export function useGatewayStreamState(options: UseGatewayStreamStateOptions) {
   const {
     baseURL,
     accessToken,
+    temporalRunId,
     extraHeaders,
     queryFn: userQueryFn,
     workflowId,
@@ -35,9 +38,10 @@ export function useGatewayStreamState(options: UseGatewayStreamStateOptions) {
     if (userQueryFn) return userQueryFn;
     return createGatewayStreamStateQueryFn(baseURL, {
       accessToken,
+      temporalRunId,
       headers: extraHeaders,
     });
-  }, [userQueryFn, baseURL, accessToken, extraHeaders]);
+  }, [userQueryFn, baseURL, accessToken, temporalRunId, extraHeaders]);
 
   return useWorkflowStreamState({
     workflowId,

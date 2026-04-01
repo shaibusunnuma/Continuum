@@ -822,6 +822,7 @@ export function RunDetail() {
             <div className="w-1/3 min-w-[320px] max-w-[500px] shrink-0 border border-border rounded-md overflow-hidden animate-in slide-in-from-right-8 duration-300 relative z-10 shadow-2xl">
               <XRayPane
                 workflowId={workflowId}
+                temporalRunId={runIdFromQuery ?? describe?.runId}
                 selectedStep={selectedStep}
                 selectedNodeId={selectedNodeId}
                 onClose={() => setIsXRayOpen(false)}

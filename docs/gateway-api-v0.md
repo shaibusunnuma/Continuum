@@ -30,6 +30,8 @@ If **`DURION_GATEWAY_TOKEN`** is unset, v0 routes are open (local development).
 
 ### `GET /v0/runs/{runId}/stream-state`
 
+Path `{runId}` is the **Temporal workflow id**. Optional query **`runId=<Temporal execution run id>`** pins a specific execution when the same workflow id is reused (same semantics as other run-scoped GETs).
+
 Returns **`StreamState`** JSON (Temporal `streamState` query):
 
 - `status`: `'running' | 'waiting_for_input' | 'completed' | 'error'`
@@ -46,6 +48,8 @@ Returns **`StreamState`** JSON (Temporal `streamState` query):
 ### `GET /v0/runs/{runId}/token-stream`
 
 **Server-Sent Events** (Vercel AI UI message stream). Subscribe **before** starting the workflow when using Redis/pub-sub.
+
+Path `{runId}` is the **workflow id**. The Redis/SSE channel is **`workflowId`** by default, or **`workflowId::<temporalRunId>`** when query **`runId=<Temporal execution run id>`** is set (must match the worker’s streaming channel from `traceContext.runId`). Optional **`access_token`** still applies for gateway auth.
 
 Each event: `data: <JSON>\n\n`
 
