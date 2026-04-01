@@ -24,11 +24,17 @@ describe('trimGatewayBase', () => {
 });
 
 describe('gatewayStreamStateUrl', () => {
-  it('joins base and encodes run id', () => {
+  it('joins base and encodes workflow id', () => {
     expect(gatewayStreamStateUrl('http://localhost:3000', 'run-1')).toBe(
       'http://localhost:3000/v0/runs/run-1/stream-state',
     );
     expect(gatewayStreamStateUrl('', 'a/b')).toBe('/v0/runs/a%2Fb/stream-state');
+  });
+
+  it('appends temporal run id query', () => {
+    expect(
+      gatewayStreamStateUrl('http://h', 'wf', { temporalRunId: 'tr-1' }),
+    ).toBe('http://h/v0/runs/wf/stream-state?runId=tr-1');
   });
 });
 
@@ -41,6 +47,15 @@ describe('gatewayTokenStreamUrl', () => {
     expect(gatewayTokenStreamUrl('http://h', 'r1', { accessToken: 'tok&x' })).toBe(
       'http://h/v0/runs/r1/token-stream?access_token=tok%26x',
     );
+  });
+
+  it('appends temporal run id and token', () => {
+    expect(
+      gatewayTokenStreamUrl('http://h', 'wf', {
+        accessToken: 't',
+        temporalRunId: 'exec-1',
+      }),
+    ).toBe('http://h/v0/runs/wf/token-stream?runId=exec-1&access_token=t');
   });
 
   it('uses & when URL already contains ?', () => {
