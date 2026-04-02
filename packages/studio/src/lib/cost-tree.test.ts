@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ParsedHistory } from './types';
 import {
   collectCostActivityStepsTree,
+  compositionCostFetchKey,
   hasEligibleChildWorkflowsForCost,
   stepScopePrefix,
 } from './cost-tree';
@@ -21,6 +22,41 @@ const emptyParsed = (): ParsedHistory => ({
   childWorkflowSpans: [],
   historyStartMs: null,
   historyEndMs: null,
+});
+
+describe('compositionCostFetchKey', () => {
+  it('is stable for same logical history despite new object references', () => {
+    const mk = (): ParsedHistory => ({
+      ...emptyParsed(),
+      events: [{ eventId: '9', eventType: 'x', label: 'e' }],
+      activitySteps: [
+        { eventId: '5', activityName: 'runModel' },
+        { eventId: '7', activityName: 'runTool' },
+      ],
+      childWorkflowSteps: [
+        {
+          initiatedEventId: '4',
+          workflowType: 'c',
+          workflowId: 'wf-c',
+          runId: 'r1',
+          outcome: 'completed',
+        },
+      ],
+    });
+    const a = mk();
+    const b = mk();
+    expect(compositionCostFetchKey('w1', 'run-a', a)).toBe(compositionCostFetchKey('w1', 'run-a', b));
+  });
+
+  it('changes when a new history tail event appears', () => {
+    const base = emptyParsed();
+    base.events = [{ eventId: '1', eventType: 'x', label: 'a' }];
+    base.activitySteps = [{ eventId: '5', activityName: 'runModel' }];
+    const k1 = compositionCostFetchKey('w', undefined, base);
+    const next = { ...base, events: [...base.events, { eventId: '2', eventType: 'y', label: 'b' }] };
+    const k2 = compositionCostFetchKey('w', undefined, next);
+    expect(k1).not.toBe(k2);
+  });
 });
 
 describe('stepScopePrefix', () => {

@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { describeRun, getHistory, getResult, getStreamState, runDetailHref, type RunScopedQuery } from '@/lib/api';
 import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
-import { collectCostActivityStepsTree, hasEligibleChildWorkflowsForCost } from '@/lib/cost-tree';
+import {
+  collectCostActivityStepsTree,
+  compositionCostFetchKey,
+  hasEligibleChildWorkflowsForCost,
+} from '@/lib/cost-tree';
 import { parseFullHistory } from '@/lib/parse-history';
 import { detectViewMode } from '@/lib/view-mode';
 import type { RunViewMode } from '@/lib/view-mode';
@@ -267,8 +271,17 @@ export function RunDetail() {
     setStreamAvailable(null);
   }, [workflowId, runIdFromQuery]);
 
+  const historyRef = useRef(history);
+  historyRef.current = history;
+
+  const compositionCostKey = useMemo(
+    () => compositionCostFetchKey(workflowId, runIdFromQuery, history),
+    [workflowId, runIdFromQuery, history],
+  );
+
   useEffect(() => {
     const ac = new AbortController();
+    const hist = historyRef.current;
 
     if (!workflowId) {
       setCompositionCostSteps(undefined);
@@ -277,7 +290,7 @@ export function RunDetail() {
       return;
     }
 
-    if (!hasEligibleChildWorkflowsForCost(history)) {
+    if (!hasEligibleChildWorkflowsForCost(hist)) {
       setCompositionCostSteps(undefined);
       setCompositionCostLoading(false);
       setCompositionCostErrors(undefined);
@@ -289,7 +302,7 @@ export function RunDetail() {
 
     void (async () => {
       try {
-        const { steps, childLoadErrors } = await collectCostActivityStepsTree(history, async (wfId, runId) => {
+        const { steps, childLoadErrors } = await collectCostActivityStepsTree(hist, async (wfId, runId) => {
           if (ac.signal.aborted) throw new DOMException('Aborted', 'AbortError');
           const raw = await getHistory(wfId, { runId });
           if (ac.signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -310,7 +323,7 @@ export function RunDetail() {
     })();
 
     return () => ac.abort();
-  }, [workflowId, runIdFromQuery, history]);
+  }, [workflowId, compositionCostKey]);
 
   // ── Load describe + history first (Temporal server only); stream-state in background (needs worker) ──
   const fullRefresh = useCallback(async () => {
@@ -441,10 +454,12 @@ export function RunDetail() {
     void fullRefresh();
   }, [fullRefresh]);
 
-  const executionActive =
-    describe?.status === 'RUNNING' ||
-    streamState?.status === 'running' ||
-    streamState?.status === 'waiting_for_input';
+  /**
+   * Poll Temporal describe/history only while the execution is open. Do not key off `streamState`:
+   * after completion, `durion:streamState` can stay `running` if the worker query fails or lags,
+   * which previously caused endless polling every 1.5s.
+   */
+  const executionActive = describe?.status === 'RUNNING';
 
   useEffect(() => {
     if (!workflowId || !executionActive) return;

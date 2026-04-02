@@ -91,3 +91,21 @@ export async function collectCostActivityStepsTree(
 export function hasEligibleChildWorkflowsForCost(parsed: ParsedHistory): boolean {
   return eligibleChildSteps(parsed.childWorkflowSteps).length > 0;
 }
+
+/**
+ * Stable fingerprint for composition cost merging: avoids re-fetching every child history on each poll
+ * when the parsed `ParsedHistory` reference changes but content is unchanged.
+ */
+export function compositionCostFetchKey(
+  workflowId: string,
+  runId: string | undefined,
+  parsed: ParsedHistory,
+): string {
+  const tail = parsed.events.length > 0 ? parsed.events[parsed.events.length - 1]!.eventId : '';
+  const children = [...parsed.childWorkflowSteps]
+    .sort((a, b) => String(a.initiatedEventId).localeCompare(String(b.initiatedEventId)))
+    .map((c) => [c.initiatedEventId, c.workflowId, c.runId ?? '', c.outcome].join('\t'))
+    .join('\n');
+  const steps = parsed.activitySteps.map((s) => [s.eventId, s.activityName].join('\t')).join('\n');
+  return [workflowId, runId ?? '', children, steps, tail].join('\x1e');
+}
