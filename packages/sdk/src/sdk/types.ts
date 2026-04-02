@@ -4,12 +4,27 @@ import type { ZodType } from 'zod';
 // Token usage & cost
 // ---------------------------------------------------------------------------
 
+/** How `costUsd` was derived (table, custom calculator, or unknown). Persisted on each model call for audit. */
+export interface CostAttribution {
+  kind: 'table' | 'custom' | 'unknown';
+  /** App-defined id or hash of the pricing table / policy (e.g. `openai-prod-2026-03`). */
+  pricingTableId: string;
+  /** ISO timestamp of the matched row’s `effectiveFrom` (absent when `kind === 'unknown'`). */
+  pricingEffectiveAt?: string;
+  inputUsdPer1M: number;
+  outputUsdPer1M: number;
+  /** Model id or pattern key used for lookup. */
+  matchedKey?: string;
+}
+
 /** Token and cost data for a single model call. Returned in `ModelResult.usage` and `AgentResult.usage`. */
 export interface Usage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
   costUsd: number;
+  /** Present when the cost calculator supplied attribution (e.g. versioned table row). */
+  costAttribution?: CostAttribution;
 }
 
 // ---------------------------------------------------------------------------
@@ -21,13 +36,25 @@ export interface CostCalculatorPayload {
   outputTokens: number;
   model: string;
   provider: string;
+  /** Wall-clock ms in the activity when pricing is resolved (effective-dated tables). */
+  requestedAtMs: number;
   metadata: {
     retries: number;
     latencyMs: number;
   };
 }
 
-export type CostCalculatorFn = (payload: CostCalculatorPayload) => number | Promise<number>;
+/** Return a plain number (no attribution) or a structured result from `CostCalculator.calculate`. */
+export type CostCalculationResult =
+  | number
+  | {
+      costUsd: number;
+      attribution?: CostAttribution;
+    };
+
+export type CostCalculatorFn = (
+  payload: CostCalculatorPayload,
+) => CostCalculationResult | Promise<CostCalculationResult>;
 
 export interface CostCalculator {
   calculate: CostCalculatorFn;

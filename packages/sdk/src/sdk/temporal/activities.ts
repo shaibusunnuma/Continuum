@@ -16,7 +16,9 @@ import type {
   RunToolResult,
   Message,
   ToolCall,
+  CostAttribution,
 } from '../types';
+import { normalizeCostCalculationResult } from '../pricing';
 import { dispatchHooks as dispatchRegisteredHooks, type LifecycleEvent } from '../hooks';
 import { ConfigurationError, ToolValidationError } from '../errors';
 import { redisStreamChannelKey } from '../streaming/stream-channel';
@@ -144,6 +146,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     inputTokens: number;
     outputTokens: number;
     costUsd: number;
+    costAttribution?: CostAttribution;
     latencyMs: number;
   };
   try {
@@ -264,8 +267,10 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       }
 
       const latencyMs = Math.round(performance.now() - startTime);
+      const requestedAtMs = Date.now();
 
       let costUsd = 0;
+      let costAttribution: CostAttribution | undefined;
       if (
         params.costCalculator &&
         model &&
@@ -284,16 +289,21 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
             // Not running inside a Temporal Activity context (e.g. unit test fallback)
           }
 
-          costUsd = await calc.calculate({
-            inputTokens,
-            outputTokens,
-            model: m.modelId,
-            provider: m.provider,
-            metadata: {
-              retries,
-              latencyMs,
-            },
-          });
+          const normalized = await normalizeCostCalculationResult(
+            calc.calculate({
+              inputTokens,
+              outputTokens,
+              model: m.modelId,
+              provider: m.provider,
+              requestedAtMs,
+              metadata: {
+                retries,
+                latencyMs,
+              },
+            }),
+          );
+          costUsd = normalized.costUsd;
+          costAttribution = normalized.attribution;
         }
       }
 
@@ -316,6 +326,16 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
             'durion.model.id': m.modelId,
           });
         }
+        if (costAttribution) {
+          span.setAttributes({
+            'durion.cost.pricing_table_id': costAttribution.pricingTableId,
+            'durion.cost.input_usd_per_1m': costAttribution.inputUsdPer1M,
+            'durion.cost.output_usd_per_1m': costAttribution.outputUsdPer1M,
+          });
+          if (costAttribution.pricingEffectiveAt != null) {
+            span.setAttribute('durion.cost.effective_at', costAttribution.pricingEffectiveAt);
+          }
+        }
         if (params.toolNames?.length) {
           span.setAttribute('durion.toolsUsed', params.toolNames.join(','));
         }
@@ -328,6 +348,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
         inputTokens,
         outputTokens,
         costUsd,
+        costAttribution,
         latencyMs,
       };
     },
@@ -376,6 +397,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       completionTokens: result.outputTokens,
       totalTokens: result.inputTokens + result.outputTokens,
       costUsd: result.costUsd,
+      ...(result.costAttribution ? { costAttribution: result.costAttribution } : {}),
     },
     latencyMs: result.latencyMs,
     ...(result.parsedObject !== undefined ? { parsedObject: JSON.stringify(result.parsedObject) } : {}),

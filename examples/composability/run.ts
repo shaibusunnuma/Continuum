@@ -13,7 +13,14 @@
 import path from 'path';
 import dotenv from 'dotenv';
 import { openai } from '@ai-sdk/openai';
-import { createApp, createClient, durionConfig, initObservability } from '@durion/sdk';
+import {
+  createApp,
+  createClient,
+  createTableCostCalculator,
+  durionConfig,
+  EXAMPLE_PRICING_ROWS,
+  initObservability,
+} from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
 import { composabilityParent, composabilityOrchestrator } from './workflows';
 
@@ -31,16 +38,7 @@ async function runWorker(): Promise<void> {
     models: { fast: openai.chat('gpt-4o-mini') },
     tools: [],
     costCalculators: {
-      'my-custom-cost': {
-        calculate: ({ inputTokens, outputTokens, metadata }) => {
-          return (
-            inputTokens * 0.000001 +
-            outputTokens * 0.000002 +
-            metadata.retries * 0.01 +
-            metadata.latencyMs * 0.0000001
-          );
-        },
-      },
+      'dev-prices': createTableCostCalculator('example-openai-mini', EXAMPLE_PRICING_ROWS),
     },
     workflowsPath: require.resolve('./workflows'),
   });

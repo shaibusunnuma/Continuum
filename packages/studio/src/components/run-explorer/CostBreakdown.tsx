@@ -1,9 +1,66 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ParsedHistory } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity } from 'lucide-react';
+
+const PRICING_PROFILE_STORAGE_KEY = 'durion.studio.pricingProfile';
+
+/** Mirrors SDK `CostAttribution` shape from persisted `runModel` activity `usage`. */
+interface CostAttributionLite {
+  kind: string;
+  pricingTableId: string;
+  pricingEffectiveAt?: string;
+  inputUsdPer1M: number;
+  outputUsdPer1M: number;
+  matchedKey?: string;
+}
+
+type StudioPricingProfile = Record<string, { inputUsdPer1M: number; outputUsdPer1M: number }>;
+
+function parsePricingProfileJson(raw: string): StudioPricingProfile {
+  try {
+    const p = JSON.parse(raw) as unknown;
+    if (p == null || typeof p !== 'object' || Array.isArray(p)) return {};
+    const out: StudioPricingProfile = {};
+    for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
+      if (typeof v !== 'object' || v == null) continue;
+      const o = v as Record<string, unknown>;
+      const inputUsdPer1M = typeof o.inputUsdPer1M === 'number' ? o.inputUsdPer1M : Number(o.inputUsdPer1M);
+      const outputUsdPer1M = typeof o.outputUsdPer1M === 'number' ? o.outputUsdPer1M : Number(o.outputUsdPer1M);
+      if (Number.isFinite(inputUsdPer1M) && Number.isFinite(outputUsdPer1M)) {
+        out[k.trim()] = { inputUsdPer1M, outputUsdPer1M };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Look up profile by provider model id first (`matchedKey` from recorded attribution), else Durion registry id (`fast`, …).
+ */
+function estimateStepCostUsdFromProfile(
+  registryModelId: string | undefined,
+  matchedKey: string | undefined,
+  prompt: number,
+  completion: number,
+  profile: StudioPricingProfile,
+): number {
+  const keys = [matchedKey, registryModelId].filter(
+    (k): k is string => typeof k === 'string' && k.trim() !== '',
+  );
+  for (const k of keys) {
+    const row = profile[k.trim()];
+    if (row) {
+      return (prompt / 1e6) * row.inputUsdPer1M + (completion / 1e6) * row.outputUsdPer1M;
+    }
+  }
+  return 0;
+}
 
 interface CostBreakdownProps {
   history: ParsedHistory;
@@ -31,116 +88,171 @@ function CumulativeCostSparkline({ steps }: { steps: { cumulative: number }[] })
 }
 
 export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProps) {
-  const { nodeStats, totals, modelDistribution, cumulativeCostSteps } = useMemo(() => {
-    const stats = new Map<
-      string,
-      {
-        calls: number;
-        latencyMs: number;
-        promptTokens: number;
-        completionTokens: number;
-        costUsd: number;
-        modelIds: Set<string>;
-      }
-    >();
-    let totalPrompt = 0;
-    let totalCompletion = 0;
-    let totalComputedCost = 0;
+  const [costView, setCostView] = useState<'recorded' | 'estimate'>('recorded');
+  const [profileJson, setProfileJson] = useState('{}');
+  const [profileDirty, setProfileDirty] = useState(false);
 
-    const byModel = new Map<string, { tokens: number; costUsd: number }>();
-    const cumulativeCostSteps: { label: string; deltaCost: number; cumulative: number }[] = [];
-    let cumulative = 0;
+  useEffect(() => {
+    try {
+      const s = window.localStorage.getItem(PRICING_PROFILE_STORAGE_KEY);
+      if (s != null && s.trim() !== '') setProfileJson(s);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
-    for (const step of history.activitySteps) {
-      if (step.activityName !== 'runModel' && step.activityName !== 'runTool') continue;
+  const pricingProfile = useMemo(() => parsePricingProfileJson(profileJson), [profileJson]);
 
-      const payload = step.result?.payload || step.result;
-      if (!payload) continue;
+  const saveProfile = useCallback(() => {
+    try {
+      window.localStorage.setItem(PRICING_PROFILE_STORAGE_KEY, profileJson);
+      setProfileDirty(false);
+    } catch {
+      /* ignore */
+    }
+  }, [profileJson]);
 
-      const usage = payload.usage as
-        | { totalTokens?: number; promptTokens?: number; completionTokens?: number }
-        | undefined;
-      const stepCost = typeof payload.costUsd === 'number' ? payload.costUsd : 0;
-      const latencyMs = typeof payload.latencyMs === 'number' ? payload.latencyMs : 0;
-      const inputData = Array.isArray(step.input) ? step.input[0] : step.input;
-      const modelId = inputData?.modelId as string | undefined;
+  const { nodeStats, totals, modelDistribution, cumulativeCostSteps, attributionSummaries, studioEstimateUsd } =
+    useMemo(() => {
+      const stats = new Map<
+        string,
+        {
+          calls: number;
+          latencyMs: number;
+          promptTokens: number;
+          completionTokens: number;
+          costUsd: number;
+          modelIds: Set<string>;
+        }
+      >();
+      let totalPrompt = 0;
+      let totalCompletion = 0;
+      let totalComputedCost = 0;
+      let studioEstimateUsd = 0;
 
-      let nodeRef = step.activityName;
-      const tc = inputData?.traceContext as { agentName?: string } | undefined;
-      if (tc?.agentName) {
-        nodeRef = tc.agentName;
-      }
+      const byModel = new Map<string, { tokens: number; costUsd: number }>();
+      const cumulativeCostSteps: { label: string; deltaCost: number; cumulative: number }[] = [];
+      let cumulative = 0;
+      const attributionMap = new Map<string, CostAttributionLite>();
 
-      const id = nodeRef;
-      if (!stats.has(id)) {
-        stats.set(id, {
-          calls: 0,
-          latencyMs: 0,
-          promptTokens: 0,
-          completionTokens: 0,
-          costUsd: 0,
-          modelIds: new Set(),
-        });
-      }
+      for (const step of history.activitySteps) {
+        if (step.activityName !== 'runModel' && step.activityName !== 'runTool') continue;
 
-      const st = stats.get(id)!;
-      st.calls += 1;
-      st.latencyMs += latencyMs;
+        const payload = (step.result?.payload || step.result) as Record<string, unknown> | null;
+        if (!payload || typeof payload !== 'object') continue;
 
-      if (modelId) st.modelIds.add(modelId);
+        const usage = payload.usage as
+          | {
+              totalTokens?: number;
+              promptTokens?: number;
+              completionTokens?: number;
+              costUsd?: number;
+              costAttribution?: CostAttributionLite;
+            }
+          | undefined;
+        const stepCost =
+          typeof usage?.costUsd === 'number'
+            ? usage.costUsd
+            : typeof payload.costUsd === 'number'
+              ? payload.costUsd
+              : 0;
+        const latencyMs = typeof payload.latencyMs === 'number' ? payload.latencyMs : 0;
+        const inputData = Array.isArray(step.input) ? step.input[0] : step.input;
+        const modelId = inputData?.modelId as string | undefined;
 
-      if (usage || stepCost > 0) {
-        st.promptTokens += usage?.promptTokens || 0;
-        st.completionTokens += usage?.completionTokens || 0;
-        st.costUsd += stepCost;
-
-        totalPrompt += usage?.promptTokens || 0;
-        totalCompletion += usage?.completionTokens || 0;
-        totalComputedCost += stepCost;
-
-        const tokens = (usage?.promptTokens || 0) + (usage?.completionTokens || 0);
-        if (modelId && (tokens > 0 || stepCost > 0)) {
-          const m = byModel.get(modelId) ?? { tokens: 0, costUsd: 0 };
-          m.tokens += tokens;
-          m.costUsd += stepCost;
-          byModel.set(modelId, m);
+        let nodeRef = step.activityName;
+        const tc = inputData?.traceContext as { agentName?: string } | undefined;
+        if (tc?.agentName) {
+          nodeRef = tc.agentName;
         }
 
-        if (stepCost > 0) {
-          cumulative += stepCost;
-          cumulativeCostSteps.push({
-            label: `${nodeRef} · ${step.activityName} (#${step.eventId})`,
-            deltaCost: stepCost,
-            cumulative,
+        const id = nodeRef;
+        if (!stats.has(id)) {
+          stats.set(id, {
+            calls: 0,
+            latencyMs: 0,
+            promptTokens: 0,
+            completionTokens: 0,
+            costUsd: 0,
+            modelIds: new Set(),
           });
         }
+
+        const st = stats.get(id)!;
+        st.calls += 1;
+        st.latencyMs += latencyMs;
+
+        if (modelId) st.modelIds.add(modelId);
+
+        if (step.activityName === 'runModel' && usage) {
+          const pr = usage.promptTokens ?? 0;
+          const co = usage.completionTokens ?? 0;
+          const matched = usage.costAttribution?.matchedKey;
+          studioEstimateUsd += estimateStepCostUsdFromProfile(modelId, matched, pr, co, pricingProfile);
+        }
+
+        if (usage?.costAttribution && step.activityName === 'runModel') {
+          const a = usage.costAttribution;
+          const key = `${a.pricingTableId}\t${a.pricingEffectiveAt ?? ''}\t${a.kind}`;
+          if (!attributionMap.has(key)) attributionMap.set(key, a);
+        }
+
+        if (usage || stepCost > 0) {
+          st.promptTokens += usage?.promptTokens || 0;
+          st.completionTokens += usage?.completionTokens || 0;
+          st.costUsd += stepCost;
+
+          totalPrompt += usage?.promptTokens || 0;
+          totalCompletion += usage?.completionTokens || 0;
+          totalComputedCost += stepCost;
+
+          const tokens = (usage?.promptTokens || 0) + (usage?.completionTokens || 0);
+          if (modelId && (tokens > 0 || stepCost > 0)) {
+            const m = byModel.get(modelId) ?? { tokens: 0, costUsd: 0 };
+            m.tokens += tokens;
+            m.costUsd += stepCost;
+            byModel.set(modelId, m);
+          }
+
+          if (stepCost > 0) {
+            cumulative += stepCost;
+            cumulativeCostSteps.push({
+              label: `${nodeRef} · ${step.activityName} (#${step.eventId})`,
+              deltaCost: stepCost,
+              cumulative,
+            });
+          }
+        }
       }
-    }
 
-    const modelTotalTokens = [...byModel.values()].reduce((s, m) => s + m.tokens, 0);
-    const modelDistribution = [...byModel.entries()]
-      .map(([modelId, v]) => ({
-        modelId,
-        tokens: v.tokens,
-        costUsd: v.costUsd,
-        pct: modelTotalTokens > 0 ? (v.tokens / modelTotalTokens) * 100 : 0,
-      }))
-      .sort((a, b) => b.tokens - a.tokens);
+      const modelTotalTokens = [...byModel.values()].reduce((s, m) => s + m.tokens, 0);
+      const modelDistribution = [...byModel.entries()]
+        .map(([modelId, v]) => ({
+          modelId,
+          tokens: v.tokens,
+          costUsd: v.costUsd,
+          pct: modelTotalTokens > 0 ? (v.tokens / modelTotalTokens) * 100 : 0,
+        }))
+        .sort((a, b) => b.tokens - a.tokens);
 
-    return {
-      nodeStats: Array.from(stats.entries()).sort(
-        (a, b) => b[1].costUsd - a[1].costUsd || b[1].calls - a[1].calls,
-      ),
-      totals: { prompt: totalPrompt, completion: totalCompletion, costUsd: totalComputedCost },
-      modelDistribution,
-      cumulativeCostSteps,
-    };
-  }, [history]);
+      return {
+        nodeStats: Array.from(stats.entries()).sort(
+          (a, b) => b[1].costUsd - a[1].costUsd || b[1].calls - a[1].calls,
+        ),
+        totals: { prompt: totalPrompt, completion: totalCompletion, costUsd: totalComputedCost },
+        modelDistribution,
+        cumulativeCostSteps,
+        attributionSummaries: [...attributionMap.values()],
+        studioEstimateUsd,
+      };
+    }, [history, pricingProfile]);
 
-  const displayCost = accumulatedCostUsd !== undefined && accumulatedCostUsd > 0 ? accumulatedCostUsd : totals.costUsd;
+  const recordedDisplayCost =
+    accumulatedCostUsd !== undefined && accumulatedCostUsd > 0 ? accumulatedCostUsd : totals.costUsd;
+  const displayCost = costView === 'estimate' ? studioEstimateUsd : recordedDisplayCost;
   const hasUsage = totals.prompt > 0 || totals.completion > 0;
 
-  if (!hasUsage && displayCost === 0) {
+  if (!hasUsage && recordedDisplayCost === 0 && studioEstimateUsd === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-muted-foreground border border-dashed rounded-lg bg-muted/40 backdrop-blur-md">
         <Activity className="h-8 w-8 mb-4 opacity-50" />
@@ -154,20 +266,60 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
       {/* KPI Cards */}
       <Card className="bg-card/90 border-border/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
-        <div className="absolute inset-0 bg-linear-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardHeader className="gap-1 px-4 py-0">
-          <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-primary">
-            Total Run Cost
-          </CardDescription>
+        <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        <CardHeader className="relative z-[1] gap-1 px-4 py-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-primary">
+              Total Run Cost
+            </CardDescription>
+            {costView === 'estimate' ? (
+              <Badge variant="secondary" className="font-mono text-[9px]">
+                Studio estimate
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="font-mono text-[9px]">
+                Recorded
+              </Badge>
+            )}
+          </div>
           <CardTitle className="text-3xl font-light tracking-tighter text-foreground">
             ${displayCost.toFixed(5)}
           </CardTitle>
+          {costView === 'estimate' && (
+            <p className="text-muted-foreground font-mono text-[10px] leading-snug">
+              From local pricing profile JSON (keys = provider model id, e.g. gpt-4o-mini, or registry id
+              like fast). Does not change Temporal history.
+              {studioEstimateUsd === 0 && hasUsage && (
+                <span className="text-amber-600/90"> Add rates for your model ids below.</span>
+              )}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1 pt-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={costView === 'recorded' ? 'secondary' : 'ghost'}
+              className="h-7 font-mono text-[10px]"
+              onClick={() => setCostView('recorded')}
+            >
+              Recorded
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={costView === 'estimate' ? 'secondary' : 'ghost'}
+              className="h-7 font-mono text-[10px]"
+              onClick={() => setCostView('estimate')}
+            >
+              Re-estimate
+            </Button>
+          </div>
         </CardHeader>
       </Card>
 
       <Card className="bg-card/90 border-border/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
-        <div className="absolute inset-0 bg-linear-to-br from-chart-2/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <CardHeader className="gap-1 px-4 py-0">
+        <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-chart-2/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        <CardHeader className="relative z-[1] gap-1 px-4 py-0">
           <CardDescription className="uppercase tracking-widest text-[10px] font-bold text-chart-2">
             Total Tokens
           </CardDescription>
@@ -186,6 +338,68 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
           </div>
         </CardContent>
       </Card>
+
+      {(attributionSummaries.length > 0 || costView === 'estimate') && (
+        <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-card/60 border-border/80 py-3 backdrop-blur-xl">
+          <CardHeader className="px-4 py-0 pb-1">
+            <CardTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Cost basis
+            </CardTitle>
+            <CardDescription className="font-mono text-[10px] text-muted-foreground">
+              Recorded runs: pricing table id and effective row from the worker. Re-estimate: edit JSON
+              (USD per 1M tokens), save, then switch to Re-estimate.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 px-4 pb-3 pt-0">
+            {attributionSummaries.length > 0 && (
+              <ul className="space-y-1 font-mono text-[10px] text-muted-foreground">
+                {attributionSummaries.map((a) => (
+                  <li key={`${a.pricingTableId}-${a.pricingEffectiveAt ?? 'x'}-${a.kind}`} className="border-b border-border/50 pb-1 last:border-0">
+                    <span className="text-foreground/90">{a.pricingTableId}</span>
+                    {a.pricingEffectiveAt != null && (
+                      <span className="text-muted-foreground"> · effective {a.pricingEffectiveAt}</span>
+                    )}
+                    <span className="text-muted-foreground"> · {a.kind}</span>
+                    {a.kind === 'table' && (
+                      <span className="block tabular-nums">
+                        in ${a.inputUsdPer1M.toFixed(4)}/1M · out ${a.outputUsdPer1M.toFixed(4)}/1M
+                        {a.matchedKey != null && ` · model ${a.matchedKey}`}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {costView === 'estimate' && (
+              <div className="space-y-2">
+                <label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wide">
+                  Studio pricing profile (localStorage)
+                </label>
+                <textarea
+                  className="border-input bg-background text-foreground focus-visible:ring-ring min-h-[100px] w-full rounded-md border px-2 py-1.5 font-mono text-[10px] focus-visible:outline-none focus-visible:ring-2"
+                  value={profileJson}
+                  onChange={(e) => {
+                    setProfileJson(e.target.value);
+                    setProfileDirty(true);
+                  }}
+                  spellCheck={false}
+                  placeholder='{"gpt-4o-mini":{"inputUsdPer1M":0.15,"outputUsdPer1M":0.6},"fast":{"inputUsdPer1M":0.15,"outputUsdPer1M":0.6}}'
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 font-mono text-[10px]"
+                  disabled={!profileDirty}
+                  onClick={saveProfile}
+                >
+                  Save profile
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {modelDistribution.length > 0 && (
         <Card className="md:col-span-2 lg:col-span-3 gap-2 bg-card/60 border-border/80 py-3 backdrop-blur-xl">

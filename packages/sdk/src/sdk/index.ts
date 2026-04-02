@@ -63,6 +63,10 @@ export type {
   ModelResult,
   ToolResult,
   Usage,
+  CostAttribution,
+  CostCalculationResult,
+  CostCalculatorPayload,
+  CostCalculator,
   Message,
   ModelOptions,
   ToolDefinition,
@@ -74,6 +78,15 @@ export type {
   BudgetLimit,
   StreamState,
 } from './types';
+export {
+  createTableCostCalculator,
+  resolvePricingRow,
+  parseEffectiveFromMs,
+  pricingProviderMatches,
+  normalizeCostCalculationResult,
+  EXAMPLE_PRICING_ROWS,
+} from './pricing';
+export type { PricingRow } from './pricing';
 // Graph types
 export type {
   GraphContext,

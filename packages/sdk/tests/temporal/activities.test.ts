@@ -125,6 +125,45 @@ describe('activities', () => {
       expect(generateText).toHaveBeenCalled();
     });
 
+    it('returns costAttribution when calculator returns structured result', async () => {
+      vi.mocked(generateText).mockResolvedValue({
+        text: 'Hi',
+        usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
+        toolCalls: [],
+      } as Awaited<ReturnType<typeof generateText>>);
+
+      const runtime = createRuntime({
+        models: { fast: fakeModel },
+        tools: [],
+        costCalculators: {
+          t: {
+            calculate: (p) => ({
+              costUsd: (p.inputTokens / 1e6) * 1 + (p.outputTokens / 1e6) * 2,
+              attribution: {
+                kind: 'table',
+                pricingTableId: 'test-table',
+                pricingEffectiveAt: '2025-01-01T00:00:00.000Z',
+                inputUsdPer1M: 1,
+                outputUsdPer1M: 2,
+                matchedKey: p.model,
+              },
+            }),
+          },
+        },
+      });
+      setActiveRuntime(runtime);
+
+      const result = await runModel({
+        modelId: 'fast',
+        messages: [{ role: 'user', content: 'Hi' }],
+        costCalculator: 't',
+      });
+
+      expect(result.usage.costUsd).toBe(2);
+      expect(result.usage.costAttribution?.pricingTableId).toBe('test-table');
+      expect(result.usage.costAttribution?.matchedKey).toBe('gpt-4o-mini');
+    });
+
     it('streams text deltas to the runtime stream bus when stream=true', async () => {
       const runtime = createRuntime({
         models: { fast: fakeModel },

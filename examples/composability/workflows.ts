@@ -28,7 +28,7 @@ export const composabilityParent = workflow(
     const childOut = await ctx.run(composabilityChild, { text: ctx.input.message });
     const r = await ctx.model('fast', {
       prompt: `In one short sentence, greet the user and mention this transformed text: "${childOut.processed}"`,
-      costCalculator: 'my-custom-cost',
+      costCalculator: 'dev-prices',
     });
     return {
       child: childOut,
@@ -44,7 +44,7 @@ export const composabilityParent = workflow(
 
 export const composabilitySpecialist = agent('composabilitySpecialist', {
   model: 'fast',
-  costCalculator: 'my-custom-cost',
+  costCalculator: 'dev-prices',
   instructions:
     'You are a specialist. Answer the user in one or two concise sentences. No tools.',
   tools: [],
@@ -53,7 +53,7 @@ export const composabilitySpecialist = agent('composabilitySpecialist', {
 
 export const composabilityOrchestrator = agent('composabilityOrchestrator', {
   model: 'fast',
-  costCalculator: 'my-custom-cost',
+  costCalculator: 'dev-prices',
   instructions:
     'You are a coordinator. If the user asks for expert or specialist help, call the specialist tool once with { "message": "<task>" }. ' +
     'Otherwise answer briefly yourself in one sentence.',
