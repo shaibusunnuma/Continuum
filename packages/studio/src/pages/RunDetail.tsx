@@ -517,12 +517,6 @@ export function RunDetail() {
           historyChildSteps={history.childWorkflowSteps}
         />
 
-        {runIdFromQuery ? (
-          <p className="text-muted-foreground font-mono text-[10px]">
-            Pinned execution <span className="text-foreground">{runIdFromQuery}</span>
-          </p>
-        ) : null}
-
         {/* ── Run summary (Temporal-style dense header + graph extras) ─ */}
         <Card className="border-border py-0">
           <CardContent className="space-y-2 p-3 font-mono text-[10px] leading-tight">
@@ -545,62 +539,66 @@ export function RunDetail() {
             </div>
 
             <div className="grid grid-cols-1 gap-x-6 gap-y-2 border-t border-border pt-2 sm:grid-cols-3">
-              <div className="space-y-1">
-                <div>
-                  <span className="text-muted-foreground">Start </span>
-                  <span className="text-foreground">{formatRunDateTime(describe?.startTime)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">End </span>
-                  <span className="text-foreground">{formatRunDateTime(describe?.closeTime)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Duration </span>
-                  <span className="text-foreground">{runDurationLabel}</span>
-                </div>
+              <div className="grid grid-cols-[max-content_1fr] items-baseline gap-x-3 gap-y-1">
+                <span className="text-muted-foreground">Start</span>
+                <span className="min-w-0 text-foreground">
+                  {formatRunDateTime(describe?.startTime)}
+                </span>
+                <span className="text-muted-foreground">End</span>
+                <span className="min-w-0 text-foreground">
+                  {formatRunDateTime(describe?.closeTime)}
+                </span>
+                <span className="text-muted-foreground">Duration</span>
+                <span className="min-w-0 text-foreground">{runDurationLabel}</span>
               </div>
-              <div className="min-w-0 space-y-1">
-                <div className="truncate" title={workflowId}>
-                  <span className="text-muted-foreground">Workflow ID </span>
-                  <span className="text-foreground">{workflowId || '—'}</span>
-                </div>
-                <div className="truncate" title={describe?.runId ?? undefined}>
-                  <span className="text-muted-foreground">Run ID </span>
-                  <span className="text-foreground">{describe?.runId ?? '—'}</span>
-                </div>
+              <div className="grid min-w-0 grid-cols-[max-content_1fr] items-baseline gap-x-3 gap-y-1">
+                <span className="text-muted-foreground">Workflow ID</span>
+                <span className="min-w-0 truncate text-foreground" title={workflowId}>
+                  {workflowId || '—'}
+                </span>
+                <span className="text-muted-foreground">Run ID</span>
+                <span
+                  className="min-w-0 truncate text-foreground"
+                  title={describe?.runId ?? undefined}
+                >
+                  {describe?.runId ?? '—'}
+                </span>
               </div>
-              <div className="space-y-1">
-                <div className="truncate" title={taskQueueLabel ?? undefined}>
-                  <span className="text-muted-foreground">Task queue </span>
-                  <span className="text-foreground">{taskQueueLabel ?? '—'}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Updated </span>
-                  <span className="text-muted-foreground">
-                    {streamState?.updatedAt
-                      ? new Date(streamState.updatedAt).toLocaleString()
-                      : formatRunDateTime(describe?.closeTime ?? describe?.startTime)}
-                  </span>
-                </div>
+              <div className="grid grid-cols-[max-content_1fr] items-baseline gap-x-3 gap-y-1">
+                <span className="text-muted-foreground">Task queue</span>
+                <span
+                  className="min-w-0 truncate text-foreground"
+                  title={taskQueueLabel ?? undefined}
+                >
+                  {taskQueueLabel ?? '—'}
+                </span>
+                <span className="text-muted-foreground">Updated</span>
+                <span className="min-w-0 text-muted-foreground">
+                  {streamState?.updatedAt
+                    ? new Date(streamState.updatedAt).toLocaleString()
+                    : formatRunDateTime(describe?.closeTime ?? describe?.startTime)}
+                </span>
               </div>
             </div>
 
             {showGraphSummaryRow && (
               <div className="space-y-1.5 border-t border-border pt-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-muted-foreground">Graph status </span>
-                    {graphSummary.graphStatus ? (
-                      <Badge variant="outline" className="ml-1 rounded-sm font-mono text-[9px]">
-                        {graphSummary.graphStatus}
-                      </Badge>
-                    ) : (
-                      <span className="text-foreground">—</span>
-                    )}
+                <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                  <div className="grid grid-cols-[max-content_1fr] items-center gap-x-3 gap-y-1">
+                    <span className="text-muted-foreground">Graph status</span>
+                    <span className="min-w-0">
+                      {graphSummary.graphStatus ? (
+                        <Badge variant="outline" className="rounded-sm font-mono text-[9px]">
+                          {graphSummary.graphStatus}
+                        </Badge>
+                      ) : (
+                        <span className="text-foreground">—</span>
+                      )}
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Total tokens </span>
-                    <span className="text-foreground">
+                  <div className="grid grid-cols-[max-content_1fr] items-baseline gap-x-3 gap-y-1">
+                    <span className="text-muted-foreground">Total tokens</span>
+                    <span className="min-w-0 text-foreground">
                       {graphSummary.totalTokens != null ? graphSummary.totalTokens : '—'}
                     </span>
                   </div>
@@ -615,9 +613,9 @@ export function RunDetail() {
                   </div>
                 </div>
                 {graphSummary.errorLine && (
-                  <div>
-                    <span className="text-muted-foreground">Graph error </span>
-                    <span className="text-destructive">{graphSummary.errorLine}</span>
+                  <div className="grid grid-cols-[max-content_1fr] items-baseline gap-x-3">
+                    <span className="text-muted-foreground">Graph error</span>
+                    <span className="min-w-0 text-destructive">{graphSummary.errorLine}</span>
                   </div>
                 )}
               </div>
