@@ -10,7 +10,6 @@ const startWorkflowBodySchema = {
   properties: {
     workflowType: { type: 'string' },
     input: { type: 'object' },
-    /** Client-generated id so the UI can subscribe to SSE before start (same as Temporal workflow id). */
     workflowId: { type: 'string' },
     taskQueue: { type: 'string' },
   },
@@ -58,9 +57,6 @@ export async function workflowsRoutes(
         const body: { workflowId: string; runId?: string } = {
           workflowId: handle.workflowId,
         };
-        // SDK Client doesn't expose firstExecutionRunId directly right now
-        // so we omit it or get it from describe() if needed.
-        // It's not strictly required in the response.
         return reply.status(201).send(body);
       } catch (err) {
         request.log.error(err);

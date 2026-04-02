@@ -45,7 +45,7 @@ You must provision Postgres and the eval schema. See scripts and comments in the
 
 ## Monorepo-only workspaces
 
-The GitHub repo also contains **`example-server`** (reference Fastify gateway) and **`examples/*`** (sample workers). Those are **not** published to npm as part of the core SDK release; copy patterns from them into your own services.
+The GitHub repo also contains **`studio-server`** (Durion Studio Fastify gateway), **`examples/hitl-gateway`** (full Gateway v0 for the HITL UI demo), and **`examples/*`** (sample workers). Those are **not** published to npm as part of the core SDK release; copy patterns from them into your own services.
 
 ## Versioning
 

@@ -1,8 +1,13 @@
 # Gateway API v0
 
-Versioned HTTP surface for browser and BFF clients talking to **Durion** through a gateway (reference implementation: `example-server` in this monorepo). Same paths work for **self-hosted** (`baseURL` = your origin) and a **future hosted** product (different `baseURL`).
+Versioned HTTP surface for browser and BFF clients talking to **Durion** through a gateway. This monorepo ships **two** small reference servers:
 
-Unversioned routes (`/runs`, `/workflows`, `/agents`) remain for backward compatibility; **new integrations should use `/v0`.**
+| Package | Port (default) | Role |
+|---------|----------------|------|
+| **`studio-server`** | **`API_PORT`** → `3000` | **Durion Studio** only: `/v0/studio/*`, minimal `/v0/runs/*` (describe, stream-state, result), and local OTLP **`POST /v1/traces`** when `DURION_STUDIO_LOCAL=true`. |
+| **`examples/hitl-gateway`** | **`HITL_GATEWAY_PORT`** → `3001` | **react-hitl-ui** demo: full v0 **workflows/start**, **runs** (including **token-stream** SSE and **signal**). |
+
+Same paths work for **self-hosted** (`baseURL` = your origin) and a **future hosted** product (different `baseURL`). **New integrations should use `/v0`.** The repo no longer exposes legacy unversioned **`/runs`**, **`/workflows`**, or **`/agents`** roots on **`studio-server`**; implement those paths in your own gateway if you need them.
 
 ## Versioning
 

@@ -98,7 +98,8 @@ export default function App() {
       <p style={{ color: '#9ab', fontSize: '0.95rem' }}>
         Uses <code>useRunStream</code> and <code>useSendSignal</code> against Gateway API v0 (REST + SSE).
         Requires Temporal, Redis, <code>{'cd examples && npm run worker:hitl'}</code>,{' '}
-        <code>npm run api:dev</code> — see <code>README.md</code>.
+        <code>npm run hitl-gateway:dev</code> (or <code>cd examples && npm run server:hitl-gateway</code>) — see{' '}
+        <code>README.md</code>.
       </p>
 
       <label style={{ display: 'block', marginBottom: '0.35rem' }}>Topic</label>

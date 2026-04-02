@@ -1,8 +1,8 @@
 {
-  "name": "example-server",
+  "name": "studio-server",
   "version": "0.1.0",
   "private": true,
-  "description": "Example REST API server for Durion (start workflows/agents, get run status/result)",
+  "description": "Durion Studio backend: Gateway v0 `/v0/studio/*` + minimal `/v0/runs/*`, local OTLP `/v1/traces`",
   "scripts": {
     "build": "tsc",
     "start": "node dist/api/index.js",

@@ -32,7 +32,7 @@
 ## Token stream empty or incomplete
 
 - **Subscribe before start** — Open SSE **before** starting the workflow when using Redis or local bus (see [Streaming](streaming.md)).
-- **Redis** — Worker and **`example-server`** must share the same **`REDIS_URL`** and compatible stream bus configuration.
+- **Redis** — Worker and your **token-stream** gateway (e.g. **`examples/hitl-gateway`**) must share the same **`REDIS_URL`** and compatible stream bus configuration.
 
 ## Eval / Postgres errors
 

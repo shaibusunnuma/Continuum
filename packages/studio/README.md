@@ -4,7 +4,7 @@ Durion Studio — Run Explorer and live visualization for `workflow()`, `agent()
 
 ## Prerequisites
 
-- A running gateway (e.g. `example-server`) with Temporal reachable.
+- A running **Studio** gateway: **`studio-server`** via **`npm run api:dev`** at the monorepo root (default **`http://127.0.0.1:3000`**). The HITL demo uses **`examples/hitl-gateway`** on **3001** instead — not this app.
 - Optional: set `DURION_GATEWAY_TOKEN` on the gateway; then configure the Studio to send the same token.
 
 ## Local development

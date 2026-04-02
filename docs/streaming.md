@@ -29,4 +29,4 @@ If you enable **`DURION_GATEWAY_TOKEN`**, browsers cannot set arbitrary headers 
 
 ## Reference implementation
 
-See **`example-server/`** in the monorepo for a working gateway plus Redis wiring, and **`examples/react-hitl-ui/`** for a Vite client.
+See **`examples/hitl-gateway/`** for a minimal Gateway v0 with Redis token SSE, and **`examples/react-hitl-ui/`** for a Vite client. **`studio-server`** is the Durion Studio backend only (no token-stream route).

@@ -2,10 +2,10 @@
  * Human-in-the-loop example — one entry file.
  *
  *   worker — Temporal worker (terminal 1). Uses RedisStreamBus (REDIS_URL) so token SSE from
- *            example-server reaches the same channels as runModel(..., { stream: true }).
+ *            hitl-gateway reaches the same channels as runModel(..., { stream: true }).
  *   demo   — start draftEmail + signals via createClient (terminal 2).
  *
- * For the React UI, see examples/react-hitl-ui/README.md (Temporal + Redis + api:dev + ui:hitl).
+ * For the React UI, see examples/react-hitl-ui/README.md (Temporal + Redis + hitl-gateway + Vite).
  */
 import path from 'path';
 import crypto from 'crypto';

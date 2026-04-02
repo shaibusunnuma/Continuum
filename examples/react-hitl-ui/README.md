@@ -5,7 +5,7 @@ Full-stack demo: **Vite + React** uses **`useRunStream`** + **`useSendSignal`** 
 ## Prerequisites
 
 1. **Temporal** dev server (e.g. `temporal server start-dev`)
-2. **Redis** (e.g. `brew services start redis`) — same **`REDIS_URL`** for the HITL worker and `example-server` (`redis://127.0.0.1:6379` by default)
+2. **Redis** (e.g. `brew services start redis`) — same **`REDIS_URL`** for the HITL worker and **[examples/hitl-gateway](../hitl-gateway/README.md)** (`redis://127.0.0.1:6379` by default)
 3. Repo root **`.env`**: `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` (HITL worker uses Gemini)
 
 ## Run (four terminals)
@@ -16,14 +16,16 @@ From repo root (after `npm install` and `npm run build` at least once):
 |----------|---------|
 | 1 | Temporal |
 | 2 | `cd examples && npm run worker:hitl` |
-| 3 | `npm run api:dev` |
-| 4 | `npm run ui:hitl` (root) or `cd examples && npm run dev:react-hitl-ui` |
+| 3 | `npm run hitl-gateway:dev` or `cd examples && npm run server:hitl-gateway` |
+| 4 | `cd examples && npm run dev:react-hitl-ui` |
 
-Open **http://localhost:5173**. The UI proxies **`/v0`**, `/workflows`, and `/runs` to `http://127.0.0.1:3000` (override with `VITE_API_PROXY` in `vite.config.ts` env if needed).
+Open **http://localhost:5173**. The UI proxies **`/v0`** to `http://127.0.0.1:3001` (override with **`VITE_API_PROXY`** if needed).
+
+**Durion Studio** uses **`npm run api:dev`** (**`studio-server`**, port **3000**) — not this demo gateway.
 
 ### Optional gateway auth
 
-If `example-server` has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEWAY_TOKEN`** to the same value in the Vite app env so SSE (`access_token` query) and `fetch` calls include the token.
+If the HITL gateway has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEWAY_TOKEN`** to the same value in the Vite app env so SSE (`access_token` query) and `fetch` calls include the token.
 
 ## Flow
 
@@ -37,6 +39,9 @@ If `example-server` has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEW
 
 Defined on **[`examples/package.json`](../package.json)** (run from `examples/`):
 
+- `npm run server:hitl-gateway` — minimal Gateway v0 for this UI (delegates to monorepo workspace `@durion/examples-hitl-gateway`)
 - `npm run dev:react-hitl-ui` — Vite dev server
 - `npm run build:react-hitl-ui` — production bundle to `react-hitl-ui/dist/`
 - `npm run preview:react-hitl-ui` — preview production build
+
+From repo root: **`npm run hitl-gateway:dev`** starts the same gateway.

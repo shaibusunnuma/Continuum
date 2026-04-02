@@ -12,10 +12,12 @@ Single reference for values Durion, the example gateway, and typical workers rea
 
 Override per process when you run multiple workers (different queues).
 
-## Durion gateway (example-server / your gateway)
+## Durion gateway (Studio, HITL demo, or your own)
 
 | Variable | Purpose |
 |----------|---------|
+| `API_PORT` | **`studio-server`** listen port (default `3000`). |
+| `HITL_GATEWAY_PORT` | **`examples/hitl-gateway`** listen port (default `3001`). |
 | `DURION_GATEWAY_TOKEN` | When set, **`/v0/*`** routes require `Authorization: Bearer <token>`; SSE may use `access_token` query (browsers). |
 
 See [Gateway API v0](gateway-api-v0.md).
@@ -37,13 +39,13 @@ Only variables prefixed with `VITE_` are exposed to client bundles in Vite.
 
 Apply the eval SQL schema before capturing runs (see **`packages/eval/README.md`** in the monorepo, or your own migration pipeline).
 
-## Observability (example-server / your app)
+## Observability (studio-server / your app)
 
 | Variable | Purpose |
 |----------|---------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP trace endpoint when tracing is enabled in code |
 | `OTEL_SERVICE_NAME` | Service name on spans |
-| `DURION_PROMETHEUS_PORT` | Example server: Prometheus scrape port (default `9464` in reference code) |
+| `DURION_PROMETHEUS_PORT` | **`studio-server`**: Prometheus scrape port (default `9464` in reference code) |
 
 Tracing and metrics are toggled in code via `initObservability()` on the runtime or worker config.
 
@@ -53,7 +55,7 @@ Tracing and metrics are toggled in code via `initObservability()` on the runtime
 |----------|---------|
 | `REDIS_URL` | When using **`RedisStreamBus`** so workers and API share token pub/sub (e.g. `redis://127.0.0.1:6379`) |
 
-Worker and gateway **must** use the same Redis and channel naming (workflow id) for SSE to receive chunks.
+Worker and the process that serves **`GET …/token-stream`** (e.g. **`examples/hitl-gateway`**) **must** use the same Redis and channel naming (workflow id) for SSE to receive chunks.
 
 ## LLM providers
 

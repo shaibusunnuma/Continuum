@@ -20,12 +20,14 @@ Durion splits **authoring** (`workflow` / `agent` / `graph`), **execution** (wor
 ```mermaid
 flowchart TB
   subgraph clients [Clients]
-    ReactApp["React @durion/react\nuseRunStream · useSendSignal"]
+    ReactApp["React HITL demo\n@durion/react"]
+    StudioApp["Durion Studio SPA"]
     NodeClient["Node or CLI\ncreateClient Temporal gRPC"]
   end
 
   subgraph gatewayLayer [Optional HTTP]
-    ExampleSrv["example-server\nGateway API v0"]
+    ExampleSrv["studio-server\nStudio /v0 subset"]
+    HitlGw["examples/hitl-gateway\nfull v0 for HITL UI"]
   end
 
   subgraph durionRuntime [Durion runtime in your process]
@@ -39,12 +41,13 @@ flowchart TB
     LLMProviders["LLMs and tools"]
   end
 
-  ReactApp -->|"REST: start, signal, stream-state"| ExampleSrv
-  ReactApp -->|"SSE: token-stream"| ExampleSrv
+  ReactApp -->|"HITL demo"| HitlGw
+  StudioApp["Durion Studio SPA"] -->|"runs + studio"| ExampleSrv
   NodeClient -->|"Temporal gRPC"| TemporalSrv
-  NodeClient -.->|"optional: same REST API"| ExampleSrv
-  ExampleSrv -->|"start, query, signal"| TemporalSrv
-  ExampleSrv -->|"subscribe, relay to client"| RedisBus
+  NodeClient -.->|"optional: your REST API"| HitlGw
+  ExampleSrv -->|"query, describe"| TemporalSrv
+  HitlGw -->|"start, query, signal"| TemporalSrv
+  HitlGw -->|"subscribe, relay to client"| RedisBus
 
   WfBundle -.->|"bundled by"| WorkerProc
   WorkerProc -->|"poll task queue"| TemporalSrv
@@ -55,7 +58,7 @@ flowchart TB
 **`useRunStream`** already opens the token **SSE** and polls **`stream-state`** (same Gateway v0 paths). Use **`useGatewayStreamState`** + **`useGatewayTokenStream`** only when you need separate control; **`useWorkflowStreamState`** / **`useWorkflowTokenStream`** are fully custom URL escape hatches.
 
 - **`@durion/sdk`**: workflow/agent definitions, worker (`createWorker` / `createApp`), `createClient`, streaming helpers (`pipeStreamToResponse`, `RedisStreamBus`). Runs in **Node** next to Temporal workers.
-- **`example-server`**: reference **gateway** only — maps HTTP/SSE to Temporal and subscribes to Redis for token relay. Swap or omit it if you expose your own API.
+- **`studio-server`**: **Durion Studio** gateway — `/v0/studio/*` and minimal `/v0/runs/*` (no workflow start or token SSE here). **`examples/hitl-gateway`** is the small **full Gateway v0** app for the HITL React demo (Redis token SSE, signals). Swap or replace either with your own API.
 - **`@durion/react`**: **`useRunStream`**, **`useSendSignal`**, Gateway v0 helpers (`useGatewayStreamState`, `useGatewayTokenStream`, URL builders), and low-level hooks above.
 
 ## Installation
@@ -110,7 +113,7 @@ cd examples && npm run worker:customer-support
 cd examples && npm run client:customer-support -- demo customerSupport "I want a refund" ORD-123
 ```
 
-Other examples use the same pattern: a **`worker`** script plus a **`client:*` / `demo`** script that calls `createClient` and prints the result. See [examples/README.md](examples/README.md). If you prefer an HTTP gateway, you can run `npm run api` from the repo root and build your own routes; `example-server` is optional reference only.
+Other examples use the same pattern: a **`worker`** script plus a **`client:*` / `demo`** script that calls `createClient` and prints the result. See [examples/README.md](examples/README.md). If you prefer an HTTP gateway for demos, use **`examples/hitl-gateway`** or build your own routes; **`studio-server`** is only for Durion Studio.
 
 ## Usage
 
@@ -228,7 +231,7 @@ Optional `taskQueue` on `createClient` overrides the default (`TASK_QUEUE` env o
 
 ## React: progressive workflow UI
 
-Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@durion/react`** and use **`useGatewayStreamState`** + **`useGatewayTokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: `example-server`). Hook and URL helper names omit “v0”; paths still use `/v0/...`.
+Spec: **[docs/gateway-api-v0.md](docs/gateway-api-v0.md)** (Gateway API v0 — `/v0/runs/...`, `/v0/workflows/...`). Install **`@durion/react`** and use **`useGatewayStreamState`** + **`useGatewayTokenStream`** with **`baseURL`** and optional **`accessToken`** when your gateway implements v0 (reference: **`examples/hitl-gateway`** for a full v0 server). Hook and URL helper names omit “v0”; paths still use `/v0/...`.
 
 ```tsx
 import { useGatewayStreamState, useGatewayTokenStream } from '@durion/react';
@@ -301,9 +304,10 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | `packages/sdk` | Core SDK: `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()`, `createApp()` |
 | `packages/react` | React hooks: `useWorkflowStreamState` (poll stream state via your API) |
 | `packages/eval` | Optional evaluation plugin (capture runs, datasets, metrics) |
-| `example-server/` | Reference REST API to start workflows/agents, stream state, token SSE (Redis), and signals |
+| `studio-server/` | **Durion Studio** backend: `/v0/studio/*`, minimal `/v0/runs/*`, local OTLP — [studio-server/README.md](studio-server/README.md) |
 | `examples/` | Per-example workers and workflows (ReAct, multi-agent, etc.); see [examples/README.md](examples/README.md) |
-| `examples/react-hitl-ui/` | Vite + React: HITL + token streaming against `example-server` — [examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md) |
+| `examples/hitl-gateway/` | Minimal Gateway v0 for **react-hitl-ui** (port **3001** by default) — [examples/hitl-gateway/README.md](examples/hitl-gateway/README.md) |
+| `examples/react-hitl-ui/` | Vite + React: HITL + token streaming against **hitl-gateway** — [examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md) |
 
 ## Requirements
 
@@ -315,9 +319,10 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | Script | Description |
 |--------|-------------|
 | `npm run build` | Build all packages |
-| `npm run api` | Start the example API server |
-| `npm run api:dev` | Start the API with ts-node |
-| `npm run ui:hitl` | Vite app for HITL + SSE token streaming ([examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md)) |
+| `npm run api` | Start the **Durion Studio** gateway (built) |
+| `npm run api:dev` | Studio gateway with ts-node (port **3000** by default) |
+| `npm run hitl-gateway:dev` | **react-hitl-ui** Gateway v0 server (port **3001** by default) |
+| `cd examples && npm run dev:react-hitl-ui` | Vite app for HITL + SSE ([examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md)) |
 | *(examples)* | Example workers and clients — run from **`examples/`** with `npm run <script>`; see [examples/README.md](examples/README.md) |
 | `npm run test` | Run SDK tests |
 | `npm run eval:build-dataset` | Build evaluation dataset (optional) |

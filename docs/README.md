@@ -37,4 +37,5 @@
 
 - [Main README](../README.md) — overview, scripts, observability
 - [Examples README](../examples/README.md) — runnable workers in this repo
-- [Example HTTP server](../example-server/README.md) — reference gateway implementation
+- [Durion Studio gateway (`studio-server`)](../studio-server/README.md) — `/v0/studio` + minimal `/v0/runs`
+- [HITL demo gateway](../examples/hitl-gateway/README.md) — full Gateway v0 for `react-hitl-ui` (port 3001)
