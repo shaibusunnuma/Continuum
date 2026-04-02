@@ -51,16 +51,28 @@ function formatRunDateTime(iso: string | null | undefined): string {
   return Number.isFinite(ms) ? new Date(ms).toLocaleString() : '—';
 }
 
-function formatRunDuration(start: string | null, end: string | null): string {
-  if (!start || !end) return '—';
+function formatRunDuration(
+  start: string | null,
+  end: string | null,
+  opts?: { workflowStatus?: string | null },
+): string {
+  if (!start) return '—';
   const a = Date.parse(start);
-  const b = Date.parse(end);
-  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return '—';
+  if (!Number.isFinite(a)) return '—';
+  const status = opts?.workflowStatus?.toUpperCase() ?? '';
+  const useNowAsEnd = !end && status === 'RUNNING';
+  const b = useNowAsEnd ? Date.now() : end ? Date.parse(end) : NaN;
+  if (!Number.isFinite(b) || b < a) return '—';
   const ms = b - a;
-  if (ms < 1000) return `${ms}ms`;
-  const s = Math.floor(ms / 1000);
-  const rem = ms % 1000;
-  return rem > 0 ? `${s}s ${rem}ms` : `${s}s`;
+  const base =
+    ms < 1000
+      ? `${ms}ms`
+      : (() => {
+          const s = Math.floor(ms / 1000);
+          const rem = ms % 1000;
+          return rem > 0 ? `${s}s ${rem}ms` : `${s}s`;
+        })();
+  return useNowAsEnd ? `${base} (running)` : base;
 }
 
 const EMPTY_HISTORY: ParsedHistory = {
@@ -114,18 +126,26 @@ function HistoryActivityTimelineBlock({
   history,
   mergedSpans,
   isRunning,
+  describeStartMs,
+  describeCloseMs,
   onStepClick,
   onOpenChild,
 }: {
   history: ParsedHistory;
   mergedSpans: ActivitySpan[];
   isRunning: boolean;
+  /** From Temporal describe `startTime` — timeline + duration when history has no activity rows yet. */
+  describeStartMs: number | null;
+  describeCloseMs: number | null;
   onStepClick: (step: ActivityStep | null, nodeId?: string) => void;
   onOpenChild: (workflowId: string, childRunId?: string) => void;
 }) {
   const hasList = history.activitySteps.length > 0;
   const hasMergedSpans = mergedSpans.length > 0;
-  if (!hasList && !hasMergedSpans) return null;
+  const hasHistoryBounds = history.historyStartMs != null;
+  const hasDescribeAnchor = describeStartMs != null;
+  const showGantt = hasMergedSpans || hasHistoryBounds || hasDescribeAnchor;
+  if (!hasList && !showGantt) return null;
 
   const handleMergedSpanClick = (span: ActivitySpan) => {
     const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
@@ -149,18 +169,20 @@ function HistoryActivityTimelineBlock({
       <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
         Run timeline
       </p>
-      {hasMergedSpans && (
+      {showGantt && (
         <EventHistoryGantt
           spans={mergedSpans}
           historyStartMs={history.historyStartMs}
           historyEndMs={history.historyEndMs}
+          anchorStartMs={describeStartMs}
+          anchorCloseMs={describeCloseMs}
           isRunning={isRunning}
           timelineTitle="Activities & child workflows"
           onSpanClick={canClickSpans ? handleMergedSpanClick : undefined}
           isSpanClickable={canClickSpans ? isMergedSpanClickable : undefined}
         />
       )}
-      {hasList && !hasMergedSpans && (
+      {hasList && !showGantt && (
         <ActivityList steps={history.activitySteps} onStepClick={onStepClick} />
       )}
     </div>
@@ -446,7 +468,23 @@ export function RunDetail() {
 
   const taskQueueLabel = describe?.taskQueue ?? history.taskQueue ?? null;
 
-  const runDurationLabel = formatRunDuration(describe?.startTime ?? null, describe?.closeTime ?? null);
+  const describeStartMs = useMemo(() => {
+    const s = describe?.startTime;
+    if (!s) return null;
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : null;
+  }, [describe?.startTime]);
+
+  const describeCloseMs = useMemo(() => {
+    const s = describe?.closeTime;
+    if (!s) return null;
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : null;
+  }, [describe?.closeTime]);
+
+  const runDurationLabel = formatRunDuration(describe?.startTime ?? null, describe?.closeTime ?? null, {
+    workflowStatus: describe?.status ?? null,
+  });
 
   return (
     <div className="flex min-h-svh flex-col">
@@ -680,6 +718,8 @@ export function RunDetail() {
                       history={history}
                       mergedSpans={mergedTimelineSpans}
                       isRunning={describe?.status === 'RUNNING'}
+                      describeStartMs={describeStartMs}
+                      describeCloseMs={describeCloseMs}
                       onStepClick={openXRay}
                       onOpenChild={openChildRun}
                     />
@@ -696,6 +736,8 @@ export function RunDetail() {
                         history={history}
                         mergedSpans={mergedTimelineSpans}
                         isRunning={describe?.status === 'RUNNING'}
+                        describeStartMs={describeStartMs}
+                        describeCloseMs={describeCloseMs}
                         onStepClick={openXRay}
                         onOpenChild={openChildRun}
                       />
@@ -713,6 +755,8 @@ export function RunDetail() {
                         history={history}
                         mergedSpans={mergedTimelineSpans}
                         isRunning={describe?.status === 'RUNNING'}
+                        describeStartMs={describeStartMs}
+                        describeCloseMs={describeCloseMs}
                         onStepClick={openXRay}
                         onOpenChild={openChildRun}
                       />
@@ -720,7 +764,8 @@ export function RunDetail() {
                     </div>
                     {history.activitySteps.length === 0 &&
                       mergedTimelineSpans.length === 0 &&
-                      history.childWorkflowSteps.length === 0 && (
+                      history.childWorkflowSteps.length === 0 &&
+                      describeStartMs == null && (
                       <p className="text-muted-foreground p-4 font-mono text-sm">
                         Waiting for execution history…
                       </p>
@@ -735,6 +780,8 @@ export function RunDetail() {
                       history={history}
                       mergedSpans={mergedTimelineSpans}
                       isRunning={describe?.status === 'RUNNING'}
+                      describeStartMs={describeStartMs}
+                      describeCloseMs={describeCloseMs}
                       onStepClick={openXRay}
                       onOpenChild={openChildRun}
                     />
@@ -752,11 +799,15 @@ export function RunDetail() {
 
             {activeTab === 'events' && (
               <div className="flex max-h-[min(72vh,520px)] min-w-0 flex-col gap-4 overflow-y-auto pr-1">
-                {mergedTimelineSpans.length > 0 && (
+                {(mergedTimelineSpans.length > 0 ||
+                  history.historyStartMs != null ||
+                  describeStartMs != null) && (
                   <EventHistoryGantt
                     spans={mergedTimelineSpans}
                     historyStartMs={history.historyStartMs}
                     historyEndMs={history.historyEndMs}
+                    anchorStartMs={describeStartMs}
+                    anchorCloseMs={describeCloseMs}
                     isRunning={describe?.status === 'RUNNING'}
                     timelineTitle="Activities & child workflows"
                     onSpanClick={(span) => {

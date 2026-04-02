@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import type { ActivitySpan } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -133,6 +133,12 @@ interface Props {
   spans: ActivitySpan[];
   historyStartMs: number | null;
   historyEndMs: number | null;
+  /**
+   * Execution start/close from Temporal describe (ms). Fills the timeline when history events
+   * lack parseable times or no worker has produced activity rows yet.
+   */
+  anchorStartMs?: number | null;
+  anchorCloseMs?: number | null;
   /** When true, running activities extend to "now" and the window uses Date.now() as end. */
   isRunning?: boolean;
   /** Activity rows only; opens detail (e.g. X-Ray) for the matching scheduled event. */
@@ -147,6 +153,8 @@ export function EventHistoryGantt({
   spans,
   historyStartMs,
   historyEndMs,
+  anchorStartMs,
+  anchorCloseMs,
   isRunning,
   onSpanClick,
   isSpanClickable,
@@ -160,11 +168,13 @@ export function EventHistoryGantt({
   let t0 =
     historyStartMs ??
     spanMin ??
-    (spans[0]?.scheduledAt ?? null);
+    (spans[0]?.scheduledAt ?? null) ??
+    (anchorStartMs ?? null);
   let t1Raw =
     historyEndMs ??
     spanMax ??
-    (spans[spans.length - 1]?.endedAt ?? spans[spans.length - 1]?.scheduledAt ?? null);
+    (spans[spans.length - 1]?.endedAt ?? spans[spans.length - 1]?.scheduledAt ?? null) ??
+    (anchorCloseMs ?? null);
 
   // History bounds can collapse to ~1ms when activity `eventTime` wasn't parsed; spans still carry real instants.
   if (
@@ -217,8 +227,27 @@ export function EventHistoryGantt({
     [sortedEnriched],
   );
 
+  const workflowAwaitingProgress = sortedEnriched.length === 0 && !!isRunning;
+  const pendingBarStyle: CSSProperties | undefined = workflowAwaitingProgress
+    ? {
+        backgroundImage: `repeating-linear-gradient(
+          90deg,
+          color-mix(in oklch, var(--primary) 52%, transparent) 0px,
+          color-mix(in oklch, var(--primary) 52%, transparent) 3px,
+          color-mix(in oklch, var(--primary) 16%, transparent) 3px,
+          color-mix(in oklch, var(--primary) 16%, transparent) 6px
+        )`,
+      }
+    : undefined;
+
   return (
     <div className="rounded-md border border-border bg-card/30 p-4 font-mono text-xs">
+      {workflowAwaitingProgress && (
+        <p className="text-muted-foreground mb-2 text-[10px] leading-snug">
+          No activity tasks in history yet — the workflow is live on the server but no worker has
+          advanced it (compare Temporal&apos;s hatched workflow bar).
+        </p>
+      )}
       <div className="text-muted-foreground mb-2 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
         <span className="text-foreground">{timelineTitle}</span>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 tabular-nums text-[10px] text-muted-foreground/85">
@@ -240,12 +269,25 @@ export function EventHistoryGantt({
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-2">
-          <div className="flex min-h-3 items-center truncate text-muted-foreground" title="Workflow">
-            Workflow
+          <div
+            className="flex min-h-3 items-center truncate text-muted-foreground"
+            title={
+              workflowAwaitingProgress
+                ? 'Execution started; waiting for a worker to process workflow / activity tasks'
+                : 'Workflow execution window'
+            }
+          >
+            {workflowAwaitingProgress ? 'Workflow (pending)' : 'Workflow'}
           </div>
           <div className="relative h-3 min-w-0 overflow-hidden rounded bg-secondary/40">
             <TimelineColumnOverlay handoffAtMs={handoffAtMs} t0={t0} duration={duration} />
-            <div className="absolute inset-y-0.5 left-0 right-0 z-[2] rounded-sm bg-primary/35" />
+            <div
+              className={cn(
+                'absolute inset-y-0.5 left-0 right-0 z-[2] rounded-sm',
+                !workflowAwaitingProgress && 'bg-primary/35',
+              )}
+              style={pendingBarStyle}
+            />
           </div>
         </div>
 

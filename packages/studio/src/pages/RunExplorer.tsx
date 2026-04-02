@@ -846,14 +846,6 @@ export function RunExplorer() {
               />
             </label>
           </div>
-          <p className="w-full font-mono text-[10px] leading-snug text-muted-foreground">
-            Default view is root runs only; switch Composition to &quot;All runs&quot; or &quot;Child runs
-            only&quot; to broaden. Apply filters runs a new search. Confirm dates in the calendar to use
-            the time range. Parent workflow id limits to children of that id; optional parent run id
-            narrows to one parent execution (Temporal ParentRunId visibility). Primitive type and minimum
-            cost only filter rows already on this page (including after Load more). Use the sort icon in a
-            column header to change ordering.
-          </p>
         </div>
 
         {error && (
