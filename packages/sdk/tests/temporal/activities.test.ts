@@ -74,6 +74,7 @@ describe('activities', () => {
       });
 
       expect(result.content).toBe('Hello');
+      expect(result.modelId).toBe('fast');
       expect(result.usage.promptTokens).toBe(10);
       expect(result.usage.completionTokens).toBe(5);
       expect(result.usage.totalTokens).toBe(15);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { describeRun, getHistory, getResult, getStreamState, runDetailHref, type RunScopedQuery } from '@/lib/api';
 import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
+import { collectCostActivityStepsTree, hasEligibleChildWorkflowsForCost } from '@/lib/cost-tree';
 import { parseFullHistory } from '@/lib/parse-history';
 import { detectViewMode } from '@/lib/view-mode';
 import type { RunViewMode } from '@/lib/view-mode';
@@ -14,7 +15,7 @@ import { ChildWorkflowList } from '@/components/workflow/ChildWorkflowList';
 import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
 import { XRayPane } from '@/components/ui/XRayPane';
-import { CostBreakdown } from '@/components/run-explorer/CostBreakdown';
+import { CostBreakdown, type CompositionCostLoadError } from '@/components/run-explorer/CostBreakdown';
 import { CompositionPanel } from '@/components/run-explorer/CompositionPanel';
 import type { MemoTopology } from '@/lib/view-mode';
 import { Badge } from '@/components/ui/badge';
@@ -222,6 +223,15 @@ export function RunDetail() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(true);
 
+  /** Merged parent + child workflow activity steps for the Cost tab (when this run has completed children with run ids). */
+  const [compositionCostSteps, setCompositionCostSteps] = useState<ActivityStep[] | undefined>(undefined);
+  const [compositionCostLoading, setCompositionCostLoading] = useState(false);
+  const [compositionCostErrors, setCompositionCostErrors] = useState<CompositionCostLoadError[] | undefined>(
+    undefined,
+  );
+
+  const compositionTreeCost = useMemo(() => hasEligibleChildWorkflowsForCost(history), [history]);
+
   // Active tab for the content area
   const [activeTab, setActiveTab] = useState<'visualization' | 'events' | 'input' | 'result' | 'cost'>('visualization');
 
@@ -256,6 +266,51 @@ export function RunDetail() {
     setStreamState(null);
     setStreamAvailable(null);
   }, [workflowId, runIdFromQuery]);
+
+  useEffect(() => {
+    const ac = new AbortController();
+
+    if (!workflowId) {
+      setCompositionCostSteps(undefined);
+      setCompositionCostLoading(false);
+      setCompositionCostErrors(undefined);
+      return;
+    }
+
+    if (!hasEligibleChildWorkflowsForCost(history)) {
+      setCompositionCostSteps(undefined);
+      setCompositionCostLoading(false);
+      setCompositionCostErrors(undefined);
+      return;
+    }
+
+    setCompositionCostLoading(true);
+    setCompositionCostErrors(undefined);
+
+    void (async () => {
+      try {
+        const { steps, childLoadErrors } = await collectCostActivityStepsTree(history, async (wfId, runId) => {
+          if (ac.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+          const raw = await getHistory(wfId, { runId });
+          if (ac.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+          return parseFullHistory(raw);
+        });
+        if (ac.signal.aborted) return;
+        setCompositionCostSteps(steps);
+        setCompositionCostErrors(childLoadErrors.length > 0 ? childLoadErrors : undefined);
+      } catch (e) {
+        if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return;
+        setCompositionCostSteps(undefined);
+        setCompositionCostErrors([
+          { workflowId: '—', runId: '—', message: e instanceof Error ? e.message : String(e) },
+        ]);
+      } finally {
+        if (!ac.signal.aborted) setCompositionCostLoading(false);
+      }
+    })();
+
+    return () => ac.abort();
+  }, [workflowId, runIdFromQuery, history]);
 
   // ── Load describe + history first (Temporal server only); stream-state in background (needs worker) ──
   const fullRefresh = useCallback(async () => {
@@ -861,6 +916,10 @@ export function RunDetail() {
                 <CostBreakdown
                   history={history}
                   accumulatedCostUsd={describe?.memo?.accumulatedCost as number | undefined}
+                  activityStepsForCost={compositionTreeCost ? compositionCostSteps : undefined}
+                  treeMerged={compositionTreeCost}
+                  compositionCostLoading={compositionTreeCost && compositionCostLoading}
+                  compositionCostErrors={compositionCostErrors}
                 />
               </ScrollArea>
             )}

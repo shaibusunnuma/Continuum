@@ -52,7 +52,7 @@ export const composabilitySpecialist = agent('composabilitySpecialist', {
 });
 
 export const composabilityOrchestrator = agent('composabilityOrchestrator', {
-  model: 'fast',
+  model: 'reasoning',
   costCalculator: 'dev-prices',
   instructions:
     'You are a coordinator. If the user asks for expert or specialist help, call the specialist tool once with { "message": "<task>" }. ' +

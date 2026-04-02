@@ -23,8 +23,12 @@ import {
 } from '@durion/sdk';
 import { initEvaluation } from '@durion/eval';
 import { composabilityParent, composabilityOrchestrator } from './workflows';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+});
 
 async function runWorker(): Promise<void> {
   initObservability({ tracing: { enabled: true }, metrics: { enabled: true } });
@@ -35,7 +39,7 @@ async function runWorker(): Promise<void> {
   });
 
   const app = await createApp({
-    models: { fast: openai.chat('gpt-4o-mini') },
+    models: { fast: openai.chat('gpt-4o-mini'), reasoning: google('gemini-2.5-flash') },
     tools: [],
     costCalculators: {
       'dev-prices': createTableCostCalculator('example-openai-mini', EXAMPLE_PRICING_ROWS),

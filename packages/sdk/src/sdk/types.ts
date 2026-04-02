@@ -289,6 +289,8 @@ export interface RunModelResult {
   toolCalls: ToolCall[];
   usage: Usage;
   latencyMs?: number;
+  /** Durion registry model id from the activity request (for UIs that read history without reliable input payloads). */
+  modelId?: string;
   /** When structured output was requested (outputSchema), contains the parsed object as a JSON string. */
   parsedObject?: string;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ParsedHistory } from '@/lib/types';
+import type { ActivityStep, ParsedHistory } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,9 +62,62 @@ function estimateStepCostUsdFromProfile(
   return 0;
 }
 
+function pickModelIdFromObject(o: unknown): string | undefined {
+  if (o == null || typeof o !== 'object') return undefined;
+  const m = (o as Record<string, unknown>).modelId;
+  return typeof m === 'string' && m.trim() !== '' ? m.trim() : undefined;
+}
+
+/** Prefer `modelId` on activity result (SDK); then scan activity input payloads (Temporal may use multi-arg arrays). */
+function registryModelIdForRunModelStep(
+  step: ActivityStep,
+  payload: Record<string, unknown> | null,
+): string | undefined {
+  const fromResult = payload ? pickModelIdFromObject(payload) : undefined;
+  if (fromResult) return fromResult;
+  const raw = step.input;
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const id = pickModelIdFromObject(item);
+      if (id) return id;
+    }
+    return undefined;
+  }
+  return pickModelIdFromObject(raw);
+}
+
+function traceContextFromRunModelInput(raw: unknown): { agentName?: string } | undefined {
+  const pick = (o: unknown): { agentName?: string } | undefined => {
+    if (o == null || typeof o !== 'object') return undefined;
+    const tc = (o as Record<string, unknown>).traceContext;
+    if (tc && typeof tc === 'object') return tc as { agentName?: string };
+    return undefined;
+  };
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const tc = pick(item);
+      if (tc) return tc;
+    }
+    return undefined;
+  }
+  return pick(raw);
+}
+
+export interface CompositionCostLoadError {
+  workflowId: string;
+  runId: string;
+  message: string;
+}
+
 interface CostBreakdownProps {
   history: ParsedHistory;
   accumulatedCostUsd?: number; // from describe memo if present
+  /** When set, aggregation uses these steps (e.g. parent + fetched child histories). */
+  activityStepsForCost?: ActivityStep[];
+  /** True when this run has child workflows and costs are aggregated across the tree. */
+  treeMerged?: boolean;
+  compositionCostLoading?: boolean;
+  compositionCostErrors?: CompositionCostLoadError[];
 }
 
 function CumulativeCostSparkline({ steps }: { steps: { cumulative: number }[] }) {
@@ -87,7 +140,14 @@ function CumulativeCostSparkline({ steps }: { steps: { cumulative: number }[] })
   );
 }
 
-export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProps) {
+export function CostBreakdown({
+  history,
+  accumulatedCostUsd,
+  activityStepsForCost,
+  treeMerged = false,
+  compositionCostLoading = false,
+  compositionCostErrors,
+}: CostBreakdownProps) {
   const [costView, setCostView] = useState<'recorded' | 'estimate'>('recorded');
   const [profileJson, setProfileJson] = useState('{}');
   const [profileDirty, setProfileDirty] = useState(false);
@@ -112,6 +172,8 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
     }
   }, [profileJson]);
 
+  const stepsForCost = activityStepsForCost ?? history.activitySteps;
+
   const { nodeStats, totals, modelDistribution, cumulativeCostSteps, attributionSummaries, studioEstimateUsd } =
     useMemo(() => {
       const stats = new Map<
@@ -135,7 +197,7 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
       let cumulative = 0;
       const attributionMap = new Map<string, CostAttributionLite>();
 
-      for (const step of history.activitySteps) {
+      for (const step of stepsForCost) {
         if (step.activityName !== 'runModel' && step.activityName !== 'runTool') continue;
 
         const payload = (step.result?.payload || step.result) as Record<string, unknown> | null;
@@ -157,11 +219,10 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
               ? payload.costUsd
               : 0;
         const latencyMs = typeof payload.latencyMs === 'number' ? payload.latencyMs : 0;
-        const inputData = Array.isArray(step.input) ? step.input[0] : step.input;
-        const modelId = inputData?.modelId as string | undefined;
+        const modelId = registryModelIdForRunModelStep(step, payload);
 
         let nodeRef = step.activityName;
-        const tc = inputData?.traceContext as { agentName?: string } | undefined;
+        const tc = traceContextFromRunModelInput(step.input);
         if (tc?.agentName) {
           nodeRef = tc.agentName;
         }
@@ -245,14 +306,22 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
         attributionSummaries: [...attributionMap.values()],
         studioEstimateUsd,
       };
-    }, [history, pricingProfile]);
+    }, [stepsForCost, pricingProfile]);
 
-  const recordedDisplayCost =
-    accumulatedCostUsd !== undefined && accumulatedCostUsd > 0 ? accumulatedCostUsd : totals.costUsd;
+  const recordedDisplayCost = treeMerged
+    ? totals.costUsd
+    : accumulatedCostUsd !== undefined && accumulatedCostUsd > 0
+      ? accumulatedCostUsd
+      : totals.costUsd;
   const displayCost = costView === 'estimate' ? studioEstimateUsd : recordedDisplayCost;
   const hasUsage = totals.prompt > 0 || totals.completion > 0;
 
-  if (!hasUsage && recordedDisplayCost === 0 && studioEstimateUsd === 0) {
+  if (
+    !compositionCostLoading &&
+    !hasUsage &&
+    recordedDisplayCost === 0 &&
+    studioEstimateUsd === 0
+  ) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-muted-foreground border border-dashed rounded-lg bg-muted/40 backdrop-blur-md">
         <Activity className="h-8 w-8 mb-4 opacity-50" />
@@ -262,8 +331,39 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
     );
   }
 
+  if (
+    compositionCostLoading &&
+    !hasUsage &&
+    totals.costUsd === 0 &&
+    studioEstimateUsd === 0
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-muted-foreground border border-dashed rounded-lg bg-muted/40 backdrop-blur-md">
+        <Activity className="h-8 w-8 mb-4 opacity-50 animate-pulse" />
+        <h3 className="text-lg font-medium text-primary/80 tracking-tight">Loading composition costs</h3>
+        <p className="text-sm opacity-70">Fetching child workflow histories for this run…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      {(compositionCostLoading || (compositionCostErrors && compositionCostErrors.length > 0)) && (
+        <div className="md:col-span-2 lg:col-span-3 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          {compositionCostLoading && (
+            <p className="font-mono text-amber-600/90">Merging child workflow costs…</p>
+          )}
+          {compositionCostErrors && compositionCostErrors.length > 0 && (
+            <ul className="mt-1 list-disc space-y-0.5 pl-4 font-mono text-[10px] text-amber-700/90">
+              {compositionCostErrors.map((e) => (
+                <li key={`${e.workflowId}:${e.runId}`}>
+                  {e.workflowId} / {e.runId}: {e.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {/* KPI Cards */}
       <Card className="bg-card/90 border-border/80 backdrop-blur-xl shadow-2xl relative overflow-hidden group gap-2 py-3">
         <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
@@ -285,6 +385,11 @@ export function CostBreakdown({ history, accumulatedCostUsd }: CostBreakdownProp
           <CardTitle className="text-3xl font-light tracking-tighter text-foreground">
             ${displayCost.toFixed(5)}
           </CardTitle>
+          {costView === 'recorded' && treeMerged && (
+            <p className="text-muted-foreground font-mono text-[10px] leading-snug">
+              Includes model usage from child workflow executions in this composition.
+            </p>
+          )}
           {costView === 'estimate' && (
             <p className="text-muted-foreground font-mono text-[10px] leading-snug">
               From local pricing profile JSON (keys = provider model id, e.g. gpt-4o-mini, or registry id

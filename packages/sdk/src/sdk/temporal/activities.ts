@@ -400,6 +400,7 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
       ...(result.costAttribution ? { costAttribution: result.costAttribution } : {}),
     },
     latencyMs: result.latencyMs,
+    modelId: params.modelId,
     ...(result.parsedObject !== undefined ? { parsedObject: JSON.stringify(result.parsedObject) } : {}),
   };
 }
