@@ -22,7 +22,7 @@
     "client:hitl": "ts-node human-in-the-loop/run.ts demo",
     "worker:composability": "ts-node composability/run.ts worker",
     "client:composability": "ts-node composability/run.ts demo",
-    "server:hitl-gateway": "npm --prefix .. run dev -w @durion/examples-hitl-gateway",
+    "server:hitl-gateway": "npm --prefix hitl-gateway run dev",
     "dev:react-hitl-ui": "vite --config react-hitl-ui/vite.config.ts",
     "build:react-hitl-ui": "vite build --config react-hitl-ui/vite.config.ts",
     "preview:react-hitl-ui": "vite preview --config react-hitl-ui/vite.config.ts"

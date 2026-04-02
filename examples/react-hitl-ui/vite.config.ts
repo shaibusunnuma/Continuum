@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-/** HITL demo API — `@durion/examples-hitl-gateway` (default port 3001). Studio uses `studio-server` on 3000. */
+/** HITL demo API — `examples/hitl-gateway` (default port 3001). Studio uses `studio-server` on 3000. */
 const apiTarget = process.env.VITE_API_PROXY ?? 'http://127.0.0.1:3001';
 
 export default defineConfig({

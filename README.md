@@ -321,7 +321,7 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | `npm run build` | Build all packages |
 | `npm run api` | Start the **Durion Studio** gateway (built) |
 | `npm run api:dev` | Studio gateway with ts-node (port **3000** by default) |
-| `npm run hitl-gateway:dev` | **react-hitl-ui** Gateway v0 server (port **3001** by default) |
+| `npm run hitl-gateway:dev` | **react-hitl-ui** Gateway v0 (`examples/hitl-gateway`; run **`npm install` there once**) |
 | `cd examples && npm run dev:react-hitl-ui` | Vite app for HITL + SSE ([examples/react-hitl-ui/README.md](examples/react-hitl-ui/README.md)) |
 | *(examples)* | Example workers and clients — run from **`examples/`** with `npm run <script>`; see [examples/README.md](examples/README.md) |
 | `npm run test` | Run SDK tests |

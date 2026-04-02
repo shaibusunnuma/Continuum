@@ -35,5 +35,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Install and build hitl-gateway (examples-only, not a root workspace)
+        run: |
+          npm ci --prefix examples/hitl-gateway
+          npm run build --prefix examples/hitl-gateway
+
       - name: Test
         run: npm test

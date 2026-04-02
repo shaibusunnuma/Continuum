@@ -10,7 +10,7 @@ Full-stack demo: **Vite + React** uses **`useRunStream`** + **`useSendSignal`** 
 
 ## Run (four terminals)
 
-From repo root (after `npm install` and `npm run build` at least once):
+From repo root (after `npm install`, `npm run build`, and **`cd examples/hitl-gateway && npm install`** once):
 
 | Terminal | Command |
 |----------|---------|
@@ -39,7 +39,7 @@ If the HITL gateway has **`DURION_GATEWAY_TOKEN`** set, set **`VITE_DURION_GATEW
 
 Defined on **[`examples/package.json`](../package.json)** (run from `examples/`):
 
-- `npm run server:hitl-gateway` — minimal Gateway v0 for this UI (delegates to monorepo workspace `@durion/examples-hitl-gateway`)
+- `npm run server:hitl-gateway` — runs **`examples/hitl-gateway`** (install deps there first; see [hitl-gateway README](../hitl-gateway/README.md))
 - `npm run dev:react-hitl-ui` — Vite dev server
 - `npm run build:react-hitl-ui` — production bundle to `react-hitl-ui/dist/`
 - `npm run preview:react-hitl-ui` — preview production build

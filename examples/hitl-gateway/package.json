@@ -1,15 +1,15 @@
 {
-  "name": "@durion/examples-hitl-gateway",
+  "name": "hitl-gateway",
   "version": "0.1.0",
   "private": true,
-  "description": "Minimal Gateway v0 server for examples/react-hitl-ui (workflows/start, runs SSE, signals). Not used by Durion Studio.",
+  "description": "Minimal Gateway v0 server for examples/react-hitl-ui (workflows/start, runs SSE, signals). Not part of the root npm workspace — install deps in this directory.",
   "scripts": {
     "build": "tsc",
     "start": "ts-node --project tsconfig.json src/api/index.ts",
     "dev": "ts-node --project tsconfig.json src/api/index.ts"
   },
   "dependencies": {
-    "@durion/sdk": "*",
+    "@durion/sdk": "file:../../packages/sdk",
     "@temporalio/client": "^1.15.0",
     "dotenv": "^17.3.1",
     "fastify": "^5.8.2",

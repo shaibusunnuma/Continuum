@@ -12,17 +12,22 @@ Loads **`.env`** from the monorepo root (`../../..` from `src/config.ts`) and fr
 
 ## Run
 
-From the monorepo root (after `npm install`):
+This package is **not** in the root **`workspaces`** list. Install dependencies here once (after a root `npm install` so `packages/sdk` is built):
+
+```bash
+cd examples/hitl-gateway && npm install
+```
+
+From the monorepo root:
+
+```bash
+npm run hitl-gateway:dev
+```
+
+Or from **`examples/`**:
 
 ```bash
 npm run server:hitl-gateway
 ```
 
-Or from this directory:
-
-```bash
-npm install
-npm run dev
-```
-
-The **examples** workspace script runs `npm run dev -w @durion/examples-hitl-gateway`.
+Or from this directory: **`npm run dev`**

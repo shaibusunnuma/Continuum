@@ -6,14 +6,13 @@
   "packageManager": "npm@10.0.0",
   "workspaces": [
     "packages/*",
-    "studio-server",
-    "examples/hitl-gateway"
+    "studio-server"
   ],
   "scripts": {
     "build": "turbo run build",
     "api": "node studio-server/dist/api/index.js",
     "api:dev": "ts-node studio-server/src/api/index.ts",
-    "hitl-gateway:dev": "npm run dev -w @durion/examples-hitl-gateway",
+    "hitl-gateway:dev": "npm --prefix examples/hitl-gateway run dev",
     "start": "npm run api",
     "eval:build-dataset": "ts-node scripts/eval-build-dataset.ts",
     "eval:run": "ts-node scripts/eval-run.ts",

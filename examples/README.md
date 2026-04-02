@@ -29,7 +29,7 @@ For a minimal remote client pattern, see [REMOTE_CLIENT.md](REMOTE_CLIENT.md).
 | **human-in-the-loop** | `worker:hitl`, `client:hitl` | `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`; **`REDIS_URL`** for token SSE with [hitl-gateway](hitl-gateway/README.md) | CLI `client:hitl` runs the scripted approve/reject flow. Optional: `server:hitl-gateway` + [react-hitl-ui](react-hitl-ui/README.md) for a browser UI. |
 | **composability** | `worker:composability`, `client:composability` | `OPENAI_API_KEY` | `ctx.run()` and agent `delegates`. See [composability/README.md](composability/README.md). |
 
-**UI demo:** [react-hitl-ui](react-hitl-ui/) — Vite app; run **`npm run server:hitl-gateway`** (or repo root **`npm run hitl-gateway:dev`**) plus **`npm run dev:react-hitl-ui`** from `examples/` (see [react-hitl-ui/README.md](react-hitl-ui/README.md)).
+**UI demo:** [react-hitl-ui](react-hitl-ui/) — Vite app. Install **[hitl-gateway](hitl-gateway/README.md)** deps once (`cd hitl-gateway && npm install`), then **`npm run server:hitl-gateway`** or repo root **`npm run hitl-gateway:dev`**, plus **`npm run dev:react-hitl-ui`** from `examples/`.
 
 ## Run (from `examples/` after repo `npm install`, `cd examples && npm install`, and `npm run build` at repo root)
 
@@ -56,4 +56,4 @@ npm run server:hitl-gateway
 npm run dev:react-hitl-ui
 ```
 
-Or one-liners from the repo root: `cd examples && npm run worker:customer-support`, etc. For the HITL UI: `npm run hitl-gateway:dev` at the repo root and, in another terminal, `cd examples && npm run dev:react-hitl-ui`.
+Or one-liners from the repo root: `cd examples && npm run worker:customer-support`, etc. For the HITL UI: install **`examples/hitl-gateway`** deps once, then `npm run hitl-gateway:dev` at the repo root and, in another terminal, `cd examples && npm run dev:react-hitl-ui`.
