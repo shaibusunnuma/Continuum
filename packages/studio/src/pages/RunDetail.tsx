@@ -118,10 +118,6 @@ function ChildWorkflowCompositionBlock({ history }: { history: ParsedHistory }) 
       <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
         Child workflows
       </p>
-      <p className="text-muted-foreground font-mono text-[11px] leading-relaxed">
-        Child runs appear as <span className="text-foreground/90">Child: …</span> rows in the run timeline above.
-        Use the list below for workflow id, run id, and links.
-      </p>
       <ChildWorkflowList steps={history.childWorkflowSteps} />
     </div>
   );
@@ -605,26 +601,6 @@ export function RunDetail() {
           </p>
         )}
 
-        <CompositionPanel
-          workflowId={workflowId}
-          describe={
-            describe
-              ? {
-                  runId: describe.runId,
-                  parentWorkflowId: describe.parentWorkflowId,
-                  parentRunId: describe.parentRunId,
-                  rootWorkflowId: describe.rootWorkflowId,
-                  rootRunId: describe.rootRunId,
-                  memo: describe.memo,
-                  startTime: describe.startTime,
-                  closeTime: describe.closeTime,
-                  status: describe.status,
-                }
-              : null
-          }
-          historyChildSteps={history.childWorkflowSteps}
-        />
-
         {/* ── Run summary (Temporal-style dense header + graph extras) ─ */}
         <Card className="border-border py-0">
           <CardContent className="space-y-2 p-3 font-mono text-[10px] leading-tight">
@@ -730,6 +706,26 @@ export function RunDetail() {
             )}
           </CardContent>
         </Card>
+
+        <CompositionPanel
+          workflowId={workflowId}
+          describe={
+            describe
+              ? {
+                  runId: describe.runId,
+                  parentWorkflowId: describe.parentWorkflowId,
+                  parentRunId: describe.parentRunId,
+                  rootWorkflowId: describe.rootWorkflowId,
+                  rootRunId: describe.rootRunId,
+                  memo: describe.memo,
+                  startTime: describe.startTime,
+                  closeTime: describe.closeTime,
+                  status: describe.status,
+                }
+              : null
+          }
+          historyChildSteps={history.childWorkflowSteps}
+        />
 
         {isDegraded && (
           <div className="rounded border border-border bg-secondary/30 px-4 py-2.5 font-mono text-xs text-muted-foreground">

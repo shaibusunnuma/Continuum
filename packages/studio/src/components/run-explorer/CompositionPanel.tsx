@@ -223,15 +223,6 @@ export function CompositionPanel({
           ) : (
             <p className="text-muted-foreground">Root run (no parent workflow)</p>
           )}
-          <div className="flex min-w-0 items-start gap-1.5 pt-0.5">
-            <CornerUpLeft className="mt-0.5 size-3 shrink-0 text-muted-foreground/70" aria-hidden />
-            <div className="min-w-0">
-              <span className="text-muted-foreground">This run </span>
-              <span className="text-foreground break-all" title={workflowId}>
-                {workflowId}
-              </span>
-            </div>
-          </div>
         </div>
 
         {rollup.hasRollup && (
@@ -259,10 +250,6 @@ export function CompositionPanel({
                 )}
               </div>
             </div>
-            <p className="text-muted-foreground/80 text-[9px] leading-snug normal-case">
-              Totals include memo-backed usage on this run and listed children when present. Gaps mean
-              missing memo or still-running children.
-            </p>
           </div>
         )}
 
@@ -312,7 +299,7 @@ export function CompositionPanel({
               ))}
             </ul>
           )}
-          {historyChildSteps.length > 0 && (
+          {/* {historyChildSteps.length > 0 && (
             <p className="text-muted-foreground/85 border-t border-border pt-2 text-[9px] leading-snug normal-case">
               <span className="font-medium text-muted-foreground">History: </span>
               {historyChildSteps.length} child workflow start{historyChildSteps.length === 1 ? '' : 's'}{' '}
@@ -321,7 +308,7 @@ export function CompositionPanel({
               Temporal child workflows for both <code className="text-foreground/90">ctx.run()</code> and
               agent <code className="text-foreground/90">delegates</code>.
             </p>
-          )}
+          )} */}
         </div>
       </CardContent>
     </Card>
