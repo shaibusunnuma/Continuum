@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { CornerUpLeft, GitBranch, Layers } from 'lucide-react';
+import { GitBranch, Layers } from 'lucide-react';
 import { listRuns, runDetailHref } from '@/lib/api';
 import { usageFromDurionMemo } from '@/lib/memo-usage';
 import type { ChildWorkflowStep, StudioRunRow } from '@/lib/types';
