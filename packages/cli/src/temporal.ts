@@ -24,14 +24,16 @@ export function detectTemporalCli(): TemporalInfo {
     const versionMatch = result.match(/(\d+\.\d+\.\d+)/);
 
     let binPath: string | undefined;
+    const whichCmd = process.platform === 'win32' ? 'where temporal' : 'which temporal';
     try {
-      binPath = execSync('which temporal', {
+      const raw = execSync(whichCmd, {
         encoding: 'utf-8',
         timeout: 3000,
         stdio: ['pipe', 'pipe', 'pipe'],
       }).trim();
+      binPath = raw.split(/\r?\n/)[0];
     } catch {
-      // which may not be available on all systems
+      // which/where may not be available on all systems
     }
 
     return {

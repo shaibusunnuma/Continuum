@@ -71,40 +71,54 @@ export const hello = workflow('hello', async (ctx) => {
 const HELLO_WORKER = `import 'dotenv/config';
 import { createRuntime, createWorker } from '@durion/sdk';
 import { {{llmImport}} } from '{{llmPackage}}';
-import { tools } from './tools/index.js';
+import { tools } from './tools';
 
-const runtime = createRuntime({
-  models: {
-    fast: {{llmModel}},
-  },
-  tools,
+async function main() {
+  const runtime = createRuntime({
+    models: {
+      fast: {{llmModel}},
+    },
+    tools,
+  });
+
+  const worker = await createWorker({
+    runtime,
+    workflowsPath: require.resolve('./workflows'),
+  });
+
+  console.log('Worker started — waiting for tasks...');
+  await worker.run();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
-
-const worker = await createWorker({
-  runtime,
-  workflowsPath: require.resolve('./workflows'),
-});
-
-console.log('Worker started — waiting for tasks...');
-await worker.run();
 `;
 
 const HELLO_CLIENT = `import 'dotenv/config';
 import { createClient } from '@durion/sdk';
 import { hello } from './workflows';
 
-const client = await createClient();
+async function main() {
+  const client = await createClient();
 
-console.log('Starting hello workflow...');
-const run = await client.start(hello, {
-  input: { topic: 'the weather' },
+  console.log('Starting hello workflow...');
+  const run = await client.start(hello, {
+    input: { topic: 'the weather' },
+  });
+
+  console.log('Run started:', run.workflowId);
+  const result = await run.result();
+  console.log('Result:', JSON.stringify(result, null, 2));
+
+  await client.close();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
-
-console.log('Run started:', run.workflowId);
-const result = await run.result();
-console.log('Result:', JSON.stringify(result, null, 2));
-
-await client.close();
 `;
 
 const HELLO_TOOLS = `import { z } from 'zod';
@@ -138,42 +152,56 @@ information and performing actions. Be concise and helpful.\`,
 const AGENT_WORKER = `import 'dotenv/config';
 import { createRuntime, createWorker } from '@durion/sdk';
 import { {{llmImport}} } from '{{llmPackage}}';
-import { tools } from './tools/index.js';
+import { tools } from './tools';
 
-const runtime = createRuntime({
-  models: {
-    fast: {{llmModel}},
-  },
-  tools,
+async function main() {
+  const runtime = createRuntime({
+    models: {
+      fast: {{llmModel}},
+    },
+    tools,
+  });
+
+  const worker = await createWorker({
+    runtime,
+    workflowsPath: require.resolve('./workflows'),
+  });
+
+  console.log('Worker started — waiting for tasks...');
+  await worker.run();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
-
-const worker = await createWorker({
-  runtime,
-  workflowsPath: require.resolve('./workflows'),
-});
-
-console.log('Worker started — waiting for tasks...');
-await worker.run();
 `;
 
 const AGENT_CLIENT = `import 'dotenv/config';
 import { createClient } from '@durion/sdk';
 import { assistant } from './workflows';
 
-const client = await createClient();
+async function main() {
+  const client = await createClient();
 
-const message = process.argv[2] || 'What time is it?';
-console.log('Sending:', message);
+  const message = process.argv[2] || 'What time is it?';
+  console.log('Sending:', message);
 
-const run = await client.start(assistant, {
-  input: { message },
+  const run = await client.start(assistant, {
+    input: { message },
+  });
+
+  console.log('Run started:', run.workflowId);
+  const result = await run.result();
+  console.log('Result:', JSON.stringify(result, null, 2));
+
+  await client.close();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
-
-console.log('Run started:', run.workflowId);
-const result = await run.result();
-console.log('Result:', JSON.stringify(result, null, 2));
-
-await client.close();
 `;
 
 const AGENT_TOOLS = `import { z } from 'zod';
@@ -225,20 +253,27 @@ const BLANK_WORKER = `import 'dotenv/config';
 import { createRuntime, createWorker } from '@durion/sdk';
 import { {{llmImport}} } from '{{llmPackage}}';
 
-const runtime = createRuntime({
-  models: {
-    fast: {{llmModel}},
-  },
-  tools: [],
-});
+async function main() {
+  const runtime = createRuntime({
+    models: {
+      fast: {{llmModel}},
+    },
+    tools: [],
+  });
 
-const worker = await createWorker({
-  runtime,
-  workflowsPath: require.resolve('./workflows'),
-});
+  const worker = await createWorker({
+    runtime,
+    workflowsPath: require.resolve('./workflows'),
+  });
 
-console.log('Worker started — waiting for tasks...');
-await worker.run();
+  console.log('Worker started — waiting for tasks...');
+  await worker.run();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
 `;
 
 const BLANK_TOOLS = `import type { ToolDefinition } from '@durion/sdk';
