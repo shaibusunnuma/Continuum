@@ -300,7 +300,8 @@ export default defineConfig({
 const TSCONFIG = `{
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "lib": ["ES2020"],
     "strict": true,
     "esModuleInterop": true,
