@@ -160,4 +160,6 @@ export interface GraphCheckpoint<TState> {
   completedNodes: string[];
   iteration: number;
   resumeFrom: string[];
+  accumulatedCost?: number;
+  totalUsage?: Usage;
 }

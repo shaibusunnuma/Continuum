@@ -172,11 +172,11 @@ export function graph<
     }
     // ── Initialize state (fresh or from checkpoint) ──────────────────────
     const isCheckpoint = (input as GraphCheckpoint<TState>).resumeFrom !== undefined;
+    const checkpoint = isCheckpoint ? (input as GraphCheckpoint<TState>) : undefined;
     let state: TState;
     let startIteration = 0;
     let resumeFrom: string[] | undefined;
-    if (isCheckpoint) {
-      const checkpoint = input as GraphCheckpoint<TState>;
+    if (checkpoint) {
       state = checkpoint.state;
       startIteration = checkpoint.iteration;
       resumeFrom = checkpoint.resumeFrom;
@@ -194,12 +194,12 @@ export function graph<
       state = parseResult.data!;
     }
     // ── Execution tracking ──────────────────────────────────────────────
-    const executedNodes: string[] = [];
-    const completedSet = new Set<string>();
+    const executedNodes: string[] = checkpoint ? [...checkpoint.completedNodes] : [];
+    const completedSet = new Set<string>(executedNodes);
     const nodeSet = new Set(Object.keys(config.nodes));
     let iteration = startIteration;
-    let accumulatedCost = 0;
-    const totalUsage: Usage = {
+    let accumulatedCost = checkpoint?.accumulatedCost ?? 0;
+    const totalUsage: Usage = checkpoint?.totalUsage ? { ...checkpoint.totalUsage } : {
       promptTokens: 0,
       completionTokens: 0,
       totalTokens: 0,
@@ -378,7 +378,7 @@ export function graph<
           executedNodes.push(nodeName);
           return executeNode(fallbackNode, errorInfo);
         }
-        throw err;
+        throw Object.assign(err instanceof Error ? err : new Error(String(err)), { __nodeName: nodeName });
       }
       const result = nodeResult != null && typeof nodeResult === 'object' ? nodeResult : {} as Partial<TState>;
       completedSet.add(nodeName);
@@ -539,6 +539,8 @@ export function graph<
               completedNodes: [...executedNodes],
               iteration,
               resumeFrom: [...readyQueue],
+              accumulatedCost,
+              totalUsage,
             };
             await wf.continueAsNew<typeof graphFn>(checkpoint);
           }
@@ -576,7 +578,7 @@ export function graph<
       };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      const errorNode = executedNodes[executedNodes.length - 1] ?? 'unknown';
+      const errorNode = (err as any)?.__nodeName ?? executedNodes[executedNodes.length - 1] ?? 'unknown';
       streamState = {
         ...streamState,
         status: 'error',
