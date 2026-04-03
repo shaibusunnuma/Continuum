@@ -1,7 +1,5 @@
 ---
 "@durion/sdk": minor
-"@durion/cli": minor
-"create-durion": minor
 "@durion/react": patch
 "@durion/eval": patch
 ---
