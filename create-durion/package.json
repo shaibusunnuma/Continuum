@@ -1,0 +1,27 @@
+{
+  "name": "create-durion",
+  "version": "0.1.0",
+  "description": "Scaffold a new Durion project — durable AI workflows and agents on Temporal",
+  "bin": {
+    "create-durion": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.10.0",
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}
