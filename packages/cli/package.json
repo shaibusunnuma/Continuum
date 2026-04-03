@@ -1,0 +1,35 @@
+{
+  "name": "@durion/cli",
+  "version": "0.1.0",
+  "description": "Durion CLI — dev server, Studio, and project tooling",
+  "bin": {
+    "durion": "./dist/bin.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@durion/sdk": "*",
+    "@temporalio/client": "^1.15.0",
+    "commander": "^13.1.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.2",
+    "get-port": "^7.1.0",
+    "jiti": "^2.4.2",
+    "nanoid": "^5.1.6",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist"
+  ]
+}
