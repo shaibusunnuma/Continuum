@@ -2,13 +2,24 @@
   "name": "create-durion",
   "version": "0.1.0",
   "description": "Scaffold a new Durion project — durable AI workflows and agents on Temporal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaibusunnuma/durion.git",
+    "directory": "create-durion"
+  },
+  "homepage": "https://github.com/shaibusunnuma/durion#readme",
+  "bugs": {
+    "url": "https://github.com/shaibusunnuma/durion/issues"
+  },
   "bin": {
     "create-durion": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",

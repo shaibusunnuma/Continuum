@@ -353,7 +353,7 @@ function makePackageJson(template: string): string {
     "build": "tsc"
   },
   "dependencies": {
-    "@durion/sdk": "^0.1.0",
+    "@durion/sdk": "^0.3.0",
     "{{llmPackage}}": "latest",
     "zod": "^4.0.0",
     "dotenv": "^17.0.0"

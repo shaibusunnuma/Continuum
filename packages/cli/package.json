@@ -2,6 +2,16 @@
   "name": "@durion/cli",
   "version": "0.1.0",
   "description": "Durion CLI — dev server, Studio, and project tooling",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shaibusunnuma/durion.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/shaibusunnuma/durion#readme",
+  "bugs": {
+    "url": "https://github.com/shaibusunnuma/durion/issues"
+  },
   "bin": {
     "durion": "./dist/bin.js"
   },
@@ -10,10 +20,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@durion/sdk": "*",
+    "@durion/sdk": "^0.2.0",
     "@temporalio/client": "^1.15.0",
     "commander": "^14.0.0",
     "dotenv": "^17.3.1",
