@@ -58,6 +58,7 @@ flowchart TB
 **`useRunStream`** already opens the token **SSE** and polls **`stream-state`** (same Gateway v0 paths). Use **`useGatewayStreamState`** + **`useGatewayTokenStream`** only when you need separate control; **`useWorkflowStreamState`** / **`useWorkflowTokenStream`** are fully custom URL escape hatches.
 
 - **`@durion/sdk`**: workflow/agent definitions, worker (`createWorker` / `createApp`), `createClient`, streaming helpers (`pipeStreamToResponse`, `RedisStreamBus`). Runs in **Node** next to Temporal workers.
+- **`create-durion`** / **`@durion/cli`**: scaffold projects and run **`durion dev`** / **`durion doctor`** / **`durion studio`** (see [docs/packages.md](docs/packages.md)).
 - **`studio-server`**: **Durion Studio** gateway — `/v0/studio/*` and minimal `/v0/runs/*` (no workflow start or token SSE here). **`examples/hitl-gateway`** is the small **full Gateway v0** app for the HITL React demo (Redis token SSE, signals). Swap or replace either with your own API.
 - **`@durion/react`**: **`useRunStream`**, **`useSendSignal`**, Gateway v0 helpers (`useGatewayStreamState`, `useGatewayTokenStream`, URL builders), and low-level hooks above.
 
@@ -75,45 +76,54 @@ For **React** frontends, also install the React package (requires React 18+ and 
 npm install @durion/react
 ```
 
-> **Note**: `@durion/sdk` has a peer dependency on a running [Temporal](https://temporal.io/) server. For local development, use the [Temporal CLI](https://docs.temporal.io/cli): `temporal server start-dev`.
+To **scaffold** a new project or run the **dev stack** (Temporal + worker + gateway + Studio) from the CLI:
+
+```bash
+npx create-durion@latest my-app
+cd my-app && npm install && npx durion dev
+# optional global-style: npm install -g @durion/cli && durion dev
+```
+
+> **Note**: `@durion/sdk` expects a running [Temporal](https://temporal.io/) server. **`durion dev`** can start the Temporal dev server for you; otherwise use the [Temporal CLI](https://docs.temporal.io/cli): `temporal server start-dev`.
 
 ---
 
 ## Quick start
 
-**1. Start Temporal**
-
-Use a local Temporal dev server (for example the [Temporal CLI](https://docs.temporal.io/cli): `temporal server start-dev`) or your own deployment. Default address is **`localhost:7233`** — match `TEMPORAL_ADDRESS` in `.env`.
-
-**2. Environment**
+**New app (recommended)**
 
 ```bash
-cp .env.example .env
+npx create-durion@latest my-app
+cd my-app
+npm install
+npx durion doctor
+npx durion dev
 ```
 
-Set at least: `TEMPORAL_ADDRESS=localhost:7233`, `TEMPORAL_NAMESPACE=default`, `API_PORT=3000`, and `OPENAI_API_KEY` (or `GEMINI_API_KEY` for Gemini-based examples).
+See [docs/getting-started.md](docs/getting-started.md) and [create-durion/README.md](create-durion/README.md).
 
-**3. Install and run**
+**This monorepo (contributors & examples)**
 
 ```bash
+cp .env.example .env   # set TEMPORAL_*, API keys, etc.
 npm install
 cd examples && npm install && cd ..
 npm run build
 ```
 
-**Terminal 1** — run the customer-support example worker (from `examples/`):
+**Terminal 1** — example worker (from `examples/`):
 
 ```bash
 cd examples && npm run worker:customer-support
 ```
 
-**Terminal 2** — run the in-process client (no HTTP server required):
+**Terminal 2** — in-process client:
 
 ```bash
 cd examples && npm run client:customer-support -- demo customerSupport "I want a refund" ORD-123
 ```
 
-Other examples use the same pattern: a **`worker`** script plus a **`client:*` / `demo`** script that calls `createClient` and prints the result. See [examples/README.md](examples/README.md). If you prefer an HTTP gateway for demos, use **`examples/hitl-gateway`** or build your own routes; **`studio-server`** is only for Durion Studio.
+More examples: [examples/README.md](examples/README.md). HTTP demos: **`examples/hitl-gateway`**. **Durion Studio** backend in-repo: **`studio-server`** (`npm run api:dev`).
 
 ## Usage
 
@@ -302,8 +312,11 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 | Path | Description |
 |------|-------------|
 | `packages/sdk` | Core SDK: `workflow()`, `agent()`, `createRuntime()`, `createWorker()`, `createClient()`, `createApp()` |
+| `packages/cli` | **`durion`** CLI: `dev`, `doctor`, `studio`; `defineConfig()` / built-in Gateway v0 for Studio |
+| `create-durion` | **`npx create-durion`** project scaffolder (`hello`, `agent`, `blank` templates) |
 | `packages/react` | React hooks: `useWorkflowStreamState` (poll stream state via your API) |
 | `packages/eval` | Optional evaluation plugin (capture runs, datasets, metrics) |
+| `packages/studio` | Durion Studio SPA (**private**; not published to npm) |
 | `studio-server/` | **Durion Studio** backend: `/v0/studio/*`, minimal `/v0/runs/*`, local OTLP — [studio-server/README.md](studio-server/README.md) |
 | `examples/` | Per-example workers and workflows (ReAct, multi-agent, etc.); see [examples/README.md](examples/README.md) |
 | `examples/hitl-gateway/` | Minimal Gateway v0 for **react-hitl-ui** (port **3001** by default) — [examples/hitl-gateway/README.md](examples/hitl-gateway/README.md) |
@@ -311,7 +324,7 @@ When the model calls the `research` tool, the SDK executes `researcher` as a chi
 
 ## Requirements
 
-- **Node.js** 18+
+- **Node.js** 20+ (matches `engines` on published packages)
 - A **Temporal** server on `TEMPORAL_ADDRESS` (default `localhost:7233`; e.g. [Temporal CLI](https://docs.temporal.io/cli) `temporal server start-dev` or Docker)
 
 ## Scripts

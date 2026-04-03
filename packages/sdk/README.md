@@ -41,6 +41,17 @@ For mTLS, custom metadata, or a rotating API key on the **client**, pass **`conn
 
 Provider API keys (e.g. `OPENAI_API_KEY`) are read by the AI SDK provider packages, not by Durion.
 
+## Cost and pricing
+
+Register **named cost calculators** on the runtime and reference them from **`ctx.model()`** / agent config via **`costCalculator`**.
+
+- **`createTableCostCalculator(tableId, rows)`** — table-based USD per 1M input/output tokens; use **`EXAMPLE_PRICING_ROWS`** as a starting shape.
+- Helpers: **`resolvePricingRow`**, **`pricingProviderMatches`**, **`normalizeCostCalculationResult`** for custom pricing logic.
+- Model activity results can include **`costAttribution`** (which pricing line applied). **`ctx.metadata.accumulatedCost`** reflects spend when **`costUsd`** is computed.
+- Agents support **`budgetLimit`** (e.g. **`maxCostUsd`**) across the tool loop.
+
+See [docs/concepts.md](../../docs/concepts.md) (cost section) and [CHANGELOG.md](../../CHANGELOG.md).
+
 ## Usage
 
 **1. Workflow-safe file** — only **`@durion/sdk/workflow`** (plus `import type` as needed) so Temporal’s bundler stays valid:

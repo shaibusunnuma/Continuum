@@ -60,7 +60,10 @@ This is **not** the same as token-level SSE; see [Streaming](streaming.md).
 
 ## Cost and budgets
 
-- Per-call usage includes token counts and optional **`costUsd`** when you register **cost calculators** on the runtime.
+- Per-call usage includes token counts and optional **`costUsd`** when you register **cost calculators** on the runtime (`createRuntime({ costCalculators: { … } })`).
+- **`createTableCostCalculator`**, **`EXAMPLE_PRICING_ROWS`**, and helpers such as **`resolvePricingRow`** / **`pricingProviderMatches`** / **`normalizeCostCalculationResult`** support **table-based pricing** (per-model input/output USD per 1M tokens, effective dates).
+- Model calls can name a calculator with **`costCalculator`**; activity results can surface **`costAttribution`** (pricing table id, rates, effective time) for observability and Studio.
+- **`ctx.metadata.accumulatedCost`** aggregates spend across the run when calculators produce **`costUsd`**.
 - Agents can enforce **`budgetLimit`** (e.g. **`maxCostUsd`**) across the loop.
 
-Details belong in your worker setup; see the main [README](../README.md) and examples.
+See [Packages](packages.md) (**`@durion/sdk`**) and the [SDK README](../packages/sdk/README.md) for setup; the [CHANGELOG](../CHANGELOG.md) lists API additions by release.

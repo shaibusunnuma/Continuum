@@ -10,7 +10,7 @@
 
 | Time | Path |
 |------|------|
-| **~5 minutes** | [Getting started](getting-started.md) — install, run Temporal, minimal worker + one workflow |
+| **~5 minutes** | [Getting started](getting-started.md) — **`npx create-durion`** + **`durion dev`**, or manual worker setup |
 | **~30 minutes** | [Concepts](concepts.md) + [Packages](packages.md) + run an [example worker](../examples/README.md) from the monorepo |
 
 ---
@@ -20,7 +20,7 @@
 - [Getting started](getting-started.md) — first project: `workflows.ts`, worker, optional `createClient`
 - [Concepts](concepts.md) — workflows vs agents, durability, task queues, HITL, stream state
 - [Why Durion?](why-durion.md) — compared to Vercel AI SDK alone, DIY Temporal, and `@temporalio/ai-sdk`
-- [Packages](packages.md) — `@durion/sdk`, `@durion/react`, `@durion/eval` and when to use each
+- [Packages](packages.md) — `@durion/sdk`, `@durion/react`, `@durion/eval`, `@durion/cli`, `create-durion`
 - [Environment variables](environment-variables.md) — `TEMPORAL_*`, `TASK_QUEUE`, `DURION_*`, Redis
 - [Streaming](streaming.md) — token streaming, `StreamBus`, subscribe-before-start, gateway SSE
 - [Troubleshooting](troubleshooting.md) — common mistakes and fixes
