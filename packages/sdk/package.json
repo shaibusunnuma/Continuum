@@ -1,6 +1,6 @@
 {
   "name": "@durion/sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Durion SDK — durable workflows, agents, and graphs on Temporal",
   "license": "MIT",
   "repository": {
