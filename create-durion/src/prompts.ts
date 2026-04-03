@@ -17,7 +17,7 @@ export async function runPrompts(initialName?: string): Promise<PromptResults | 
   const projectName = initialName ?? await p.text({
     message: 'Project name',
     placeholder: 'my-agent',
-    validate: (val) => {
+    validate: (val = '') => {
       if (!val.trim()) return 'Project name is required';
       if (/[^a-zA-Z0-9._-]/.test(val.trim())) return 'Use only letters, numbers, hyphens, dots, underscores';
       return undefined;

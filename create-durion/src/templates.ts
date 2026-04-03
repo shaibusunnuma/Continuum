@@ -362,6 +362,7 @@ function makePackageJson(template: string): string {
     "@durion/cli": "^0.1.0",
     "@types/node": "^25.0.0",
     "ts-node": "^10.9.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.9.0"
   }
 }
