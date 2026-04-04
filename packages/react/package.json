@@ -1,6 +1,6 @@
 {
   "name": "@durion/react",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Durion React hooks for workflow stream state + Gateway v0 token SSE",
   "license": "MIT",
   "repository": {
@@ -33,7 +33,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@durion/sdk": "^0.3.1"
+    "@durion/sdk": "^0.3.2"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"
