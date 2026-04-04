@@ -368,11 +368,21 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
     throw err;
   }
 
-  const toolCalls: ToolCall[] = (result.genToolCalls ?? []).map((tc) => ({
-    id: tc.toolCallId,
-    name: tc.toolName,
-    arguments: (tc.input ?? {}) as Record<string, unknown>,
-  }));
+  const toolCalls: ToolCall[] = (result.genToolCalls ?? []).map((tc) => {
+    let timeout: string | number | undefined;
+    try {
+      const def = runtime.getToolDefinition(tc.toolName);
+      timeout = def.timeout;
+    } catch {
+      // Ignored: delegate tools or extra tools won't be in the tool registry.
+    }
+    return {
+      id: tc.toolCallId,
+      name: tc.toolName,
+      arguments: (tc.input ?? {}) as Record<string, unknown>,
+      timeout,
+    };
+  });
 
   const provider =
     model && typeof model === 'object' && 'provider' in model

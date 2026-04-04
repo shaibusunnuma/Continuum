@@ -24,13 +24,14 @@ export interface GraphContext<TState> {
   /** Current graph state — read-only snapshot. Nodes return partial updates. */
   readonly state: Readonly<TState>;
   model(modelId: string, params: ModelCallParams): Promise<ModelResult>;
-  tool<T = unknown>(toolName: string, input: unknown): Promise<ToolResult<T>>;
+  tool<T = unknown>(toolName: string, input: unknown, options?: { timeout?: string | number }): Promise<ToolResult<T>>;
   run<TChildInput, TChildOutput>(
     child: (input: TChildInput) => Promise<TChildOutput>,
     input: TChildInput,
     options?: ChildRunOptions,
   ): Promise<TChildOutput>;
   waitForInput<T = unknown>(description: string): Promise<T>;
+  waitForSignal<T = unknown>(signalName: string, timeoutMs?: number): Promise<T | null>;
   log(event: string, data?: unknown): void;
   metadata: RunMetadata;
   /** Set only inside onError handler nodes. Contains the error from the failed predecessor. */

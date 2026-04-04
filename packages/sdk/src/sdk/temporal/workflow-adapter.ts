@@ -18,7 +18,7 @@ import type {
 } from '../types';
 import { ConfigurationError } from '../errors';
 
-const { runModel, runTool, runLifecycleHooks } = wf.proxyActivities<
+const { runModel, runLifecycleHooks } = wf.proxyActivities<
   typeof sdkActivities
 >({
   startToCloseTimeout: '5 minutes',
@@ -145,8 +145,14 @@ export function workflow<TInput, TOutput>(
         };
       },
 
-      async tool<T = unknown>(toolName: string, toolInput: unknown): Promise<ToolResult<T>> {
-        const result = await runTool({
+      async tool<T = unknown>(toolName: string, toolInput: unknown, options?: { timeout?: string | number }): Promise<ToolResult<T>> {
+        const timeout = options?.timeout ?? '5 minutes';
+        const { runTool: dynamicRunTool } = wf.proxyActivities<typeof sdkActivities>({
+          startToCloseTimeout: timeout as import('@temporalio/common').Duration,
+          retry: { maximumAttempts: 3 },
+        });
+
+        const result = await dynamicRunTool({
           toolName,
           input: toolInput,
           traceContext: {
@@ -186,6 +192,39 @@ export function workflow<TInput, TOutput>(
         };
 
         return inputQueue.shift() as T;
+      },
+
+      async waitForSignal<T = unknown>(signalName: string, timeoutMs?: number): Promise<T | null> {
+        streamState = {
+          ...streamState,
+          status: 'waiting_for_input',
+          updatedAt: new Date().toISOString(),
+        };
+
+        let received = false;
+        let receivedData: unknown = null;
+
+        const sig = wf.defineSignal<[unknown]>(signalName);
+        wf.setHandler(sig, (data: unknown) => {
+          received = true;
+          receivedData = data;
+        });
+
+        let expired = false;
+        let timeoutPromise: Promise<void> | undefined;
+        if (timeoutMs !== undefined) {
+           timeoutPromise = wf.sleep(timeoutMs).then(() => { expired = true; });
+        }
+
+        await wf.condition(() => received || expired);
+
+        streamState = {
+          ...streamState,
+          status: 'running',
+          updatedAt: new Date().toISOString(),
+        };
+
+        return received ? (receivedData as T) : null;
       },
 
       log(event: string, data?: unknown): void {

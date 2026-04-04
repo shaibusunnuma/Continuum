@@ -86,6 +86,7 @@ export interface ToolCall {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  timeout?: string | number;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +148,7 @@ export interface ChildRunOptions {
 export interface WorkflowContext<TInput = unknown> {
   input: TInput;
   model(modelId: string, params: ModelCallParams): Promise<ModelResult>;
-  tool<T = unknown>(toolName: string, input: unknown): Promise<ToolResult<T>>;
+  tool<T = unknown>(toolName: string, input: unknown, options?: { timeout?: string | number }): Promise<ToolResult<T>>;
   /**
    * Run a child workflow or agent and await its result.
    * Uses Temporal child workflows under the hood — same task queue by default.
@@ -158,6 +159,11 @@ export interface WorkflowContext<TInput = unknown> {
     options?: ChildRunOptions,
   ): Promise<TChildOutput>;
   waitForInput<T = unknown>(description: string): Promise<T>;
+  /**
+   * Pause execution and wait for a specific Temporal signal by name.
+   * Returns the signal payload when received, or null if the optional timeout expires.
+   */
+  waitForSignal<T = unknown>(signalName: string, timeoutMs?: number): Promise<T | null>;
   log(event: string, data?: unknown): void;
   /** Metadata about the current run (id, name, cost). Renamed from `run` to avoid collision with ctx.run(). */
   metadata: RunMetadata;
@@ -179,6 +185,8 @@ export interface ToolDefinition<TInput = any, TOutput = any> {
   input: ZodType<TInput>;
   output: ZodType<TOutput>;
   execute: (input: TInput) => Promise<TOutput>;
+  /** Optional per-tool activity timeout (e.g. '1 hour'). Overrides default runTool timeout. */
+  timeout?: string | number;
 }
 
 /** Optional cost or token limits for an agent. Passed in `AgentConfig.budgetLimit`. */

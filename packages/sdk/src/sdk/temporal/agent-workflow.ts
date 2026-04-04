@@ -45,7 +45,7 @@ export function agent(
   const maxSteps = config.maxSteps ?? 10;
 
   const agentFn = async function (input: { message: string }): Promise<AgentResult> {
-    const { runModel, runTool, runLifecycleHooks } = wf.proxyActivities<
+    const { runModel, runLifecycleHooks } = wf.proxyActivities<
       typeof sdkActivities
     >({
       startToCloseTimeout: (config.activityTimeout ?? '5 minutes') as import('@temporalio/common').Duration,
@@ -199,7 +199,13 @@ export function agent(
               toolName: tc.name,
             };
           }
-          const toolResult = await runTool({
+          const toolTimeout = tc.timeout ?? config.activityTimeout ?? '5 minutes';
+          const { runTool: dynamicRunTool } = wf.proxyActivities<typeof sdkActivities>({
+            startToCloseTimeout: toolTimeout as import('@temporalio/common').Duration,
+            retry: { maximumAttempts: 3 },
+          });
+
+          const toolResult = await dynamicRunTool({
             toolName: tc.name,
             input: tc.arguments,
             traceContext: traceCtx,
