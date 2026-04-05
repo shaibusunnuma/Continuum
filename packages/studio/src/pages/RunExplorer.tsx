@@ -450,6 +450,7 @@ export function RunExplorer() {
   const [listComposition, setListComposition] = useState<CompositionFilter>(
     () => initialServerFromUrl().composition,
   );
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const pushExplorerUrl = useCallback(
     (
@@ -653,8 +654,184 @@ export function RunExplorer() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-mono text-lg text-foreground">Runs</h1>
+
+        <div className="mb-4 rounded-md border border-border bg-card shadow-sm">
+          <div className="p-4 flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                Status
+                <select
+                  className={inputClass}
+                  value={draftServer.executionStatus}
+                  onChange={(e) =>
+                    setDraftServer((s) => ({ ...s, executionStatus: e.target.value }))
+                  }
+                >
+                  <option value="">Any</option>
+                  <option value="RUNNING">RUNNING</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="FAILED">FAILED</option>
+                  <option value="CANCELED">CANCELED</option>
+                  <option value="TERMINATED">TERMINATED</option>
+                  <option value="TIMED_OUT">TIMED_OUT</option>
+                  <option value="CONTINUED_AS_NEW">CONTINUED_AS_NEW</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                Workflow type
+                <input
+                  className={inputClass}
+                  placeholder="Type name"
+                  value={draftServer.workflowType}
+                  onChange={(e) =>
+                    setDraftServer((s) => ({ ...s, workflowType: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                Workflow ID
+                <input
+                  className={inputClass}
+                  placeholder="Exact id"
+                  value={draftServer.workflowId}
+                  onChange={(e) =>
+                    setDraftServer((s) => ({ ...s, workflowId: e.target.value }))
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                Primitive
+                <select
+                  className={inputClass}
+                  value={primitiveFilter}
+                  onChange={(e) => setPrimitiveFilter(e.target.value as PrimitiveFilter)}
+                >
+                  <option value="all">Any</option>
+                  <option value="graph">graph</option>
+                  <option value="agent">agent</option>
+                  <option value="workflow">workflow</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <DateTimePickerField
+                id="run-filter-start-after"
+                label="Start after"
+                value={draftServer.startAfter}
+                onChange={(iso) => commitDraftPatchAndReload({ startAfter: iso })}
+              />
+              <DateTimePickerField
+                id="run-filter-start-before"
+                label="Start before"
+                value={draftServer.startBefore}
+                onChange={(iso) => commitDraftPatchAndReload({ startBefore: iso })}
+              />
+              {/* <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                Min cost (USD)
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={minCostUsd}
+                  onChange={(e) => setMinCostUsd(e.target.value)}
+                />
+              </label> */}
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between font-mono text-xs text-muted-foreground hover:text-foreground mb-4"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              >
+                <div className="flex items-center gap-2">
+                  <span>Temporal Advanced Options</span>
+                  <Badge variant="secondary" className="font-mono text-[9px] px-1 h-4">
+                    Composition & Parent Info
+                  </Badge>
+                </div>
+                <ChevronDown
+                  className={cn("size-4 transition-transform duration-200", showAdvancedFilters && "rotate-180")}
+                />
+              </button>
+
+              {showAdvancedFilters && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                    Composition
+                    <select
+                      className={inputClass}
+                      value={draftServer.composition}
+                      onChange={(e) =>
+                        setDraftServer((s) => ({
+                          ...s,
+                          composition: e.target.value as CompositionFilter,
+                        }))
+                      }
+                    >
+                      <option value="all">All runs</option>
+                      <option value="roots">Root runs only</option>
+                      <option value="children">Child runs only</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                    Parent workflow ID
+                    <input
+                      className={inputClass}
+                      placeholder="Children of…"
+                      value={draftServer.parentWorkflowId}
+                      onChange={(e) =>
+                        setDraftServer((s) => ({ ...s, parentWorkflowId: e.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
+                    Parent run ID
+                    <input
+                      className={inputClass}
+                      placeholder="Temporal run id"
+                      value={draftServer.parentRunId}
+                      onChange={(e) =>
+                        setDraftServer((s) => ({ ...s, parentRunId: e.target.value }))
+                      }
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="font-mono text-xs"
+                disabled={loading}
+                onClick={() => resetServerFilters()}
+              >
+                Reset
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="font-mono text-xs"
+                disabled={loading}
+                onClick={() => applyServerFilters()}
+              >
+                Apply filters
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-destructive mb-4 whitespace-pre-line font-mono text-sm" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -706,153 +883,6 @@ export function RunExplorer() {
           </div>
         </div>
 
-        <div className="mb-4 space-y-3 rounded-md border border-border bg-muted/20 p-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Status
-              <select
-                className={inputClass}
-                value={draftServer.executionStatus}
-                onChange={(e) =>
-                  setDraftServer((s) => ({ ...s, executionStatus: e.target.value }))
-                }
-              >
-                <option value="">Any</option>
-                <option value="RUNNING">RUNNING</option>
-                <option value="COMPLETED">COMPLETED</option>
-                <option value="FAILED">FAILED</option>
-                <option value="CANCELED">CANCELED</option>
-                <option value="TERMINATED">TERMINATED</option>
-                <option value="TIMED_OUT">TIMED_OUT</option>
-                <option value="CONTINUED_AS_NEW">CONTINUED_AS_NEW</option>
-              </select>
-            </label>
-            <label className="flex min-w-[7rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Workflow type
-              <input
-                className={inputClass}
-                placeholder="Type name"
-                value={draftServer.workflowType}
-                onChange={(e) =>
-                  setDraftServer((s) => ({ ...s, workflowType: e.target.value }))
-                }
-              />
-            </label>
-            <label className="flex min-w-[7rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Workflow ID
-              <input
-                className={inputClass}
-                placeholder="Exact id"
-                value={draftServer.workflowId}
-                onChange={(e) =>
-                  setDraftServer((s) => ({ ...s, workflowId: e.target.value }))
-                }
-              />
-            </label>
-            <label className="flex min-w-[8rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Composition
-              <select
-                className={inputClass}
-                value={draftServer.composition}
-                onChange={(e) =>
-                  setDraftServer((s) => ({
-                    ...s,
-                    composition: e.target.value as CompositionFilter,
-                  }))
-                }
-              >
-                <option value="all">All runs</option>
-                <option value="roots">Root runs only</option>
-                <option value="children">Child runs only</option>
-              </select>
-            </label>
-            <label className="flex min-w-[9rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Parent workflow ID
-              <input
-                className={inputClass}
-                placeholder="Children of…"
-                value={draftServer.parentWorkflowId}
-                onChange={(e) =>
-                  setDraftServer((s) => ({ ...s, parentWorkflowId: e.target.value }))
-                }
-              />
-            </label>
-            <label className="flex min-w-[8rem] flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Parent run ID
-              <input
-                className={inputClass}
-                placeholder="Temporal run id"
-                value={draftServer.parentRunId}
-                onChange={(e) =>
-                  setDraftServer((s) => ({ ...s, parentRunId: e.target.value }))
-                }
-              />
-            </label>
-            <DateTimePickerField
-              id="run-filter-start-after"
-              label="Start after"
-              value={draftServer.startAfter}
-              onChange={(iso) => commitDraftPatchAndReload({ startAfter: iso })}
-            />
-            <DateTimePickerField
-              id="run-filter-start-before"
-              label="Start before"
-              value={draftServer.startBefore}
-              onChange={(iso) => commitDraftPatchAndReload({ startBefore: iso })}
-            />
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              className="font-mono text-xs"
-              disabled={loading}
-              onClick={() => applyServerFilters()}
-            >
-              Apply filters
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="font-mono text-xs"
-              disabled={loading}
-              onClick={() => resetServerFilters()}
-            >
-              Reset
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
-            <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Primitive
-              <select
-                className={inputClass}
-                value={primitiveFilter}
-                onChange={(e) => setPrimitiveFilter(e.target.value as PrimitiveFilter)}
-              >
-                <option value="all">Any</option>
-                <option value="graph">graph</option>
-                <option value="agent">agent</option>
-                <option value="workflow">workflow</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 font-mono text-[10px] text-muted-foreground">
-              Min cost (USD)
-              <input
-                className={`${inputClass} w-24`}
-                inputMode="decimal"
-                placeholder="0"
-                value={minCostUsd}
-                onChange={(e) => setMinCostUsd(e.target.value)}
-              />
-            </label>
-          </div>
-        </div>
-
-        {error && (
-          <p className="text-destructive mb-4 whitespace-pre-line font-mono text-sm" role="alert">
-            {error}
-          </p>
-        )}
         <div className="overflow-x-auto rounded-md border border-border">
           <Table>
             <TableHeader>
