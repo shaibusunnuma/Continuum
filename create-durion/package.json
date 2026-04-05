@@ -1,6 +1,6 @@
 {
   "name": "create-durion",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scaffold a new Durion project — durable AI workflows and agents on Temporal",
   "license": "MIT",
   "repository": {
