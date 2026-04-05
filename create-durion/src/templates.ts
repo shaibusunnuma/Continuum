@@ -360,7 +360,7 @@ function makePackageJson(template: string): string {
     "dotenv": "^17.0.0"
   },
   "devDependencies": {
-    "@durion/cli": "^0.1.0",
+    "@durion/cli": "^0.2.0",
     "@types/node": "^25.0.0",
     "ts-node": "^10.9.0",
     "tsx": "^4.19.0",
