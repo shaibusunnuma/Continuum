@@ -1,5 +1,7 @@
 # @durion/studio
 
+**Not published to npm** (`private: true`). End users get the Studio UI from **`@durion/cli`** (bundled static assets served by **`durion dev`**). This package is for **developing** the Studio app inside the Durion monorepo.
+
 Durion Studio — Run Explorer and live visualization for `workflow()`, `agent()`, and `graph()` against the [Gateway API v0](../../docs/gateway-api-v0.md).
 
 ## Prerequisites
@@ -32,13 +34,17 @@ Open the URL Vite prints (default `http://localhost:5173`). API requests to `/v0
 
 You can also paste a token once in the app via `localStorage` key `durion.gatewayToken` (set from devtools), or rely on `VITE_GATEWAY_TOKEN` in `.env` for local builds.
 
-## CLI
+## CLI / end users
+
+**`npx durion dev`** (from **`@durion/cli`**) serves a **production build** of this app from the dev gateway (same port as `/v0`, default `http://localhost:3000/`). The CLI copies `dist/` into **`studio-dist`** when **`@durion/cli`** is built.
+
+For **working on Studio itself** (HMR), use **`npx durion-studio`** from this package or:
 
 ```bash
 npx durion-studio
 ```
 
-Runs `vite dev` for this package (requires dependencies installed).
+Runs `vite dev` (requires dependencies installed). **`npx durion studio`** only starts Vite when this workspace package is linked (monorepo); published **`@durion/cli`** points people at **`durion dev`** for the bundled UI.
 
 ## Production build
 

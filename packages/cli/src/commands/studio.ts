@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { loadConfig, resolveStudioPort, resolveGatewayPort } from '../config';
 import { logInfo, logStatus, logBlank, logError } from '../logger';
 import { spawnLabeled, shutdownAll } from '../process-manager';
+import { resolveBundledStudioDir } from '../gateway/bundled-studio';
 
 export interface StudioOptions {
   port?: number;
@@ -17,15 +18,29 @@ export async function runStudio(opts: StudioOptions): Promise<void> {
   const gatewayPort = resolveGatewayPort(config);
   const gatewayUrl = opts.gatewayUrl ?? (gatewayPort ? `http://127.0.0.1:${gatewayPort}` : undefined);
 
+  const bundledStudio = resolveBundledStudioDir();
   const studioBin = resolveStudioPackageBin(projectRoot);
+
+  if (!studioBin && bundledStudio) {
+    process.stdout.write('\n');
+    logInfo('Durion Studio is bundled in @durion/cli and served by the dev gateway.');
+    if (gatewayUrl) {
+      logInfo(`Open ${gatewayUrl}/ (start the gateway with \`npx durion dev\` if it is not running).`);
+    } else {
+      logInfo('Run `npx durion dev` — Studio is at the gateway URL (default http://localhost:3000/).');
+    }
+    logBlank();
+    process.exit(0);
+  }
+
   if (!studioBin) {
-    logError('Studio package not found.');
-    logInfo('Install @durion/studio or run from within the Durion monorepo.');
+    logError('No bundled Studio in this CLI build and no local @durion/studio (monorepo).');
+    logInfo('Use a published @durion/cli built with studio-dist, or clone the Durion repo to work on Studio with Vite.');
     process.exit(1);
   }
 
   process.stdout.write('\n');
-  logStatus('studio', 'start', 'Starting Studio...');
+  logStatus('studio', 'start', 'Starting Studio (Vite)...');
 
   const env: Record<string, string> = {};
   if (gatewayUrl) {

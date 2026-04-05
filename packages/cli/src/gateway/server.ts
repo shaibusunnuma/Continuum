@@ -6,6 +6,7 @@ import {
   mergeStudioRunsVisibilityQuery,
 } from './visibility-query';
 import type { SdkClient } from '@durion/sdk';
+import { registerBundledStudio, resolveBundledStudioDir } from './bundled-studio';
 
 export interface GatewayOptions {
   port: number;
@@ -13,6 +14,8 @@ export interface GatewayOptions {
   temporalAddress: string;
   temporalNamespace: string;
   gatewayToken?: string;
+  /** When false, do not mount bundled Durion Studio at `/` (API routes unchanged). Default true. */
+  serveBundledStudio?: boolean;
 }
 
 function isNotFoundError(err: unknown): boolean {
@@ -248,6 +251,11 @@ export async function createGateway(opts: GatewayOptions): Promise<FastifyInstan
     },
     { prefix: '/v0' },
   );
+
+  const studioDir = resolveBundledStudioDir();
+  if (studioDir && opts.serveBundledStudio !== false) {
+    await registerBundledStudio(fastify, studioDir);
+  }
 
   return fastify;
 }

@@ -33,7 +33,7 @@ npx create-durion@latest /tmp/demo --default --no-install
 
 ## Generated project
 
-Typical output includes **`package.json`**, **`tsconfig.json`** (Node16-style module resolution for bundling), **`.env`**, **`durion.config.ts`**, workflow and worker entry files, and provider-specific dependencies. [Temporal CLI](https://docs.temporal.io/cli) is detected with OS-specific install hints when missing.
+Typical output includes **`package.json`**, **`tsconfig.json`** (Node16-style module resolution for bundling), **`.env`**, **`durion.config.ts`**, workflow and worker entry files, and provider-specific dependencies. **`@durion/cli`** includes a bundled Durion Studio SPA served from the dev gateway (default `http://localhost:3000/`) when you run **`npx durion dev`**. [Temporal CLI](https://docs.temporal.io/cli) is detected with OS-specific install hints when missing.
 
 ## Next steps
 
@@ -44,7 +44,7 @@ npx durion doctor
 npx durion dev
 ```
 
-Install **`@durion/cli`** if it is not already a dependency of the template.
+The template lists **`@durion/cli`** as a devDependency; Studio ships **inside** that package (not as a separate **`@durion/studio`** on npm) and is served by **`durion dev`** with the gateway.
 
 ## See also
 

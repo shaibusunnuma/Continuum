@@ -64,11 +64,13 @@ npx durion doctor
 npx durion studio
 ```
 
-**`durion dev`** starts Temporal (optional embedded dev server), the worker (watch), Fastify gateway (Gateway v0 subset for Studio + OTLP), and Studio UI, driven by **`durion.config.ts`** and **`defineConfig()`** from **`@durion/cli`**. See [CLI README](../packages/cli/README.md) and [Gateway API v0](gateway-api-v0.md).
+**`durion dev`** starts Temporal (optional embedded dev server), the worker (watch), Fastify gateway (Gateway v0 subset for Studio + OTLP), and serves the **Durion Studio** UI from the **same port** as the gateway (static assets **bundled inside `@durion/cli`** at publish time), driven by **`durion.config.ts`** and **`defineConfig()`**. See [CLI README](../packages/cli/README.md) and [Gateway API v0](gateway-api-v0.md).
 
-## `@durion/studio` (monorepo only)
+## `@durion/studio` (monorepo only — not on npm)
 
-The **Durion Studio** Vite app lives in **`packages/studio`** with **`private: true`**. It is **not** published to npm. **`durion studio`** / **`durion dev`** resolve Studio’s **`durion-studio`** bin from **`node_modules/@durion/studio`** (if you add a **file:** or git dependency) or from adjacent paths when developing inside this repository. For day-to-day monorepo work, use **`npm run studio:dev`** at the repo root.
+The **Durion Studio** Vite app lives in **`packages/studio`** with **`private: true`**. It is **not published**; there is no `npm install @durion/studio` for app developers. Releases ship Studio as **`studio-dist/`** inside **`@durion/cli`**.
+
+**Contributors** editing Studio use the monorepo: **`npm run studio:dev`** at the repo root, or **`cd packages/studio && npm run dev`**. If the workspace links **`@durion/studio`** next to **`@durion/cli`**, **`durion studio`** can still spawn the Vite dev server for HMR; **`durion dev`** prefers the **bundled** SPA when the gateway is on.
 
 ## Monorepo-only workspaces
 

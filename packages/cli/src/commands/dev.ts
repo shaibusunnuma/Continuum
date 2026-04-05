@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { loadConfig, resolveGatewayPort, resolveStudioPort, resolveTemporalConfig } from '../config';
-import { logHeader, logStatus, logBlank, logInfo, logError } from '../logger';
+import { logHeader, logStatus, logBlank, logInfo, logError, logWarn } from '../logger';
 import { spawnLabeled, shutdownAll } from '../process-manager';
 import {
   detectTemporalCli,
@@ -11,6 +11,7 @@ import {
   startTemporalDevServer,
 } from '../temporal';
 import { startGateway, stopGateway } from '../gateway/server';
+import { resolveBundledStudioDir } from '../gateway/bundled-studio';
 import type { FastifyInstance } from 'fastify';
 
 export interface DevOptions {
@@ -125,6 +126,7 @@ export async function runDev(opts: DevOptions): Promise<void> {
         temporalAddress: temporalCfg.address,
         temporalNamespace: temporalCfg.namespace,
         gatewayToken: process.env.DURION_GATEWAY_TOKEN || undefined,
+        serveBundledStudio: !skipStudio,
       });
       logStatus('gateway', 'ready', `http://localhost:${gatewayPort}`);
     } catch (err) {
@@ -132,32 +134,47 @@ export async function runDev(opts: DevOptions): Promise<void> {
     }
   }
 
-  // 4. Studio
+  // 4. Studio — bundled SPA on the gateway (default), or Vite from workspace @durion/studio (monorepo only)
   if (!skipStudio) {
-    const studioPort = resolveStudioPort(config) ?? 4173;
-    logStatus('studio', 'start', 'Starting Studio...');
+    const bundledStudio = resolveBundledStudioDir();
+    const studioOnGateway =
+      !skipStudio && !skipGateway && Boolean(gatewayInstance) && Boolean(bundledStudio);
 
-    const studioBin = resolveStudioPackageBin(projectRoot);
-    if (studioBin) {
-      const studioEnv: Record<string, string> = {};
-      if (gatewayPort) {
-        studioEnv.STUDIO_GATEWAY_URL = `http://127.0.0.1:${gatewayPort}`;
-      }
-      studioEnv.VITE_PORT = String(studioPort);
-
-      spawnLabeled({
-        label: 'studio',
-        command: process.execPath,
-        args: [studioBin, 'dev', '--port', String(studioPort)],
-        cwd: projectRoot,
-        env: studioEnv,
-      });
-
-      // Wait a moment for Vite startup
-      await new Promise((r) => setTimeout(r, 2000));
-      logStatus('studio', 'ready', `http://localhost:${studioPort}`);
+    if (studioOnGateway && gatewayPort) {
+      logStatus('studio', 'ready', `http://localhost:${gatewayPort}/`);
+      logInfo('Durion Studio is bundled with the gateway at the URL above.');
     } else {
-      logStatus('studio', 'error', 'Studio package not found. Install @durion/studio to enable.');
+      logStatus('studio', 'start', 'Starting Studio...');
+      const studioBin = resolveStudioPackageBin(projectRoot);
+      if (studioBin) {
+        const studioPort = resolveStudioPort(config) ?? 4173;
+        const studioEnv: Record<string, string> = {};
+        if (gatewayPort) {
+          studioEnv.STUDIO_GATEWAY_URL = `http://127.0.0.1:${gatewayPort}`;
+        }
+        studioEnv.VITE_PORT = String(studioPort);
+
+        spawnLabeled({
+          label: 'studio',
+          command: process.execPath,
+          args: [studioBin, 'dev', '--port', String(studioPort)],
+          cwd: projectRoot,
+          env: studioEnv,
+        });
+
+        await new Promise((r) => setTimeout(r, 2000));
+        logStatus('studio', 'ready', `http://localhost:${studioPort}`);
+      } else if (bundledStudio && (skipGateway || !gatewayInstance)) {
+        logWarn(
+          'Bundled Studio needs the dev gateway. Enable gateway in durion.config.ts or omit --no-gateway / --worker-only.',
+        );
+      } else if (!bundledStudio) {
+        logStatus(
+          'studio',
+          'error',
+          'Studio assets missing from @durion/cli. Reinstall the CLI or run `npm run build` in the Durion monorepo.',
+        );
+      }
     }
   }
 

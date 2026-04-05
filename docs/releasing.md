@@ -1,6 +1,6 @@
 # Releasing (maintainers)
 
-Published packages in this repo: **`@durion/sdk`**, **`@durion/react`**, **`@durion/eval`**, **`@durion/cli`**, and **`create-durion`**. **`@durion/studio`** and **`studio-server`** are **private** and excluded from publish (see `.changeset/config.json` `ignore`).
+Published packages in this repo: **`@durion/sdk`**, **`@durion/react`**, **`@durion/eval`**, **`@durion/cli`**, and **`create-durion`**. **`@durion/studio`** and **`studio-server`** are **private** and excluded from npm publish (see `.changeset/config.json` `ignore`). **`@durion/cli`** still ships the Studio UI by running **`npm run build`** before publish, which builds **`@durion/studio`** and copies **`packages/studio/dist`** into **`packages/cli/studio-dist/`** (vendored static assets in the CLI tarball).
 
 ## 1. Prepare a changeset
 
