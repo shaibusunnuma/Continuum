@@ -15,6 +15,7 @@ import { Client, Connection, WorkflowExecutionDescription } from '@temporalio/cl
 import type { ConnectionOptions } from '@temporalio/client';
 import { executionInfoFromRaw } from '@temporalio/client/lib/helpers';
 import { historyToJSON } from '@temporalio/common/lib/proto-utils';
+import { historyEventsToPlainJson } from './studio-history-json';
 import type { LoadedDataConverter } from '@temporalio/common';
 import { config } from '../../shared/config';
 import { mergeClientConnectionOptions } from './connection-merge';
@@ -379,14 +380,14 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     async fetchWorkflowHistory(workflowId: string, runId?: string): Promise<unknown> {
       const handle = temporalClient.workflow.getHandle(workflowId, runId);
       const history = await handle.fetchHistory();
-      
+
       try {
         const json = historyToJSON(history);
         return JSON.parse(json) as unknown;
-      } catch (err) {
-        // Fallback for Temporal SDK bugs throwing 'know how to convert value json/plain' 
-        console.warn('historyToJSON failed, falling back to basic mapping', err);
-        return { events: history.events?.map((e: any) => (typeof e.toJSON === 'function' ? e.toJSON() : e)) || [] };
+      } catch {
+        // proto3-json-serializer rejects some Payload metadata (e.g. json/plain). Protobufjs
+        // `HistoryEvent.toObject` yields Studio-compatible JSON for parse-history.
+        return historyEventsToPlainJson(history);
       }
     },
 
