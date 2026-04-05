@@ -13,7 +13,7 @@ import {
   Wrench,
   Workflow,
 } from 'lucide-react';
-import type { ActivityStep } from '@/lib/types';
+import type { ActivityStep, GraphStreamState } from '@/lib/types';
 
 type XRayKind = 'model' | 'tool' | 'lifecycle' | 'graph' | 'activity';
 
@@ -91,20 +91,32 @@ interface XRayPaneProps {
   workflowId: string;
   /** Temporal run id when pinned; scopes OTLP span fetch to one execution. */
   temporalRunId?: string | null;
+  /** When X-Ray shows a child activity, parent ids for context (optional). */
+  parentWorkflowId?: string;
+  parentRunId?: string | null;
   selectedStep: ActivityStep | null;
   selectedNodeId?: string; // from graph
+  /** Live graph stream (node status / topology) when available. */
+  graphStreamState?: GraphStreamState | null;
+  /** Completed node order from history or stream (graph runs). */
+  executedNodes?: string[];
   onClose?: () => void;
 }
 
 export function XRayPane({
   workflowId,
   temporalRunId,
+  parentWorkflowId,
+  parentRunId,
   selectedStep,
   selectedNodeId,
+  graphStreamState,
+  executedNodes,
   onClose,
 }: XRayPaneProps) {
   const [spans, setSpans] = useState<OtlpSpan[]>([]);
   const [messagesExpanded, setMessagesExpanded] = useState(false);
+  const [inputExpanded, setInputExpanded] = useState(true);
   const [resultExpanded, setResultExpanded] = useState(true);
 
   useEffect(() => {
@@ -131,7 +143,12 @@ export function XRayPane({
       return;
     }
 
-    getSpans(workflowId, temporalRunId?.trim() ? { runId: temporalRunId.trim() } : undefined)
+    getSpans(
+      workflowId,
+      temporalRunId != null && String(temporalRunId).trim()
+        ? { runId: String(temporalRunId).trim() }
+        : undefined,
+    )
       .then((allSpans) => {
         if (!Array.isArray(allSpans) || allSpans.length === 0) {
           setSpans([]);
@@ -159,6 +176,15 @@ export function XRayPane({
     : undefined;
   const meta = getXRayHeaderMeta(selectedStep, selectedNodeId, payload);
   const resultPayload = selectedStep?.result?.payload || selectedStep?.result;
+
+  const toolArgs =
+    meta.kind === 'tool' &&
+    payload &&
+    typeof payload === 'object' &&
+    payload !== null &&
+    'input' in payload
+      ? (payload as { input?: unknown }).input
+      : undefined;
 
   const usage = resultPayload?.usage;
   const latencyMs = resultPayload?.latencyMs;
@@ -196,11 +222,37 @@ export function XRayPane({
       ? String((payload as { type: string }).type)
       : null;
 
+  const isChildOtelContext =
+    parentWorkflowId &&
+    parentWorkflowId.trim() &&
+    workflowId.trim() !== parentWorkflowId.trim();
+
   return (
     <div className="flex flex-col h-full bg-background text-foreground">
       <div className="p-4 sm:p-6 border-b border-border bg-card">
         <div className="flex justify-between items-start mb-4">
           <div>
+            {isChildOtelContext ? (
+              <p className="text-muted-foreground mb-2 font-mono text-[10px] leading-relaxed">
+                Traces scoped to child{' '}
+                <span className="text-foreground/90">{workflowId}</span>
+                {temporalRunId ? (
+                  <>
+                    {' '}
+                    · run <span className="text-foreground/80">{String(temporalRunId)}</span>
+                  </>
+                ) : null}
+                <br />
+                Parent{' '}
+                <span className="text-foreground/80">{parentWorkflowId}</span>
+                {parentRunId ? (
+                  <>
+                    {' '}
+                    · run <span className="text-foreground/70">{parentRunId}</span>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
             <h2 className="text-xl font-light tracking-tight text-foreground flex items-center gap-3">
               <HeaderIcon className={`h-5 w-5 shrink-0 ${iconClass}`} />
               {selectedNodeId || selectedStep?.activityName || 'Execution Step'}
@@ -236,6 +288,103 @@ export function XRayPane({
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
         <div className="space-y-8 pb-10">
+
+          {/* Activity / tool input (runTool tool args + full scheduled payload) */}
+          {selectedStep && payload != null && typeof payload === 'object' && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => setInputExpanded(!inputExpanded)}
+                className="group flex w-full cursor-pointer items-center justify-between"
+              >
+                <h3 className="text-muted-foreground hover:text-foreground/80 flex items-center gap-2 text-xs font-semibold tracking-[0.2em] uppercase transition-colors">
+                  <Layers className="h-4 w-4" /> Activity input
+                </h3>
+                {inputExpanded ? (
+                  <ChevronDown className="text-muted-foreground/70 group-hover:text-muted-foreground h-4 w-4 transition-colors" />
+                ) : (
+                  <ChevronRight className="text-muted-foreground/70 group-hover:text-muted-foreground h-4 w-4 transition-colors" />
+                )}
+              </button>
+              {inputExpanded && (
+                <div className="animate-in slide-in-from-top-2 space-y-3 duration-200">
+                  {meta.kind === 'tool' && toolArgs !== undefined && (
+                    <div>
+                      <p className="text-muted-foreground mb-1 font-mono text-[10px] uppercase tracking-wide">
+                        Tool arguments
+                      </p>
+                      <div className="bg-warning/8 border-warning/25 rounded-lg border p-3">
+                        <pre className="text-warning/95 max-h-48 overflow-auto font-mono text-xs whitespace-pre-wrap">
+                          {JSON.stringify(toolArgs, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground mb-1 font-mono text-[10px] uppercase tracking-wide">
+                      Full scheduled payload
+                    </p>
+                    <div className="bg-card/50 border-border/80 rounded-lg border p-3 backdrop-blur-md">
+                      <pre className="text-foreground/90 max-h-64 overflow-auto font-mono text-xs whitespace-pre-wrap">
+                        {JSON.stringify(payload, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Graph node context (no matching activity — e.g. node only runs children) */}
+          {meta.kind === 'graph' && selectedNodeId && (
+            <div className="space-y-3">
+              <h3 className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-[0.2em] uppercase">
+                <GitBranch className="h-4 w-4" /> Graph node
+              </h3>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                This node may only schedule child workflows (no <code className="text-foreground/80">runModel</code>{' '}
+                / <code className="text-foreground/80">runTool</code> on the graph worker). Use the timeline bar to
+                expand child runs inline, or check stream state below.
+              </p>
+              {graphStreamState?.topology && (
+                <div className="bg-card/40 border-border rounded-md border p-3">
+                  <p className="text-muted-foreground mb-2 font-mono text-[10px] uppercase">Live topology</p>
+                  <pre className="text-muted-foreground max-h-40 overflow-auto font-mono text-[10px] whitespace-pre-wrap">
+                    {JSON.stringify(graphStreamState.topology, null, 2)}
+                  </pre>
+                </div>
+              )}
+              {(graphStreamState?.activeNodes?.length || graphStreamState?.completedNodes?.length) ? (
+                <div className="text-xs">
+                  {graphStreamState?.activeNodes && graphStreamState.activeNodes.length > 0 ? (
+                    <p className="text-chart-2 mb-1">
+                      Active: {graphStreamState.activeNodes.join(', ')}
+                    </p>
+                  ) : null}
+                  {graphStreamState?.completedNodes && graphStreamState.completedNodes.length > 0 ? (
+                    <p className="text-muted-foreground">
+                      Completed (stream): {graphStreamState.completedNodes.join(' → ')}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {executedNodes && executedNodes.length > 0 && (
+                <div>
+                  <p className="text-muted-foreground mb-1 font-mono text-[10px] uppercase">Executed (history)</p>
+                  <p className="text-foreground/85 font-mono text-xs leading-relaxed break-words">
+                    {executedNodes.map((id, i) => (
+                      <span key={`${id}-${i}`}>
+                        {i > 0 ? ' → ' : null}
+                        <span className={id === selectedNodeId ? 'text-chart-1 font-semibold' : undefined}>
+                          {id === selectedNodeId ? `【${id}】` : id}
+                        </span>
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Messages / Prompts Pane */}
           {payload?.messages && (

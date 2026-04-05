@@ -222,17 +222,45 @@ function taskQueueFromStartedAttributes(attrs: RawEvent): string | null {
   return null;
 }
 
+/** Read encoding hint from Payload.metadata (plain JSON or protobufjs map / string). */
+function payloadEncodingLabel(metadata: unknown): string {
+  if (metadata == null || typeof metadata !== 'object') return '';
+  const m = metadata as RawEvent;
+  const enc = m.encoding;
+  if (typeof enc === 'string') return enc;
+  if (enc && typeof enc === 'object' && 'data' in enc && typeof (enc as RawEvent).data === 'string') {
+    try {
+      return atob((enc as RawEvent).data as string);
+    } catch {
+      return String((enc as RawEvent).data);
+    }
+  }
+  return '';
+}
+
 /** Decode one Temporal `Payload` (JSON/protobuf JSON with base64 `data`) to a JS value. */
 function decodeTemporalPayloadItem(item: unknown): unknown {
   if (item === null || typeof item !== 'object') return item;
   const o = item as RawEvent;
   if (typeof o.data !== 'string') return item;
+  const enc = payloadEncodingLabel(o.metadata);
+  const tryPlainJson = () => {
+    try {
+      return JSON.parse(o.data as string) as unknown;
+    } catch {
+      return null;
+    }
+  };
   try {
-    const json = atob(o.data);
+    const json = atob(o.data as string);
     return JSON.parse(json) as unknown;
   } catch {
+    if (enc.includes('json/plain') || enc.includes('json')) {
+      const plain = tryPlainJson();
+      if (plain !== null) return plain;
+    }
     try {
-      return JSON.parse(o.data) as unknown;
+      return JSON.parse(o.data as string) as unknown;
     } catch {
       return item;
     }

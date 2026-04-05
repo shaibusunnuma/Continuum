@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { describeRun, getHistory, getResult, getStreamState, runDetailHref, type RunScopedQuery } from '@/lib/api';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router';
+import { describeRun, getHistory, getResult, getStreamState, type RunScopedQuery } from '@/lib/api';
 import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
 import {
   collectCostActivityStepsTree,
@@ -15,7 +15,7 @@ import { GraphCanvas } from '@/components/graph/GraphCanvas';
 import { parseGraphResultSummary, isGraphResultPayload } from '@/lib/graph-result-summary';
 import { AgentTimeline } from '@/components/agent/AgentTimeline';
 import { ActivityList } from '@/components/workflow/ActivityList';
-import { ChildWorkflowList } from '@/components/workflow/ChildWorkflowList';
+import { EmbeddedChildRunTimeline } from '@/components/workflow/EmbeddedChildRunTimeline';
 import { EventHistoryGantt } from '@/components/history/EventHistoryGantt';
 import { EventTimeline } from '@/components/history/EventTimeline';
 import { XRayPane } from '@/components/ui/XRayPane';
@@ -111,18 +111,6 @@ function mergedExecutionSpans(history: ParsedHistory): ActivitySpan[] {
   return [...activitySpans, ...childWorkflowSpans].sort(compareExecutionSpan);
 }
 
-function ChildWorkflowCompositionBlock({ history }: { history: ParsedHistory }) {
-  if (history.childWorkflowSteps.length === 0) return null;
-  return (
-    <div className="space-y-2 border-t border-border pt-3">
-      <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-        Child workflows
-      </p>
-      <ChildWorkflowList steps={history.childWorkflowSteps} />
-    </div>
-  );
-}
-
 function HistoryActivityTimelineBlock({
   history,
   mergedSpans,
@@ -131,6 +119,8 @@ function HistoryActivityTimelineBlock({
   describeCloseMs,
   onStepClick,
   onOpenChild,
+  embeddedChildAnchorSpanKey,
+  embeddedChildPanel,
 }: {
   history: ParsedHistory;
   mergedSpans: ActivitySpan[];
@@ -139,7 +129,9 @@ function HistoryActivityTimelineBlock({
   describeStartMs: number | null;
   describeCloseMs: number | null;
   onStepClick: (step: ActivityStep | null, nodeId?: string) => void;
-  onOpenChild: (workflowId: string, childRunId?: string) => void;
+  onOpenChild: (workflowId: string, childRunId: string | undefined, anchorSpanKey: string) => void;
+  embeddedChildAnchorSpanKey: string | null;
+  embeddedChildPanel: ReactNode;
 }) {
   const hasList = history.activitySteps.length > 0;
   const hasMergedSpans = mergedSpans.length > 0;
@@ -151,7 +143,7 @@ function HistoryActivityTimelineBlock({
   const handleMergedSpanClick = (span: ActivitySpan) => {
     const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
     if (child) {
-      onOpenChild(child.workflowId, child.runId);
+      onOpenChild(child.workflowId, child.runId, span.key);
       return;
     }
     const step = history.activitySteps.find((s) => s.eventId === span.key);
@@ -181,6 +173,8 @@ function HistoryActivityTimelineBlock({
           timelineTitle="Activities & child workflows"
           onSpanClick={canClickSpans ? handleMergedSpanClick : undefined}
           isSpanClickable={canClickSpans ? isMergedSpanClickable : undefined}
+          expandBelowSpanKey={embeddedChildAnchorSpanKey}
+          expandPanel={embeddedChildPanel}
         />
       )}
       {hasList && !showGantt && (
@@ -193,7 +187,6 @@ function HistoryActivityTimelineBlock({
 export function RunDetail() {
   const { workflowId: workflowIdParam } = useParams<{ workflowId: string }>();
   const workflowId = workflowIdParam ? decodeURIComponent(workflowIdParam) : '';
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const runIdFromQuery = searchParams.get('runId')?.trim() || undefined;
   const runScope: RunScopedQuery | undefined = useMemo(
@@ -201,11 +194,28 @@ export function RunDetail() {
     [runIdFromQuery],
   );
 
-  const openChildRun = useCallback(
-    (childWorkflowId: string, childRunId?: string) => {
-      navigate(runDetailHref(childWorkflowId, childRunId ? { runId: childRunId } : undefined));
+  /** Inline child timeline under the clicked Gantt row (anchor = parent span key). */
+  const [embeddedChild, setEmbeddedChild] = useState<{
+    workflowId: string;
+    runId?: string;
+    anchorSpanKey: string;
+  } | null>(null);
+
+  const openChildEmbedded = useCallback(
+    (childWorkflowId: string, childRunId: string | undefined, anchorSpanKey: string) => {
+      setEmbeddedChild((prev) => {
+        if (
+          prev &&
+          prev.workflowId === childWorkflowId &&
+          prev.runId === childRunId &&
+          prev.anchorSpanKey === anchorSpanKey
+        ) {
+          return null;
+        }
+        return { workflowId: childWorkflowId, runId: childRunId, anchorSpanKey };
+      });
     },
-    [navigate],
+    [],
   );
 
   // ── Primary: from Temporal server (no worker needed) ───────────────────
@@ -239,32 +249,67 @@ export function RunDetail() {
   const [selectedStep, setSelectedStep] = useState<ActivityStep | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>();
   const [isXRayOpen, setIsXRayOpen] = useState(false);
+  /** When inspecting an activity from an embedded child timeline, OTLP spans are scoped to the child run. */
+  const [xRayOtelScope, setXOtelScope] = useState<{ workflowId: string; runId?: string } | null>(null);
 
-  const openXRay = (step: any | null, nodeId?: string) => {
+  const openXRay = (
+    step: ActivityStep | null,
+    nodeId?: string,
+    otelScope?: { workflowId: string; runId?: string } | null,
+  ) => {
     let targetStep = step;
-    
+
     // If we only have a nodeId (clicked from graph), try to find its corresponding activity step
     if (!step && nodeId && history?.activitySteps) {
       // Traverse backwards so we always show the LATEST execution of a node in loops
-      targetStep = [...history.activitySteps].reverse().find(s => {
-        // Find by Trace Context if available
-        const inputData = Array.isArray(s.input) ? s.input[0] : s.input;
-        const traceCtx = (s as any).traceContext || inputData?.traceContext || (s.input && Array.isArray(s.input) ? s.input[1] : null);
-        const stepNodeId = traceCtx?.agentName || traceCtx?.['durion:nodeId'];
-        
-        // Also fallback to activityName matching if needed
-        return (stepNodeId && stepNodeId === nodeId) || s.activityName === nodeId;
-      });
+      targetStep =
+        [...history.activitySteps].reverse().find((s) => {
+          // Find by Trace Context if available
+          const inputData = Array.isArray(s.input) ? s.input[0] : s.input;
+          const traceCtx =
+            (s as { traceContext?: unknown }).traceContext ||
+            (inputData as { traceContext?: unknown } | null)?.traceContext ||
+            (s.input && Array.isArray(s.input) ? (s.input[1] as { traceContext?: unknown }) : null);
+          const stepNodeId =
+            (traceCtx as { agentName?: string; durion?: { nodeId?: string } } | null)?.agentName ||
+            (traceCtx as { 'durion:nodeId'?: string } | null)?.['durion:nodeId'];
+
+          // Also fallback to activityName matching if needed
+          return (stepNodeId && stepNodeId === nodeId) || s.activityName === nodeId;
+        }) ?? null;
     }
 
     setSelectedStep(targetStep || null);
     setSelectedNodeId(nodeId || undefined);
+    setXOtelScope(otelScope === undefined ? null : otelScope);
     setIsXRayOpen(true);
   };
+
+  const embeddedChildPanel =
+    embeddedChild != null ? (
+      <EmbeddedChildRunTimeline
+        key={`${embeddedChild.workflowId}-${embeddedChild.runId ?? ''}-${embeddedChild.anchorSpanKey}`}
+        workflowId={embeddedChild.workflowId}
+        runId={embeddedChild.runId}
+        parentWorkflowId={workflowId}
+        variant="nested"
+        onStepClick={(step) =>
+          openXRay(step, undefined, {
+            workflowId: embeddedChild.workflowId,
+            runId: embeddedChild.runId,
+          })
+        }
+      />
+    ) : null;
 
   useEffect(() => {
     setStreamState(null);
     setStreamAvailable(null);
+  }, [workflowId, runIdFromQuery]);
+
+  useEffect(() => {
+    setEmbeddedChild(null);
+    setXOtelScope(null);
   }, [workflowId, runIdFromQuery]);
 
   const historyRef = useRef(history);
@@ -779,18 +824,17 @@ export function RunDetail() {
                 />
 
                 {mode === 'graph' && (
-                  <>
-                    <HistoryActivityTimelineBlock
-                      history={history}
-                      mergedSpans={mergedTimelineSpans}
-                      isRunning={describe?.status === 'RUNNING'}
-                      describeStartMs={describeStartMs}
-                      describeCloseMs={describeCloseMs}
-                      onStepClick={openXRay}
-                      onOpenChild={openChildRun}
-                    />
-                    <ChildWorkflowCompositionBlock history={history} />
-                  </>
+                  <HistoryActivityTimelineBlock
+                    history={history}
+                    mergedSpans={mergedTimelineSpans}
+                    isRunning={describe?.status === 'RUNNING'}
+                    describeStartMs={describeStartMs}
+                    describeCloseMs={describeCloseMs}
+                    onStepClick={openXRay}
+                    onOpenChild={openChildEmbedded}
+                    embeddedChildAnchorSpanKey={embeddedChild?.anchorSpanKey ?? null}
+                    embeddedChildPanel={embeddedChildPanel}
+                  />
                 )}
 
                 {/* Agent: live streamState from worker, or same UI rebuilt from runModel/runTool history */}
@@ -805,9 +849,10 @@ export function RunDetail() {
                         describeStartMs={describeStartMs}
                         describeCloseMs={describeCloseMs}
                         onStepClick={openXRay}
-                        onOpenChild={openChildRun}
+                        onOpenChild={openChildEmbedded}
+                        embeddedChildAnchorSpanKey={embeddedChild?.anchorSpanKey ?? null}
+                        embeddedChildPanel={embeddedChildPanel}
                       />
-                      <ChildWorkflowCompositionBlock history={history} />
                     </div>
                   </div>
                 )}
@@ -824,9 +869,10 @@ export function RunDetail() {
                         describeStartMs={describeStartMs}
                         describeCloseMs={describeCloseMs}
                         onStepClick={openXRay}
-                        onOpenChild={openChildRun}
+                        onOpenChild={openChildEmbedded}
+                        embeddedChildAnchorSpanKey={embeddedChild?.anchorSpanKey ?? null}
+                        embeddedChildPanel={embeddedChildPanel}
                       />
-                      <ChildWorkflowCompositionBlock history={history} />
                     </div>
                     {history.activitySteps.length === 0 &&
                       mergedTimelineSpans.length === 0 &&
@@ -841,18 +887,17 @@ export function RunDetail() {
 
                 {/* Workflow: always from history */}
                 {mode === 'workflow' && (
-                  <>
-                    <HistoryActivityTimelineBlock
-                      history={history}
-                      mergedSpans={mergedTimelineSpans}
-                      isRunning={describe?.status === 'RUNNING'}
-                      describeStartMs={describeStartMs}
-                      describeCloseMs={describeCloseMs}
-                      onStepClick={openXRay}
-                      onOpenChild={openChildRun}
-                    />
-                    <ChildWorkflowCompositionBlock history={history} />
-                  </>
+                  <HistoryActivityTimelineBlock
+                    history={history}
+                    mergedSpans={mergedTimelineSpans}
+                    isRunning={describe?.status === 'RUNNING'}
+                    describeStartMs={describeStartMs}
+                    describeCloseMs={describeCloseMs}
+                    onStepClick={openXRay}
+                    onOpenChild={openChildEmbedded}
+                    embeddedChildAnchorSpanKey={embeddedChild?.anchorSpanKey ?? null}
+                    embeddedChildPanel={embeddedChildPanel}
+                  />
                 )}
 
                 {!mode && !refreshing && (
@@ -865,32 +910,6 @@ export function RunDetail() {
 
             {activeTab === 'events' && (
               <div className="flex max-h-[min(72vh,520px)] min-w-0 flex-col gap-4 overflow-y-auto pr-1">
-                {(mergedTimelineSpans.length > 0 ||
-                  history.historyStartMs != null ||
-                  describeStartMs != null) && (
-                  <EventHistoryGantt
-                    spans={mergedTimelineSpans}
-                    historyStartMs={history.historyStartMs}
-                    historyEndMs={history.historyEndMs}
-                    anchorStartMs={describeStartMs}
-                    anchorCloseMs={describeCloseMs}
-                    isRunning={describe?.status === 'RUNNING'}
-                    timelineTitle="Activities & child workflows"
-                    onSpanClick={(span) => {
-                      const child = history.childWorkflowSteps.find((s) => s.initiatedEventId === span.key);
-                      if (child) {
-                        openChildRun(child.workflowId, child.runId);
-                        return;
-                      }
-                      const step = history.activitySteps.find((s) => s.eventId === span.key);
-                      if (step) openXRay(step);
-                    }}
-                    isSpanClickable={(span) =>
-                      history.childWorkflowSteps.some((s) => s.initiatedEventId === span.key) ||
-                      history.activitySteps.some((s) => s.eventId === span.key)
-                    }
-                  />
-                )}
                 <div className="min-h-0 min-w-0 flex-1">
                   <p className="text-muted-foreground mb-2 font-mono text-[10px] uppercase tracking-wide">
                     Events
@@ -934,17 +953,29 @@ export function RunDetail() {
                 />
               </ScrollArea>
             )}
+
           </div>
 
           {/* XRay Pane Side Drawer */}
           {isXRayOpen && (
             <div className="w-1/3 min-w-[320px] max-w-[500px] shrink-0 border border-border rounded-md overflow-hidden animate-in slide-in-from-right-8 duration-300 relative z-10 shadow-2xl">
               <XRayPane
-                workflowId={workflowId}
-                temporalRunId={runIdFromQuery ?? describe?.runId}
+                workflowId={xRayOtelScope?.workflowId ?? workflowId}
+                temporalRunId={
+                  xRayOtelScope
+                    ? xRayOtelScope.runId?.trim() || undefined
+                    : runIdFromQuery ?? describe?.runId ?? undefined
+                }
+                parentWorkflowId={workflowId}
+                parentRunId={runIdFromQuery ?? describe?.runId ?? undefined}
                 selectedStep={selectedStep}
                 selectedNodeId={selectedNodeId}
-                onClose={() => setIsXRayOpen(false)}
+                graphStreamState={mode === 'graph' ? ((streamState as GraphStreamState) ?? null) : null}
+                executedNodes={graphExecutionSteps}
+                onClose={() => {
+                  setIsXRayOpen(false);
+                  setXOtelScope(null);
+                }}
               />
             </div>
           )}

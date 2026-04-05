@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import type { ActivitySpan } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -147,6 +147,11 @@ interface Props {
   isSpanClickable?: (span: ActivitySpan) => boolean;
   /** Heading above the timeline (default: activity timeline). */
   timelineTitle?: string;
+  /**
+   * When set to a span `key`, renders `expandPanel` flush under that row (nested child detail).
+   */
+  expandBelowSpanKey?: string | null;
+  expandPanel?: ReactNode;
 }
 
 export function EventHistoryGantt({
@@ -159,6 +164,8 @@ export function EventHistoryGantt({
   onSpanClick,
   isSpanClickable,
   timelineTitle = 'Activity timeline',
+  expandBelowSpanKey,
+  expandPanel,
 }: Props) {
   const now = Date.now();
   const times = spans.flatMap((s) => [s.scheduledAt, s.startedAt, s.endedAt].filter((x): x is number => x != null));
@@ -326,60 +333,74 @@ export function EventHistoryGantt({
           const dup = spans.filter((x) => x.activityName === s.activityName).length > 1;
           const rowLabel = dup ? `${s.activityName} (#${s.key})` : s.activityName;
 
+          const isExpandedBelow = expandBelowSpanKey === s.key && expandPanel != null;
+
           return (
             <div
               key={s.key}
-              role={rowClickable ? 'button' : undefined}
-              tabIndex={rowClickable ? 0 : undefined}
-              onClick={rowClickable ? handleActivate : undefined}
-              onKeyDown={
-                rowClickable
-                  ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleActivate();
-                      }
-                    }
-                  : undefined
-              }
               className={cn(
-                'grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-2 rounded-md',
-                rowClickable &&
-                  'ring-offset-background cursor-pointer hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'flex min-w-0 flex-col gap-0',
+                isExpandedBelow && 'bg-chart-3/10 -mx-1 rounded-md px-1 ring-1 ring-chart-3/30',
               )}
             >
               <div
-                className="text-muted-foreground flex min-h-3 min-w-0 items-center truncate py-0.5 pr-1"
-                title={rowLabel}
-              >
-                {rowLabel}
-              </div>
-              <div className="relative z-[2] h-3 min-w-0 overflow-hidden rounded bg-secondary/40">
-                <TimelineColumnOverlay handoffAtMs={handoffAtMs} t0={t0} duration={duration} />
-                {showScheduleWait && (
-                  <div
-                    className="absolute top-0.5 z-[2] h-2 rounded-sm border border-dashed border-muted-foreground/35 bg-muted-foreground/20"
-                    style={{
-                      left: `${pct(s.scheduledAt)}%`,
-                      width: `${widthPct(s.scheduledAt, s.startedAt!)}%`,
-                    }}
-                    title="Queued / waiting to start"
-                  />
+                role={rowClickable ? 'button' : undefined}
+                tabIndex={rowClickable ? 0 : undefined}
+                onClick={rowClickable ? handleActivate : undefined}
+                onKeyDown={
+                  rowClickable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleActivate();
+                        }
+                      }
+                    : undefined
+                }
+                className={cn(
+                  'grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-2 rounded-md',
+                  rowClickable &&
+                    'ring-offset-background cursor-pointer hover:bg-secondary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 )}
+              >
                 <div
-                  className={cn('absolute top-0.5 z-[2] h-2 rounded-sm', color)}
-                  style={{
-                    left: `${startP}%`,
-                    width: `${widthPct(execStart, Math.max(execEndResolved, execStart))}%`,
-                  }}
-                />
-                <BarEndMarkers
-                  startPct={startP}
-                  endPct={endP}
-                  outcome={s.outcome}
-                  isRunningBar={isRunningBar}
-                />
+                  className="text-muted-foreground flex min-h-3 min-w-0 items-center truncate py-0.5 pr-1"
+                  title={rowLabel}
+                >
+                  {rowLabel}
+                </div>
+                <div className="relative z-[2] h-3 min-w-0 overflow-hidden rounded bg-secondary/40">
+                  <TimelineColumnOverlay handoffAtMs={handoffAtMs} t0={t0} duration={duration} />
+                  {showScheduleWait && (
+                    <div
+                      className="absolute top-0.5 z-[2] h-2 rounded-sm border border-dashed border-muted-foreground/35 bg-muted-foreground/20"
+                      style={{
+                        left: `${pct(s.scheduledAt)}%`,
+                        width: `${widthPct(s.scheduledAt, s.startedAt!)}%`,
+                      }}
+                      title="Queued / waiting to start"
+                    />
+                  )}
+                  <div
+                    className={cn('absolute top-0.5 z-[2] h-2 rounded-sm', color)}
+                    style={{
+                      left: `${startP}%`,
+                      width: `${widthPct(execStart, Math.max(execEndResolved, execStart))}%`,
+                    }}
+                  />
+                  <BarEndMarkers
+                    startPct={startP}
+                    endPct={endP}
+                    outcome={s.outcome}
+                    isRunningBar={isRunningBar}
+                  />
+                </div>
               </div>
+              {isExpandedBelow ? (
+                <div className="border-chart-3/40 bg-background/80 animate-in slide-in-from-top-1 z-[4] mt-1 mb-2 min-w-0 border border-l-2 py-2 pl-3 pr-2 shadow-md duration-200">
+                  {expandPanel}
+                </div>
+              ) : null}
             </div>
           );
         })}
