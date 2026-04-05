@@ -143,9 +143,10 @@ const AGENT_WORKFLOWS = `import { agent } from '@durion/sdk/workflow';
 
 export const assistant = agent('assistant', {
   model: 'fast',
-  system: \`You are a helpful assistant. You have access to tools for looking up
+  instructions: \`You are a helpful assistant. You have access to tools for looking up
 information and performing actions. Be concise and helpful.\`,
-  maxModelCalls: 10,
+  tools: ['get_current_time', 'search_web'],
+  maxSteps: 10,
 });
 `;
 
