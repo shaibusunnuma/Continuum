@@ -19,7 +19,7 @@ From repo root (after `npm install`, `npm run build`, and **`cd examples/hitl-ga
 | 3 | `npm run hitl-gateway:dev` or `cd examples && npm run server:hitl-gateway` |
 | 4 | `cd examples && npm run dev:react-hitl-ui` |
 
-Open **http://localhost:5173**. The UI proxies **`/v0`** to `http://127.0.0.1:3001` (override with **`VITE_API_PROXY`** if needed).
+Open **http://localhost:5173**. The UI proxies **`/v0`** to `http://127.0.0.1:3001` (override with **`VITE_API_PROXY`** if needed). The Vite config disables proxy timeouts and sets **`x-accel-buffering: no`** on **`text/event-stream`** responses so **token SSE** chunks are not held until the stream ends (without that, the draft can appear all at once in dev).
 
 **Durion Studio** uses **`npm run api:dev`** (**`studio-server`**, port **3000**) — not this demo gateway.
 

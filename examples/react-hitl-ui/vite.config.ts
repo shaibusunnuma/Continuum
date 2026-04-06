@@ -20,7 +20,24 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/v0': { target: apiTarget, changeOrigin: true },
+      '/v0': {
+        target: apiTarget,
+        changeOrigin: true,
+        /** Long-lived SSE; avoid proxy/client timeouts on token-stream. */
+        timeout: 0,
+        proxyTimeout: 0,
+        configure(proxy) {
+          proxy.on('proxyRes', (proxyRes, req) => {
+            const ct = proxyRes.headers['content-type'];
+            if (typeof ct === 'string' && ct.includes('text/event-stream')) {
+              proxyRes.headers['x-accel-buffering'] = 'no';
+            }
+            if (req.url?.includes('/token-stream')) {
+              proxyRes.headers['cache-control'] = 'no-cache, no-transform';
+            }
+          });
+        },
+      },
     },
   },
 });

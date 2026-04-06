@@ -151,208 +151,208 @@ export async function runModel(params: RunModelParams): Promise<RunModelResult> 
   };
   try {
     result = await withSpan(
-    'durion.run_model',
-    baseAttrs,
-    async (span) => {
-      let genText: string = '';
-      let genToolCalls: Array<{ toolCallId: string; toolName: string; input?: unknown }> = [];
-      let parsedObject: unknown | undefined;
-      let inputTokens = 0;
-      let outputTokens = 0;
+      'durion.run_model',
+      baseAttrs,
+      async (span) => {
+        let genText: string = '';
+        let genToolCalls: Array<{ toolCallId: string; toolName: string; input?: unknown }> = [];
+        let parsedObject: unknown | undefined;
+        let inputTokens = 0;
+        let outputTokens = 0;
 
-      const startTime = performance.now();
+        const startTime = performance.now();
 
-      if (params.stream) {
-        const workflowId = params.traceContext?.workflowId;
-        if (!workflowId || typeof workflowId !== 'string' || workflowId.trim() === '') {
-          throw new ConfigurationError(
-            'Streaming requires traceContext.workflowId to be set so chunks can be routed safely.',
-          );
-        }
-
-        const st = streamText({
-          model,
-          messages: toModelMessages(params.messages),
-          tools,
-          maxRetries: 3,
-          maxOutputTokens: options.maxTokens,
-        });
-
-        const channel = redisStreamChannelKey(workflowId, params.traceContext?.runId);
-        let assembled = '';
-
-        try {
-          for await (const part of st.fullStream) {
-            if (part.type === 'text-delta') {
-              const delta =
-                (part as unknown as { textDelta?: string }).textDelta ??
-                (part as unknown as { text?: string }).text ??
-                '';
-              if (delta) {
-                assembled += delta;
-                runtime.streamBus.publish(channel, {
-                  type: 'text-delta',
-                  workflowId: channel,
-                  payload: { text: delta },
-                });
-              }
-            } else if (part.type === 'tool-call') {
-              // Capture tool calls in the return value (consistent with non-streaming generateText path)
-              genToolCalls.push({
-                toolCallId: (part as unknown as { toolCallId?: string }).toolCallId ?? '',
-                toolName: (part as unknown as { toolName?: string }).toolName ?? '',
-                input: (part as unknown as { args?: unknown; input?: unknown }).args ??
-                  (part as unknown as { input?: unknown }).input,
-              });
-              runtime.streamBus.publish(channel, {
-                type: 'tool-call',
-                workflowId: channel,
-                payload: part,
-              });
-            } else if (part.type === 'tool-result') {
-              runtime.streamBus.publish(channel, {
-                type: 'tool-result',
-                workflowId: channel,
-                payload: part,
-              });
-            } else if (part.type === 'finish') {
-              const totalUsage =
-                (part as unknown as { totalUsage?: { inputTokens?: number; outputTokens?: number } })
-                  .totalUsage ??
-                (part as unknown as { usage?: { inputTokens?: number; outputTokens?: number } }).usage;
-              inputTokens = totalUsage?.inputTokens ?? 0;
-              outputTokens = totalUsage?.outputTokens ?? 0;
-            }
+        if (params.stream) {
+          const workflowId = params.traceContext?.workflowId;
+          if (!workflowId || typeof workflowId !== 'string' || workflowId.trim() === '') {
+            throw new ConfigurationError(
+              'Streaming requires traceContext.workflowId to be set so chunks can be routed safely.',
+            );
           }
-          runtime.streamBus.publish(channel, {
-            type: 'finish',
-            workflowId: channel,
+
+          const st = streamText({
+            model,
+            messages: toModelMessages(params.messages),
+            tools,
+            maxRetries: 3,
+            maxOutputTokens: options.maxTokens,
           });
-        } catch (err) {
-          runtime.streamBus.publish(channel, {
-            type: 'error',
-            workflowId: channel,
-            payload: { message: (err as Error).message },
-          });
-          throw err;
-        }
 
-        genText = assembled;
-      } else if (params.outputSchema) {
-        // Structured output path: use generateText with Output.object(); tools are passed when toolNames is set
-        const objResult = await generateText({
-          model,
-          messages: toModelMessages(params.messages),
-          output: Output.object({ schema: jsonSchema(params.outputSchema) }),
-          tools,
-          maxOutputTokens: options.maxTokens,
-        });
-        parsedObject = objResult.output;
-        genText = JSON.stringify(objResult.output);
-        genToolCalls = objResult.toolCalls ?? [];
-        inputTokens = objResult.usage?.inputTokens ?? 0;
-        outputTokens = objResult.usage?.outputTokens ?? 0;
-      } else {
-        // Standard text generation path
-        const textResult = await generateText({
-          model,
-          messages: toModelMessages(params.messages),
-          tools,
-          maxOutputTokens: options.maxTokens,
-        });
-        genText = textResult.text ?? '';
-        genToolCalls = textResult.toolCalls ?? [];
-        inputTokens = textResult.usage?.inputTokens ?? 0;
-        outputTokens = textResult.usage?.outputTokens ?? 0;
-      }
+          const channel = redisStreamChannelKey(workflowId);
+          let assembled = '';
 
-      const latencyMs = Math.round(performance.now() - startTime);
-      const requestedAtMs = Date.now();
-
-      let costUsd = 0;
-      let costAttribution: CostAttribution | undefined;
-      if (
-        params.costCalculator &&
-        model &&
-        typeof model === 'object' &&
-        'provider' in model &&
-        'modelId' in model
-      ) {
-        const calc = runtime.getCostCalculator(params.costCalculator);
-        if (calc) {
-          const m = model as { provider: string; modelId: string };
-          // Attempt is 1-indexed (first try = 1)
-          let retries = 0;
           try {
-            retries = Math.max(0, Context.current().info.attempt - 1);
-          } catch {
-            // Not running inside a Temporal Activity context (e.g. unit test fallback)
+            for await (const part of st.fullStream) {
+              if (part.type === 'text-delta') {
+                const delta =
+                  (part as unknown as { textDelta?: string }).textDelta ??
+                  (part as unknown as { text?: string }).text ??
+                  '';
+                if (delta) {
+                  assembled += delta;
+                  runtime.streamBus.publish(channel, {
+                    type: 'text-delta',
+                    workflowId: channel,
+                    payload: { text: delta },
+                  });
+                }
+              } else if (part.type === 'tool-call') {
+                // Capture tool calls in the return value (consistent with non-streaming generateText path)
+                genToolCalls.push({
+                  toolCallId: (part as unknown as { toolCallId?: string }).toolCallId ?? '',
+                  toolName: (part as unknown as { toolName?: string }).toolName ?? '',
+                  input: (part as unknown as { args?: unknown; input?: unknown }).args ??
+                    (part as unknown as { input?: unknown }).input,
+                });
+                runtime.streamBus.publish(channel, {
+                  type: 'tool-call',
+                  workflowId: channel,
+                  payload: part,
+                });
+              } else if (part.type === 'tool-result') {
+                runtime.streamBus.publish(channel, {
+                  type: 'tool-result',
+                  workflowId: channel,
+                  payload: part,
+                });
+              } else if (part.type === 'finish') {
+                const totalUsage =
+                  (part as unknown as { totalUsage?: { inputTokens?: number; outputTokens?: number } })
+                    .totalUsage ??
+                  (part as unknown as { usage?: { inputTokens?: number; outputTokens?: number } }).usage;
+                inputTokens = totalUsage?.inputTokens ?? 0;
+                outputTokens = totalUsage?.outputTokens ?? 0;
+              }
+            }
+            runtime.streamBus.publish(channel, {
+              type: 'finish',
+              workflowId: channel,
+            });
+          } catch (err) {
+            runtime.streamBus.publish(channel, {
+              type: 'error',
+              workflowId: channel,
+              payload: { message: (err as Error).message },
+            });
+            throw err;
           }
 
-          const normalized = await normalizeCostCalculationResult(
-            calc.calculate({
-              inputTokens,
-              outputTokens,
-              model: m.modelId,
-              provider: m.provider,
-              requestedAtMs,
-              metadata: {
-                retries,
-                latencyMs,
-              },
-            }),
-          );
-          costUsd = normalized.costUsd;
-          costAttribution = normalized.attribution;
+          genText = assembled;
+        } else if (params.outputSchema) {
+          // Structured output path: use generateText with Output.object(); tools are passed when toolNames is set
+          const objResult = await generateText({
+            model,
+            messages: toModelMessages(params.messages),
+            output: Output.object({ schema: jsonSchema(params.outputSchema) }),
+            tools,
+            maxOutputTokens: options.maxTokens,
+          });
+          parsedObject = objResult.output;
+          genText = JSON.stringify(objResult.output);
+          genToolCalls = objResult.toolCalls ?? [];
+          inputTokens = objResult.usage?.inputTokens ?? 0;
+          outputTokens = objResult.usage?.outputTokens ?? 0;
+        } else {
+          // Standard text generation path
+          const textResult = await generateText({
+            model,
+            messages: toModelMessages(params.messages),
+            tools,
+            maxOutputTokens: options.maxTokens,
+          });
+          genText = textResult.text ?? '';
+          genToolCalls = textResult.toolCalls ?? [];
+          inputTokens = textResult.usage?.inputTokens ?? 0;
+          outputTokens = textResult.usage?.outputTokens ?? 0;
         }
-      }
 
-      if (span) {
-        span.setAttributes({
-          'durion.usage.prompt_tokens': inputTokens,
-          'durion.usage.completion_tokens': outputTokens,
-          'durion.usage.total_tokens': inputTokens + outputTokens,
-          'durion.usage.cost_usd': costUsd,
-        });
+        const latencyMs = Math.round(performance.now() - startTime);
+        const requestedAtMs = Date.now();
+
+        let costUsd = 0;
+        let costAttribution: CostAttribution | undefined;
         if (
+          params.costCalculator &&
           model &&
           typeof model === 'object' &&
           'provider' in model &&
           'modelId' in model
         ) {
-          const m = model as { provider: string; modelId: string };
-          span.setAttributes({
-            'durion.model.provider': m.provider,
-            'durion.model.id': m.modelId,
-          });
-        }
-        if (costAttribution) {
-          span.setAttributes({
-            'durion.cost.pricing_table_id': costAttribution.pricingTableId,
-            'durion.cost.input_usd_per_1m': costAttribution.inputUsdPer1M,
-            'durion.cost.output_usd_per_1m': costAttribution.outputUsdPer1M,
-          });
-          if (costAttribution.pricingEffectiveAt != null) {
-            span.setAttribute('durion.cost.effective_at', costAttribution.pricingEffectiveAt);
+          const calc = runtime.getCostCalculator(params.costCalculator);
+          if (calc) {
+            const m = model as { provider: string; modelId: string };
+            // Attempt is 1-indexed (first try = 1)
+            let retries = 0;
+            try {
+              retries = Math.max(0, Context.current().info.attempt - 1);
+            } catch {
+              // Not running inside a Temporal Activity context (e.g. unit test fallback)
+            }
+
+            const normalized = await normalizeCostCalculationResult(
+              calc.calculate({
+                inputTokens,
+                outputTokens,
+                model: m.modelId,
+                provider: m.provider,
+                requestedAtMs,
+                metadata: {
+                  retries,
+                  latencyMs,
+                },
+              }),
+            );
+            costUsd = normalized.costUsd;
+            costAttribution = normalized.attribution;
           }
         }
-        if (params.toolNames?.length) {
-          span.setAttribute('durion.toolsUsed', params.toolNames.join(','));
-        }
-      }
 
-      return {
-        genText,
-        genToolCalls,
-        parsedObject,
-        inputTokens,
-        outputTokens,
-        costUsd,
-        costAttribution,
-        latencyMs,
-      };
-    },
-  );
+        if (span) {
+          span.setAttributes({
+            'durion.usage.prompt_tokens': inputTokens,
+            'durion.usage.completion_tokens': outputTokens,
+            'durion.usage.total_tokens': inputTokens + outputTokens,
+            'durion.usage.cost_usd': costUsd,
+          });
+          if (
+            model &&
+            typeof model === 'object' &&
+            'provider' in model &&
+            'modelId' in model
+          ) {
+            const m = model as { provider: string; modelId: string };
+            span.setAttributes({
+              'durion.model.provider': m.provider,
+              'durion.model.id': m.modelId,
+            });
+          }
+          if (costAttribution) {
+            span.setAttributes({
+              'durion.cost.pricing_table_id': costAttribution.pricingTableId,
+              'durion.cost.input_usd_per_1m': costAttribution.inputUsdPer1M,
+              'durion.cost.output_usd_per_1m': costAttribution.outputUsdPer1M,
+            });
+            if (costAttribution.pricingEffectiveAt != null) {
+              span.setAttribute('durion.cost.effective_at', costAttribution.pricingEffectiveAt);
+            }
+          }
+          if (params.toolNames?.length) {
+            span.setAttribute('durion.toolsUsed', params.toolNames.join(','));
+          }
+        }
+
+        return {
+          genText,
+          genToolCalls,
+          parsedObject,
+          inputTokens,
+          outputTokens,
+          costUsd,
+          costAttribution,
+          latencyMs,
+        };
+      },
+    );
   } catch (err) {
     const provider =
       model && typeof model === 'object' && 'provider' in model

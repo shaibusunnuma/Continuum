@@ -46,7 +46,7 @@ export interface UseRunStreamReturn {
   run: StreamState | null;
   /** Latest error, if any. */
   error: Error | null;
-  /** True while SSE is open or connecting. */
+  /** True while the token `EventSource` is connecting or open (not workflow completion). */
   isStreaming: boolean;
   /** Manually close the SSE stream. */
   close: () => void;
@@ -63,9 +63,13 @@ export interface UseRunStreamReturn {
  *
  * Internally opens an `EventSource` to `/v0/runs/:id/token-stream` for real-time
  * text deltas **and** polls `/v0/runs/:id/stream-state` for run metadata (status,
- * currentStep, messages, HITL flags). The `text` return merges both: SSE deltas are
- * preferred, with the polled `partialReply` used as a fallback for tokens that the
- * SSE connection missed.
+ * currentStep, messages, HITL flags). The `text` return merges both: accumulated SSE
+ * text when non-empty, otherwise polled `partialReply` (workflow updates that field
+ * after each model call; during streaming it may lag).
+ *
+ * **SSE `finish`** means the **model stream** ended for that round (Redis `finish`), not
+ * that the Temporal workflow completed. Terminal hook `status` (`completed` / `error`)
+ * comes from polled `stream-state` only.
  *
  * Same mental model as other run-scoped stream hooks: `runId`, optional `baseURL`, token for auth.
  */
@@ -89,6 +93,8 @@ export function useRunStream(
 
   // ---- State ---------------------------------------------------------------
   const [sseText, setSseText] = useState('');
+  /** Token SSE lifecycle — `isStreaming` follows this, not hook `status` (avoid treating SSE `finish` as workflow done). */
+  const [ssePhase, setSsePhase] = useState<'off' | 'connecting' | 'open'>('off');
   const [status, setStatusRaw] = useState<RunStreamStatus>('idle');
   const [run, setRun] = useState<StreamState | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -135,6 +141,7 @@ export function useRunStream(
 
   // ---- Public API ----------------------------------------------------------
   const close = useCallback(() => {
+    setSsePhase('off');
     closeSSE();
   }, [closeSSE]);
 
@@ -143,6 +150,7 @@ export function useRunStream(
     sseClosedCleanlyRef.current = false;
     sseReceivedRef.current = false;
     throttlePendingRef.current = '';
+    setSsePhase('off');
     setSseText('');
     setRun(null);
     setError(null);
@@ -157,6 +165,7 @@ export function useRunStream(
     sseReceivedRef.current = false;
     throttlePendingRef.current = '';
     setSseText('');
+    setSsePhase('connecting');
     setError(null);
     setStatus('connecting');
 
@@ -174,6 +183,7 @@ export function useRunStream(
     };
 
     es.addEventListener('open', () => {
+      setSsePhase('open');
       setStatus('streaming');
     });
 
@@ -202,13 +212,14 @@ export function useRunStream(
         if (part.type === 'finish') {
           sseClosedCleanlyRef.current = true;
           flushThrottle();
-          setStatus('completed');
+          setSsePhase('off');
           closeSSE();
         }
 
         if (part.type === 'error') {
           setError(new Error(part.error ?? 'Stream error'));
           setStatus('error');
+          setSsePhase('off');
           closeSSE();
         }
       } catch {
@@ -217,6 +228,7 @@ export function useRunStream(
     });
 
     es.addEventListener('error', () => {
+      setSsePhase('off');
       if (sseClosedCleanlyRef.current) {
         closeSSE();
         return;
@@ -230,6 +242,7 @@ export function useRunStream(
     });
 
     return () => {
+      setSsePhase('off');
       closeSSE();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,13 +272,22 @@ export function useRunStream(
 
         setRun(state);
 
-        // Sync status from polled state when SSE hasn't reported
+        // Sync status from polled state when SSE hasn't reported.
         if (state.status === 'waiting_for_input') {
           setStatus('waiting_for_input');
         } else if (state.status === 'completed') {
           setStatus('completed');
         } else if (state.status === 'error') {
           setStatus('error');
+        } else if (state.status === 'running') {
+          // Workflow still executing (e.g. after token SSE `finish`, before next poll).
+          setStatusRaw((prev) => {
+            if (prev === 'waiting_for_input' || prev === 'completed' || prev === 'error') return prev;
+            if (prev === 'streaming' || prev === 'connecting') return prev;
+            const next: RunStreamStatus = 'streaming';
+            onStatusChangeRef.current?.(next);
+            return next;
+          });
         }
 
         // Stop polling once terminal
@@ -289,13 +311,18 @@ export function useRunStream(
   }, [active, runId, baseURL, accessToken, temporalRunId, pollIntervalMs]);
 
   // ---- Compute final text --------------------------------------------------
-  // SSE text takes priority; fall back to polled partialReply when SSE hasn't received data
-  const text =
-    sseReceivedRef.current || sseText.length > 0
-      ? sseText
-      : run?.partialReply ?? '';
+  const text = sseText.length > 0 ? sseText : (run?.partialReply ?? '');
 
-  const isStreaming = status === 'streaming' || status === 'connecting';
+  // `isStreaming` is true while the SSE EventSource is alive AND the workflow
+  // is still in a streaming phase. Once the poller reports a paused or terminal
+  // state the model stream is logically done — we report false so UI controls
+  // (e.g. HITL approve/reject) become enabled, even if the EventSource hasn't
+  // received the `finish` frame yet.
+  const isStreaming =
+    ssePhase !== 'off' &&
+    status !== 'waiting_for_input' &&
+    status !== 'completed' &&
+    status !== 'error';
 
   return { text, status, run, error, isStreaming, close, reset };
 }
