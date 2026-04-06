@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { describeRun, getHistory, getResult, getStreamState, type RunScopedQuery } from '@/lib/api';
+import {
+  describeRun,
+  getHistory,
+  getResult,
+  getStreamState,
+  terminateRun,
+  type RunScopedQuery,
+} from '@/lib/api';
 import { reconstructAgentStreamStateFromHistory } from '@/lib/agent-trace-from-history';
 import {
   collectCostActivityStepsTree,
@@ -220,6 +227,7 @@ export function RunDetail() {
 
   // ── Primary: from Temporal server (no worker needed) ───────────────────
   const [describe, setDescribe] = useState<DescribeData | null>(null);
+  const [terminating, setTerminating] = useState(false);
   const [history, setHistory] = useState<ParsedHistory>(EMPTY_HISTORY);
 
   const mergedTimelineSpans = useMemo(() => mergedExecutionSpans(history), [history]);
@@ -491,6 +499,24 @@ export function RunDetail() {
     }
   }, [workflowId, runScope]);
 
+  const handleTerminateRun = useCallback(async () => {
+    if (!workflowId) return;
+    if (!window.confirm('Terminate this workflow execution in Temporal? This cannot be undone.')) return;
+    setTerminating(true);
+    setError(null);
+    try {
+      await terminateRun(workflowId, {
+        ...runScope,
+        reason: 'Terminated from Durion Studio',
+      });
+      await fullRefresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTerminating(false);
+    }
+  }, [workflowId, runScope, fullRefresh]);
+
   useEffect(() => {
     void fullRefresh();
   }, [fullRefresh]);
@@ -611,6 +637,17 @@ export function RunDetail() {
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {describe?.status === 'RUNNING' && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="font-mono text-xs"
+                disabled={terminating || refreshing}
+                onClick={() => void handleTerminateRun()}
+              >
+                {terminating ? 'Terminating…' : 'Terminate run'}
+              </Button>
+            )}
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className="font-mono text-xs">

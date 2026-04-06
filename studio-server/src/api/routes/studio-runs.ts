@@ -119,6 +119,50 @@ export async function studioRunsRoutes(
     },
   );
 
+  fastify.post<{
+    Params: { workflowId: string };
+    Querystring: { runId?: string };
+    Body: { reason?: string };
+  }>(
+    '/:workflowId/terminate',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['workflowId'],
+          properties: { workflowId: { type: 'string' } },
+        },
+        querystring: {
+          type: 'object',
+          properties: { runId: { type: 'string' } },
+        },
+        body: {
+          type: 'object',
+          properties: { reason: { type: 'string' } },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const client = await getTemporalClient();
+        const handle = handleForRun(client, request.params.workflowId, optionalRunId(request.query));
+        const reason =
+          typeof request.body?.reason === 'string' && request.body.reason.trim() !== ''
+            ? request.body.reason.trim()
+            : 'Terminated from Durion Studio';
+        await handle.terminate(reason);
+        return reply.status(204).send();
+      } catch (err) {
+        request.log.error(err);
+        const status = isNotFoundError(err) ? 404 : 500;
+        return reply.status(status).send({
+          error: status === 404 ? 'Run not found' : 'Internal server error',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  );
+
   fastify.get<{
     Params: { workflowId: string };
     Querystring: { runId?: string };

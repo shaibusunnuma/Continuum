@@ -78,6 +78,11 @@ export interface WorkflowRun<TResult = unknown> {
   signal(name: string, data: unknown): Promise<void>;
   /** Request cancellation of the workflow. */
   cancel(): Promise<void>;
+  /**
+   * Hard-stop the workflow execution (Temporal terminate). Unlike {@link cancel}, cancellation
+   * handlers on the workflow side do not run.
+   */
+  terminate(reason?: string): Promise<void>;
   /** Get details about the workflow execution (status, etc). */
   describe(): Promise<WorkflowExecutionDescription>;
 }
@@ -251,7 +256,15 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
     return perCall ?? defaultTaskQueue ?? config.TASK_QUEUE;
   }
 
-  function wrapHandle<TResult>(handle: { workflowId: string; result(): Promise<any>; query<T>(name: string): Promise<T>; signal(name: string, ...args: any[]): Promise<void>; cancel(): Promise<any>; describe(): Promise<WorkflowExecutionDescription> }): WorkflowRun<TResult> {
+  function wrapHandle<TResult>(handle: {
+    workflowId: string;
+    result(): Promise<any>;
+    query<T>(name: string): Promise<T>;
+    signal(name: string, ...args: any[]): Promise<void>;
+    cancel(): Promise<any>;
+    terminate(reason?: string): Promise<unknown>;
+    describe(): Promise<WorkflowExecutionDescription>;
+  }): WorkflowRun<TResult> {
     return {
       workflowId: handle.workflowId,
       async result(): Promise<TResult> {
@@ -265,6 +278,9 @@ export async function createClient(cfg?: CreateClientConfig): Promise<SdkClient>
       },
       async cancel(): Promise<void> {
         await handle.cancel();
+      },
+      async terminate(reason?: string): Promise<void> {
+        await handle.terminate(reason);
       },
       async describe(): Promise<WorkflowExecutionDescription> {
         return handle.describe();

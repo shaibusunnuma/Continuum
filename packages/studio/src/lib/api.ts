@@ -187,6 +187,38 @@ export async function getResult(
   return parseJson(res);
 }
 
+/** Temporal terminate (hard stop). Shown in Studio when the execution status is RUNNING. */
+export async function terminateRun(
+  workflowId: string,
+  opts?: RunScopedQuery & { reason?: string },
+): Promise<void> {
+  const reason =
+    opts?.reason != null && String(opts.reason).trim() !== ''
+      ? String(opts.reason).trim()
+      : 'Terminated from Durion Studio';
+  const runOpts: RunScopedQuery | undefined =
+    opts?.runId != null && opts.runId.trim() !== '' ? { runId: opts.runId.trim() } : undefined;
+  const res = await fetchWithTimeout(
+    `/v0/runs/${encodeURIComponent(workflowId)}/terminate${runQueryString(runOpts)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ reason }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    let message = text;
+    try {
+      const j = JSON.parse(text) as { message?: string; error?: string };
+      message = j.message ?? j.error ?? text;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message || `HTTP ${res.status}`);
+  }
+}
+
 export async function getSpans(workflowId: string, opts?: RunScopedQuery): Promise<any[]> {
   const res = await fetchWithTimeout(
     `/v0/studio/runs/${encodeURIComponent(workflowId)}/spans${runQueryString(opts)}`,

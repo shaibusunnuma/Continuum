@@ -75,6 +75,14 @@ Body: `{ "name": "<signalName>", "data"?: <any> }`
 
 **Errors:** `404` / `500` (same error JSON shape as stream-state).
 
+### `POST /v0/runs/{runId}/terminate`
+
+Hard-stops the workflow execution (Temporal **terminate**). Optional JSON body: `{ "reason"?: "<string>" }` (implementation default if omitted).
+
+**Success:** `204` no body.
+
+**Errors:** `404` / `500` (same error JSON shape as stream-state).
+
 ### `GET /v0/runs/{runId}`
 
 Workflow description summary: `workflowId`, `status`, `type`, `startTime`, `closeTime`.
