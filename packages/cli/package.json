@@ -1,6 +1,6 @@
 {
   "name": "@durion/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Durion CLI — dev server, Studio, and project tooling",
   "license": "MIT",
   "repository": {
@@ -25,7 +25,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@durion/sdk": "^0.3.2",
+    "@durion/sdk": "^0.3.3",
     "@fastify/static": "^9.0.0",
     "@temporalio/client": "^1.15.0",
     "commander": "^14.0.0",
