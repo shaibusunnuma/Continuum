@@ -320,7 +320,7 @@ function graph<TState, TNodes>(
 | `onError` | `Record<string, string>?` | ❌ | — | `{ failingNode: 'fallbackNode' }` |
 | `reducers` | `Record<string, Reducer>?` | ❌ | — | Per-field merge functions for parallel conflicts |
 | `budgetLimit` | `BudgetLimit?` | ❌ | — | Cost/token limits |
-| `canThreshold` | `number?` | ❌ | `10000` | Temporal history events threshold for Continue-As-New |
+| `canThreshold` | `number?` | ❌ | `10000` | Temporal history events threshold for Continue-As-New. Set `0` to disable |
 
 **Edge types:**
 
@@ -535,10 +535,24 @@ const handle = await createWorker({
   taskQueue: process.env.TASK_QUEUE ?? 'durion',  // Optional (default from env)
   temporalAddress: 'localhost:7233',               // Optional (default from env)
   temporalNamespace: 'default',                    // Optional (default from env)
+  nativeConnection: { /* TLS, API key, etc. */ },  // Optional; merged with env defaults
+  observability: { tracing: { enabled: true } },   // Optional; applied to runtime if provided
 });
 
 await handle.run();  // Blocks until shutdown
 ```
+
+**`CreateWorkerConfig` fields:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `runtime` | `RuntimeContext` | ✅ | — | The runtime with models, tools, etc. |
+| `workflowsPath` | `string` | ✅ | — | Path to workflow bundle entry (e.g. `require.resolve('./workflows')`) |
+| `taskQueue` | `string?` | ❌ | `TASK_QUEUE` env / `'durion'` | Temporal task queue |
+| `temporalAddress` | `string?` | ❌ | `TEMPORAL_ADDRESS` env | Temporal server address |
+| `temporalNamespace` | `string?` | ❌ | `TEMPORAL_NAMESPACE` env | Temporal namespace |
+| `nativeConnection` | `Omit<NativeConnectionOptions, 'address'>?` | ❌ | — | Extra Temporal connection options (TLS, API key); merged with env defaults |
+| `observability` | `ObservabilityConfig?` | ❌ | — | If provided, applied to the runtime at worker creation time |
 
 `WorkerHandle` methods:
 - `run()` — blocks until worker stops
@@ -546,7 +560,7 @@ await handle.run();  // Blocks until shutdown
 
 ### 6.3 `createApp(config)` (convenience)
 
-Wires `createRuntime` + `createWorker` + `createClient` with shared Temporal settings.
+Wires `createRuntime` + `createWorker` + `createClient` with shared Temporal settings. `CreateAppConfig` extends `CreateRuntimeConfig` (models, tools, costCalculators, observability, streaming) and adds Temporal/worker/client fields.
 
 ```typescript
 import { createApp } from '@durion/sdk';
@@ -557,6 +571,9 @@ const app = await createApp({
   tools: [/* ... */],
   workflowsPath: require.resolve('./workflows'),
   taskQueue: 'my-queue',
+  // Also available: temporalAddress, temporalNamespace,
+  // connection (for createClient TLS/API key),
+  // nativeConnection (for createWorker TLS/API key)
 });
 
 // Worker process:
@@ -572,7 +589,7 @@ await app.close();
 **`App` interface:**
 - `runtime` — the RuntimeContext
 - `workflowsPath`, `taskQueue` — resolved config
-- `createWorker(overrides?)` — creates a worker
+- `createWorker(overrides?)` — creates a worker (accepts `taskQueue`, `temporalAddress`, `temporalNamespace`, `nativeConnection`, `observability` overrides)
 - `client()` — returns cached `SdkClient`
 - `start(workflow, options)` — type-safe start
 - `startWorkflow(type, options)` — string-based start
@@ -594,6 +611,7 @@ const client = await createClient({
   taskQueue: 'my-queue',      // Optional; defaults to TASK_QUEUE env
   temporalAddress: '...',     // Optional; defaults to TEMPORAL_ADDRESS env
   temporalNamespace: '...',   // Optional; defaults to TEMPORAL_NAMESPACE env
+  connection: { /* TLS, API key, metadata, etc. */ },  // Optional; merged with env defaults
 });
 ```
 
@@ -624,6 +642,9 @@ await handle.signal('durion:user-input', { action: 'approve' });
 // Cancel
 await handle.cancel();
 
+// Terminate (hard stop — cancellation handlers do not run)
+await handle.terminate('no longer needed');
+
 // Describe
 const desc = await handle.describe();
 
@@ -638,6 +659,24 @@ Get a handle to an already-running workflow.
 ```typescript
 const existing = client.getWorkflowHandle<MyResultType>('workflow-id-123');
 const result = await existing.result();
+```
+
+### 7.4 `listWorkflowExecutions(params?)`
+
+List workflow executions in the namespace (visibility API). Used by Durion Studio.
+
+```typescript
+const { executions, nextPageToken } = await client.listWorkflowExecutions({
+  pageSize: 20,
+});
+```
+
+### 7.5 `fetchWorkflowHistory(workflowId, runId?)`
+
+Fetch full workflow event history as JSON-safe data (for Studio / debugging).
+
+```typescript
+const history = await client.fetchWorkflowHistory('workflow-id-123');
 ```
 
 ---
@@ -1018,7 +1057,7 @@ function RunStatus({ workflowId }: { workflowId: string }) {
 
 HTTP surface for browser/BFF clients. Paths are under `/v0`. In path parameters below, **`{runId}` is the Temporal workflow id** (often client-chosen before start so SSE can subscribe first). Optional query `runId=<temporal execution run id>` pins a specific execution when the same workflow id is reused.
 
-**Which server implements what:** The monorepo ships multiple gateways. **`npx durion dev`** starts the **CLI built-in gateway** (`@durion/cli`), which today exposes **`/v0/studio/*`** and a **minimal** **`/v0/runs/*`** (stream-state, describe, result) — not token SSE, signals, or HTTP workflow/agent start. The **full** v0 surface (token-stream, signal, `POST /v0/workflows/start`, `POST /v0/agents/start`) lives in **`examples/hitl-gateway`** and is the reference for self-hosted BFFs. See `docs/gateway-api-v0.md` for the canonical split.
+**Which server implements what:** The monorepo ships multiple gateways. **`npx durion dev`** starts the **CLI built-in gateway** (`@durion/cli`), which today exposes **`/v0/studio/*`** and a **minimal** **`/v0/runs/*`** (stream-state, describe, result) — not token SSE, signals, or HTTP workflow start. The **full** v0 surface (token-stream, signal, `POST /v0/workflows/start`) lives in **`examples/hitl-gateway`** and is the reference for self-hosted BFFs. **`studio-server`** adds a `/v0/runs/{runId}/terminate` endpoint. See `docs/gateway-api-v0.md` for the canonical split.
 
 ### Runs
 
@@ -1029,18 +1068,13 @@ HTTP surface for browser/BFF clients. Paths are under `/v0`. In path parameters 
 | `POST` | `/v0/runs/{runId}/signal` | Send signal: `{ "name": "...", "data": ... }` (reference: `hitl-gateway`) |
 | `GET` | `/v0/runs/{runId}` | Workflow description |
 | `GET` | `/v0/runs/{runId}/result` | Workflow result (202 while running) |
+| `POST` | `/v0/runs/{runId}/terminate` | Terminate workflow: `{ reason?: "..." }` (reference: `studio-server`; not on CLI dev gateway) |
 
 ### Workflows
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/v0/workflows/start` | Start workflow: `{ workflowType, input, workflowId?, taskQueue? }` (reference: `hitl-gateway`; not on CLI dev gateway) |
-
-### Agents
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/v0/agents/start` | Start agent: `{ agentName, input: { message } }` (reference: `hitl-gateway`; not on CLI dev gateway) |
 
 ### Studio
 
@@ -1084,7 +1118,16 @@ import { defineConfig } from '@durion/cli';
 
 export default defineConfig({
   workflowsPath: './src/workflows.ts',
-  workerEntrypoint: './src/worker.ts',
+  workerPath: './src/worker.ts',
+  // Optional:
+  gateway: { port: 3000 },         // or false to disable
+  studio: { port: 4173 },          // or false to disable
+  temporal: {                       // or false to disable
+    devServer: true,
+    address: 'localhost:7233',
+    namespace: 'default',
+    uiPort: 8233,
+  },
 });
 ```
 
@@ -1152,6 +1195,15 @@ try {
 - `createClient(config?)` → `Promise<SdkClient>`
 - `createApp(config)` → `Promise<App>`
 
+**Runtime helpers:**
+- `setActiveRuntime(runtime)` — set the active runtime for activities
+- `getActiveRuntime()` → `RuntimeContext` — retrieve the active runtime
+- `clearActiveRuntime()` — unset the active runtime
+
+**Config / env:**
+- `durionConfig` — resolved environment config object (`TEMPORAL_ADDRESS`, `TASK_QUEUE`, etc.)
+- `resolveWorkflowType(fn)` → `string` — derive Temporal workflow type string from a `workflow()`/`agent()` function reference
+
 **Cost:**
 - `createTableCostCalculator(id, rows)` → `CostCalculator`
 - `EXAMPLE_PRICING_ROWS` — sample pricing data
@@ -1184,7 +1236,7 @@ try {
 - `exportTopology(graphFn)` → JSON string
 
 **Types:**
-- `WorkflowContext`, `GraphContext`, `GraphConfig`, `GraphResult`, `GraphStreamState`, `GraphTopology`, `NodeFn`, `Edge`, `EdgeTarget`, `NodeRef`, `Reducer`, `GraphCheckpoint`, `AgentConfig`, `AgentResult`, `ModelResult`, `ToolResult`, `Usage`, `Message`, `Delegate`, `ChildRunOptions`
+- `WorkflowContext`, `GraphContext`, `GraphConfig`, `GraphResult`, `GraphStreamState`, `GraphStreamStateEdge`, `GraphTopology`, `NodeFn`, `Edge`, `EdgeTarget`, `NodeRef`, `Reducer`, `GraphCheckpoint`, `AgentConfig`, `AgentResult`, `ModelResult`, `ToolResult`, `Usage`, `Message`, `Delegate`, `ChildRunOptions`
 
 ### Lifecycle hooks
 
